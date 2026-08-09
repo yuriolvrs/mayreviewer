@@ -3,12 +3,19 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { deleteReviewer, getReviewer, hasQuizHistory, saveReviewer } from "@/app/lib/storage";
+import { getReviewer } from "@/app/lib/storage";
+import { deleteWarning, removeReviewerCompletely } from "@/app/lib/reviewers";
 import type { Reviewer } from "@/app/types";
+import UploadTab from "@/app/components/UploadTab";
+import ImportExportTab from "@/app/components/ImportExportTab";
+import DetailsTab from "@/app/components/DetailsTab";
+import EditQuestionsTab from "@/app/components/EditQuestionsTab";
+import ConfirmDialog from "@/app/components/ConfirmDialog";
 
-type Tab = "upload" | "edit" | "import-export";
+type Tab = "details" | "upload" | "edit" | "import-export";
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: "details", label: "Details" },
   { id: "upload", label: "Upload" },
   { id: "edit", label: "Edit Questions" },
   { id: "import-export", label: "Import/Export" },
@@ -19,9 +26,8 @@ export default function ReviewerSpacePage() {
   const router = useRouter();
 
   const [reviewer, setReviewer] = useState<Reviewer | null | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<Tab>("upload");
-  const [editingName, setEditingName] = useState(false);
-  const [nameDraft, setNameDraft] = useState("");
+  const [activeTab, setActiveTab] = useState<Tab>("details");
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   useEffect(() => {
     // localStorage is a browser-only external store; one-off read on mount is intentional.
@@ -33,23 +39,9 @@ export default function ReviewerSpacePage() {
     setReviewer(getReviewer(id) ?? null);
   }
 
-  function handleSaveName() {
+  async function confirmDelete() {
     if (!reviewer) return;
-    const trimmed = nameDraft.trim();
-    if (trimmed && trimmed !== reviewer.reviewerName) {
-      saveReviewer({ ...reviewer, reviewerName: trimmed });
-      refresh();
-    }
-    setEditingName(false);
-  }
-
-  function handleDelete() {
-    if (!reviewer) return;
-    const warning = hasQuizHistory(reviewer.id)
-      ? `This Reviewer has quiz history — deleting it will also delete that history. Continue?`
-      : `Delete this Reviewer and its ${reviewer.questions.length} questions?`;
-    if (!window.confirm(warning)) return;
-    deleteReviewer(reviewer.id);
+    await removeReviewerCompletely(reviewer.id);
     router.push("/");
   }
 
@@ -58,8 +50,8 @@ export default function ReviewerSpacePage() {
   if (reviewer === null) {
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
-        <p className="text-zinc-600 dark:text-zinc-400">Reviewer not found.</p>
-        <Link href="/" className="text-sm font-medium underline">
+        <p className="text-text-secondary">Reviewer not found.</p>
+        <Link href="/" className="text-[15px] font-medium text-accent underline">
           Back to Home
         </Link>
       </div>
@@ -69,87 +61,104 @@ export default function ReviewerSpacePage() {
   const hasQuestions = reviewer.questions.length > 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-12">
-      <Link href="/" className="text-sm text-zinc-500 hover:underline dark:text-zinc-400">
-        ← Home
-      </Link>
+    <div className="flex flex-1 flex-col">
+      <div className="mx-auto w-full max-w-4xl shrink-0 px-6 pt-8">
+        {/* Sits outside the tab switch below, so it holds position while only
+            the tab content changes. */}
+        <nav
+          aria-label="Breadcrumb"
+          className="mb-2 flex items-center gap-1.5 text-[12px] tracking-wide uppercase"
+        >
+          <Link href="/" className="text-text-secondary hover:text-text-primary">
+            Reviewers
+          </Link>
+          <span aria-hidden="true" className="text-text-tertiary">
+            /
+          </span>
+          <span className="text-text-tertiary">{reviewer.reviewerName}</span>
+        </nav>
 
-      <div className="flex flex-col gap-4 border-b border-zinc-200 pb-6 dark:border-zinc-800">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            {editingName ? (
-              <input
-                autoFocus
-                value={nameDraft}
-                onChange={(e) => setNameDraft(e.target.value)}
-                onBlur={handleSaveName}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSaveName();
-                  if (e.key === "Escape") setEditingName(false);
-                }}
-                className="w-full rounded-md border border-zinc-300 px-2 py-1 text-2xl font-semibold text-black outline-none focus:border-black dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
-              />
-            ) : (
-              <h1
-                onClick={() => {
-                  setNameDraft(reviewer.reviewerName);
-                  setEditingName(true);
-                }}
-                className="cursor-text text-2xl font-semibold text-black hover:opacity-70 dark:text-zinc-50"
-                title="Click to rename"
+        <div className="flex items-center justify-between">
+          <h1 className="text-[26px] font-semibold text-text-primary">{reviewer.reviewerName}</h1>
+          <div className="flex shrink-0 items-center gap-4">
+            {hasQuestions ? (
+              <Link
+                href={`/reviewer/${reviewer.id}/quiz`}
+                className="rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-white hover:bg-accent-hover"
               >
-                {reviewer.reviewerName}
-              </h1>
+                Take Quiz
+              </Link>
+            ) : (
+              <span
+                title="Generate questions first"
+                className="cursor-not-allowed rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-white opacity-40"
+              >
+                Take Quiz
+              </span>
             )}
-            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-              {reviewer.questions.length} questions ·{" "}
-              {new Date(reviewer.createdAt).toLocaleDateString()}
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <button
-              disabled={!hasQuestions}
-              title={hasQuestions ? undefined : "No questions yet — generate some in the Upload tab first"}
-              className="rounded-full bg-black px-5 py-2.5 text-sm font-medium text-white enabled:hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-black dark:enabled:hover:bg-zinc-200"
-            >
-              Quiz this Reviewer
-            </button>
-            <button
-              onClick={handleDelete}
-              className="rounded-full px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
-            >
-              Delete Reviewer
-            </button>
           </div>
         </div>
-        {!hasQuestions && (
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            No questions yet — generate some in the Upload tab first.
-          </p>
-        )}
+
+        <nav className="mt-4 flex items-center gap-1 border-b border-border-strong">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`-mb-px rounded-t-md border-b-2 px-3 py-2 text-[17px] font-medium ${
+                activeTab === tab.id
+                  ? "border-accent bg-accent-subtle text-text-primary"
+                  : "border-transparent text-text-secondary hover:text-text-primary"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
       </div>
 
-      <div className="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
-              activeTab === tab.id
-                ? "border-black text-black dark:border-white dark:text-white"
-                : "border-transparent text-zinc-500 hover:text-black dark:text-zinc-400 dark:hover:text-white"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 px-6 py-10">
+        <div>
+          {activeTab === "details" && (
+            <>
+              <p className="mb-4 text-[15px] text-text-secondary">
+                {reviewer.questions.length} question
+                {reviewer.questions.length === 1 ? "" : "s"} ·{" "}
+                {new Date(reviewer.createdAt).toLocaleDateString()}
+              </p>
+              {!hasQuestions && (
+                <p className="mb-4 text-[15px] text-text-secondary">
+                  No questions yet — generate some in the Upload tab first.
+                </p>
+              )}
+              <DetailsTab
+                reviewer={reviewer}
+                onSaved={refresh}
+                onDeleteRequest={() => setConfirmDeleteOpen(true)}
+              />
+            </>
+          )}
+          {activeTab === "upload" && (
+            <UploadTab reviewer={reviewer} onSaved={refresh} />
+          )}
+          {activeTab === "edit" && (
+            <EditQuestionsTab reviewer={reviewer} onChanged={refresh} />
+          )}
+          {activeTab === "import-export" && (
+            <ImportExportTab reviewer={reviewer} onImported={refresh} />
+          )}
+        </div>
       </div>
 
-      <div className="text-zinc-500 dark:text-zinc-400">
-        {activeTab === "upload" && <p>Upload tab — content + question generation coming in Phase 2 &amp; 4.</p>}
-        {activeTab === "edit" && <p>Edit Questions tab — coming in Phase 5.</p>}
-        {activeTab === "import-export" && <p>Import/Export tab — coming in Phase 3.</p>}
-      </div>
+      {confirmDeleteOpen && (
+        <ConfirmDialog
+          title="Delete reviewer?"
+          body={deleteWarning(reviewer)}
+          confirmLabel="Delete reviewer"
+          destructive
+          onConfirm={confirmDelete}
+          onCancel={() => setConfirmDeleteOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -19,7 +19,7 @@ export async function extractTextFromFile(file: File): Promise<string> {
   ) {
     return extractDocxText(file);
   }
-  if (name.endsWith(".txt") || file.type === "text/plain") {
+  if (name.endsWith(".txt") || name.endsWith(".cpp") || file.type === "text/plain") {
     return file.text();
   }
 

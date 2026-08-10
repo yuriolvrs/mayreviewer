@@ -136,7 +136,7 @@ export default function UploadTab({
     <div className="flex flex-col gap-6">
       <ContentField
         key={`${reviewer.id}-notes`}
-        label="Notes"
+        label="Course material - notes and slides"
         initialText={reviewer.notes}
         onChange={(text, immediate) => handleChange("notes", text, immediate)}
         placeholder="Paste your lecture notes or slide text here..."
@@ -148,7 +148,7 @@ export default function UploadTab({
 
       <ContentField
         key={`${reviewer.id}-project`}
-        label="Project material"
+        label="Project material - specs and code"
         initialText={reviewer.projectMaterial}
         onChange={(text, immediate) => handleChange("project", text, immediate)}
         placeholder="Paste specs, code, or other project material here..."

@@ -32,7 +32,9 @@ function FileTypeBadge({ name }: { name: string }) {
       ? { label: "PDF", className: "bg-error-subtle text-error" }
       : ext === "docx" || ext === "doc"
         ? { label: "DOC", className: "bg-accent-subtle text-accent" }
-        : { label: "TXT", className: "bg-surface-alt text-text-secondary" };
+        : ext === "cpp"
+          ? { label: "CPP", className: "bg-accent-subtle text-accent" }
+          : { label: "TXT", className: "bg-surface-alt text-text-secondary" };
 
   return (
     <span
@@ -72,7 +74,7 @@ function isPdf(file: File): boolean {
   return file.name.toLowerCase().endsWith(".pdf") || file.type === "application/pdf";
 }
 
-const ACCEPTED = ".pdf,.docx,.txt";
+const ACCEPTED = ".pdf,.docx,.txt,.cpp";
 
 export type SaveStatus = "idle" | "saving" | "saved";
 
@@ -226,7 +228,7 @@ export default function ContentField({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-[15px] font-medium text-text-secondary">{label}</span>
+        <span className="text-[18px] font-semibold text-text-primary">{label}</span>
         {status === "saving" && (
           <span className="text-[14px] text-text-tertiary">Saving…</span>
         )}
@@ -289,7 +291,7 @@ export default function ContentField({
               dragOver ? "border-accent bg-accent-subtle" : "border-border"
             }`}
           >
-            <p>Drop PDF, DOCX, or TXT files here, or click to browse.</p>
+            <p>Drop PDF, DOCX, TXT, or CPP files here, or click to browse.</p>
             
             <input
               ref={inputRef}

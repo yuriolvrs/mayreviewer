@@ -85,7 +85,7 @@ function ResultRow({
 
   return (
     <>
-      <span className="font-mono text-[13px] text-text-tertiary">Question {number}</span>
+      <span className="font-mono text-[14px] font-bold text-text-primary">{number}.</span>
       <p
         className={`mt-2 text-[15px] leading-relaxed whitespace-pre-wrap text-text-primary ${
           // A set's listing lives in the shared block above, so only a

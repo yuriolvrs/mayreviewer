@@ -4,35 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-function FolderIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path
-        d="M1.5 3.5A1 1 0 0 1 2.5 2.5h3.086a1 1 0 0 1 .707.293l1.121 1.121a1 1 0 0 0 .707.293H13.5a1 1 0 0 1 1 1v7.293a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V3.5Z"
-        stroke="currentColor"
-        strokeWidth="1.3"
-      />
-    </svg>
-  );
-}
-
-function ClockIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <circle cx="8" cy="8" r="6.25" stroke="currentColor" strokeWidth="1.3" />
-      <path d="M8 4.75V8l2.25 1.25" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M7 1.5v11M1.5 7h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 export default function Navbar() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -53,41 +24,35 @@ export default function Navbar() {
 
   return (
     <header className="flex h-auto shrink-0 flex-wrap items-center justify-between gap-y-3 border-b border-border bg-surface px-4 py-3 md:h-16 md:flex-nowrap md:px-16 md:py-0">
-      <Link href="/" className="text-[16px] hover:opacity-70 md:text-[19px]">
-        <span className="font-normal text-text-primary">pre, </span>
-        <span className="font-semibold text-text-primary">May Reviewer</span>
-        <span className="font-normal text-text-primary"> ka ba?</span>
+      <Link href="/" className="flex items-center gap-2 text-[16px] hover:opacity-70 md:text-[19px]">
+        <img src="/icon.svg" alt="" className="h-6 w-6" />
+        <span>
+          <span className="font-normal text-text-primary">pre, </span>
+          <span className="font-semibold text-text-primary">May Reviewer</span>
+          <span className="font-normal text-text-primary"> ka ba?</span>
+        </span>
       </Link>
 
       <nav className="flex flex-wrap items-center gap-3 md:gap-6">
         <Link
           href="/"
-          className={`flex items-center gap-1.5 text-[14px] md:text-[15px] ${
+          className={`text-[14px] md:text-[15px] ${
             reviewersActive
               ? "font-semibold text-text-primary"
               : "text-text-secondary hover:text-text-primary"
           }`}
         >
-          <FolderIcon />
-          <span className="hidden sm:inline">Reviewers</span>
+          Reviewers
         </Link>
         <Link
           href="/history"
-          className={`flex items-center gap-1.5 text-[14px] md:text-[15px] ${
+          className={`text-[14px] md:text-[15px] ${
             historyActive
               ? "font-semibold text-text-primary"
               : "text-text-secondary hover:text-text-primary"
           }`}
         >
-          <ClockIcon />
-          <span className="hidden sm:inline">History</span>
-        </Link>
-        <Link
-          href="/reviewer/new"
-          className="flex items-center gap-1.5 rounded-lg border border-accent px-3 py-1.5 text-[14px] font-medium text-accent hover:bg-accent-subtle md:text-[15px]"
-        >
-          <PlusIcon />
-          <span className="hidden sm:inline">Create new</span>
+          History
         </Link>
 
         <div className="relative" ref={menuRef}>

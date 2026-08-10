@@ -90,13 +90,13 @@ function CheckIcon() {
 function QuestionEditor({
   draft,
   setDraft,
-  label,
+  number,
   onSave,
   onCancel,
 }: {
   draft: Question;
   setDraft: (q: Question) => void;
-  label: string;
+  number: number | undefined;
   onSave: () => void;
   onCancel: () => void;
 }) {
@@ -131,8 +131,11 @@ function QuestionEditor({
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-[13px] tracking-wide text-text-tertiary uppercase">
-            {label} · Type:
+          <span className="font-mono text-[13px] tracking-wide">
+            <span className="text-[14px] font-bold text-text-primary">
+              {number !== undefined ? `${number}.` : "New"}
+            </span>{" "}
+            <span className="text-text-tertiary uppercase">Type:</span>
           </span>
           <span className="inline-flex items-center gap-0.5 rounded px-1 text-text-secondary hover:bg-surface-alt">
             <select
@@ -459,7 +462,7 @@ export default function EditQuestionsTab({
           <QuestionEditor
             draft={draft}
             setDraft={setDraft}
-            label="New question"
+            number={undefined}
             onSave={saveEdit}
             onCancel={cancelEdit}
           />
@@ -554,16 +557,18 @@ export default function EditQuestionsTab({
                     <QuestionEditor
                       draft={draft}
                       setDraft={setDraft}
-                      label={`Question ${number} of ${total}`}
+                      number={number}
                       onSave={saveEdit}
                       onCancel={cancelEdit}
                     />
                   ) : (
                     <>
                       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
-                        <span className="shrink-0 font-mono text-[13px] tracking-wide text-text-tertiary uppercase">
-                          Question {number} of {total} · {TYPE_LABELS[question.type]} ·{" "}
-                          {SOURCE_LABELS[question.source]}
+                        <span className="shrink-0 font-mono text-[13px] tracking-wide uppercase">
+                          <span className="font-semibold text-text-secondary">Question {number}</span>{" "}
+                          <span className="font-normal text-text-tertiary">
+                            · {TYPE_LABELS[question.type]} · {SOURCE_LABELS[question.source]}
+                          </span>
                         </span>
 
                         <div className="flex shrink-0 items-center gap-3 text-[14px]">

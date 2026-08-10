@@ -137,7 +137,7 @@ export default function QuizTaking({
                   >
                 <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
                   <span className="font-mono text-[14px] font-bold tracking-wide text-text-primary">
-                    {numbering.get(question.id)} of {questions.length}
+                    {numbering.get(question.id)}.
                   </span>
                   <div className="flex shrink-0 items-center gap-2">
                     <button

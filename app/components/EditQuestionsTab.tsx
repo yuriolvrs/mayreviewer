@@ -468,7 +468,7 @@ export default function EditQuestionsTab({
 
       {total === 0 ? (
         <p className="text-[15px] text-text-secondary">
-          No questions yet — generate some in the Upload tab, or add one by hand.
+          No questions yet — generate some in the Sources tab, or add one by hand.
         </p>
       ) : visible.length === 0 ? (
         <p className="text-[15px] text-text-secondary">No questions match these filters.</p>

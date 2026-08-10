@@ -16,7 +16,7 @@ type Tab = "details" | "upload" | "edit" | "import-export";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "details", label: "Details" },
-  { id: "upload", label: "Upload" },
+  { id: "upload", label: "Sources" },
   { id: "edit", label: "Edit Questions" },
   { id: "import-export", label: "Import/Export" },
 ];
@@ -143,7 +143,7 @@ function ReviewerSpace() {
               </p>
               {!hasQuestions && (
                 <p className="mb-4 text-[15px] text-text-secondary">
-                  No questions yet — generate some in the Upload tab first.
+                  No questions yet — generate some in the Sources tab first.
                 </p>
               )}
               <DetailsTab

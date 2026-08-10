@@ -75,7 +75,7 @@ export default function NewReviewerPage() {
       updatedAt: now,
     };
     saveReviewer(reviewer);
-    // Straight to Upload — a brand-new reviewer has no source material yet,
+    // Straight to Sources — a brand-new reviewer has no source material yet,
     // and that's the next thing it needs.
     router.push(`/reviewer/${reviewer.id}?tab=upload`);
   }
@@ -339,7 +339,7 @@ export default function NewReviewerPage() {
 
         <div className="grid grid-cols-[160px_1fr] gap-6 border-t border-border py-6">
           <div>
-            <p className="text-[15px] font-medium text-text-primary">Generation</p>
+            <p className="text-[15px] font-medium text-text-primary">Question count</p>
             <p className="mt-1 text-[14px] text-text-secondary">How many questions to generate.</p>
           </div>
           <div>

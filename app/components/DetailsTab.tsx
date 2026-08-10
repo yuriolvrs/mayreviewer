@@ -68,7 +68,7 @@ export default function DetailsTab({
     }
 
     // Re-reads before writing, so saving details can't revert notes typed in
-    // the Upload tab (or questions added by a generation) since this render.
+    // the Sources tab (or questions added by a generation) since this render.
     updateReviewer(reviewer.id, {
       reviewerName: trimmed,
       subject: subject.trim(),
@@ -174,7 +174,7 @@ export default function DetailsTab({
 
       <div className="grid grid-cols-[160px_1fr] gap-6 border-t border-border py-6">
         <div>
-          <p className="text-[15px] font-medium text-text-primary">Generation</p>
+          <p className="text-[15px] font-medium text-text-primary">Question count</p>
           <p className="mt-1 text-[14px] text-text-secondary">How many questions to generate.</p>
         </div>
         <div>

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Libre_Franklin, Space_Mono } from "next/font/google";
 import Navbar from "@/app/components/Navbar";
 import "./globals.css";
@@ -17,6 +17,11 @@ const spaceMono = Space_Mono({
 export const metadata: Metadata = {
   title: "May Reviewer",
   description: "Turn your notes into a practice exam that matches your professor's question style.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

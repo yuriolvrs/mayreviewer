@@ -52,42 +52,42 @@ export default function Navbar() {
   const historyActive = pathname.startsWith("/history");
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-surface pl-16 pr-16">
-      <Link href="/" className="text-[19px] hover:opacity-70">
+    <header className="flex h-auto shrink-0 flex-wrap items-center justify-between gap-y-3 border-b border-border bg-surface px-4 py-3 md:h-16 md:flex-nowrap md:px-16 md:py-0">
+      <Link href="/" className="text-[16px] hover:opacity-70 md:text-[19px]">
         <span className="font-normal text-text-primary">pre, </span>
         <span className="font-semibold text-text-primary">May Reviewer</span>
         <span className="font-normal text-text-primary"> ka ba?</span>
       </Link>
 
-      <nav className="flex items-center gap-6">
+      <nav className="flex flex-wrap items-center gap-3 md:gap-6">
         <Link
           href="/"
-          className={`flex items-center gap-1.5 text-[15px] ${
+          className={`flex items-center gap-1.5 text-[14px] md:text-[15px] ${
             reviewersActive
               ? "font-semibold text-text-primary"
               : "text-text-secondary hover:text-text-primary"
           }`}
         >
           <FolderIcon />
-          Reviewers
+          <span className="hidden sm:inline">Reviewers</span>
         </Link>
         <Link
           href="/history"
-          className={`flex items-center gap-1.5 text-[15px] ${
+          className={`flex items-center gap-1.5 text-[14px] md:text-[15px] ${
             historyActive
               ? "font-semibold text-text-primary"
               : "text-text-secondary hover:text-text-primary"
           }`}
         >
           <ClockIcon />
-          History
+          <span className="hidden sm:inline">History</span>
         </Link>
         <Link
           href="/reviewer/new"
-          className="flex items-center gap-1.5 rounded-lg border border-accent px-3 py-1.5 text-[15px] font-medium text-accent hover:bg-accent-subtle"
+          className="flex items-center gap-1.5 rounded-lg border border-accent px-3 py-1.5 text-[14px] font-medium text-accent hover:bg-accent-subtle md:text-[15px]"
         >
           <PlusIcon />
-          Create new
+          <span className="hidden sm:inline">Create new</span>
         </Link>
 
         <div className="relative" ref={menuRef}>

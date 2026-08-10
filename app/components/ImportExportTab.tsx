@@ -56,6 +56,8 @@ type PendingImport = {
   newQuestions: Question[];
   totalAttachments: number;
   newAttachments: PendingAttachment[];
+  topics: string[];
+  newTopics: string[];
 };
 
 export default function ImportExportTab({
@@ -183,6 +185,17 @@ export default function ImportExportTab({
     const existingIds = new Set(reviewer.questions.map((q) => q.id));
     const newQuestions = questions.filter((q) => !existingIds.has(q.id));
 
+    // Topics merge the same way questions do — added to, never overwritten,
+    // so re-importing the same file (or one from a classmate) can only grow
+    // this reviewer's topic list, not replace it.
+    const topicsRaw =
+      typeof parsed === "object" && parsed !== null
+        ? (parsed as { topics?: unknown }).topics
+        : undefined;
+    const topics = Array.isArray(topicsRaw) ? topicsRaw.filter((t): t is string => typeof t === "string") : [];
+    const existingTopics = new Set(reviewer.topics);
+    const newTopics = topics.filter((t) => !existingTopics.has(t));
+
     let totalAttachments = 0;
     let newAttachments: PendingAttachment[] = [];
     if (zipEntries) {
@@ -207,6 +220,8 @@ export default function ImportExportTab({
       newQuestions,
       totalAttachments,
       newAttachments,
+      topics,
+      newTopics,
     });
   }
 
@@ -214,6 +229,7 @@ export default function ImportExportTab({
     if (!pending) return;
     updateReviewer(reviewer.id, {
       questions: [...reviewer.questions, ...pending.newQuestions],
+      topics: [...reviewer.topics, ...pending.newTopics],
     });
     for (const attachment of pending.newAttachments) {
       // .slice() copies into a fresh, exactly-sized ArrayBuffer — safer than
@@ -234,6 +250,9 @@ export default function ImportExportTab({
         ? `${pending.newQuestions.length} question${pending.newQuestions.length === 1 ? "" : "s"}`
         : "no new questions",
     );
+    if (pending.newTopics.length > 0) {
+      parts.push(`${pending.newTopics.length} topic${pending.newTopics.length === 1 ? "" : "s"}`);
+    }
     if (pending.isArchive) {
       parts.push(
         pending.newAttachments.length > 0
@@ -327,6 +346,14 @@ export default function ImportExportTab({
                     {reviewer.questions.length + pending.newQuestions.length}
                   </dd>
                 </div>
+                {pending.topics.length > 0 && (
+                  <div className="flex gap-2">
+                    <dt className="text-text-secondary">Topics in file</dt>
+                    <dd className="text-text-primary">
+                      {pending.topics.length} ({pending.newTopics.length} new)
+                    </dd>
+                  </div>
+                )}
                 {pending.isArchive && (
                   <div className="flex gap-2">
                     <dt className="text-text-secondary">Files in archive</dt>
@@ -387,9 +414,9 @@ export default function ImportExportTab({
           )}
 
           <p className="mt-2 text-[14px] text-text-tertiary">
-            Doesn&apos;t overwrite this reviewer&apos;s name or content. Questions and files
-            already in this reviewer are skipped automatically, so re-importing the same file
-            changes nothing.
+            Doesn&apos;t overwrite this reviewer&apos;s name or content. Questions, topics, and
+            files already in this reviewer are skipped automatically, so re-importing the same
+            file changes nothing.
           </p>
 
           {message && (

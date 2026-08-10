@@ -81,12 +81,6 @@ export default function Home() {
           <p className="mt-1 text-[15px] text-text-secondary">
             Create one to turn your notes into a practice exam.
           </p>
-          <Link
-            href="/reviewer/new"
-            className="mt-4 inline-block rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-white hover:bg-accent-hover"
-          >
-            + New Reviewer
-          </Link>
         </div>
       ) : (
         <>

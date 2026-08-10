@@ -303,7 +303,7 @@ export default function QuizResults({
           onClick={onRetake}
           className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-white hover:bg-accent-hover"
         >
-          {takenAt ? "Retake these questions" : "Retake quiz"}
+          Retake quiz
         </button>
         <Link
           href={`/reviewer/${reviewerId}`}
@@ -313,7 +313,7 @@ export default function QuizResults({
         </Link>
       </div>
 
-      <CollapsibleSection title="Missed" count={missed.length} defaultOpen>
+      <CollapsibleSection title="Incorrect" count={missed.length} defaultOpen>
         {missed.length === 0 ? (
           <p className="mt-2 text-[15px] text-success">
             Nothing missed — you got every question right.
@@ -345,7 +345,7 @@ export default function QuizResults({
               questions={visibleMissed}
               numbering={numbering}
               answers={answers}
-              outcome="missed"
+              outcome="incorrect"
             />
           </>
         )}

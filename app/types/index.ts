@@ -24,15 +24,20 @@ export type Question = {
 
 export type FeedbackMode = "immediate" | "end-only";
 
-// One completed quiz attempt, listed in the Quiz History section. The "unsure"
-// flags aren't here on purpose — they're scoped to a single attempt in progress
-// and reset on retake, so they never outlive the attempt itself.
+// One completed quiz attempt, listed in the Quiz History section and reopenable
+// from there. It's a snapshot rather than a pointer: the questions asked are
+// copied in beside the answers and unsure flags, so an old attempt still shows
+// what it actually asked after those questions have been edited or deleted from
+// the reviewer's pool.
 export type QuizAttempt = {
   id: string;
   reviewerId: string;
   takenAt: string;
   score: number;
   total: number;
+  questions: Question[];
+  answers: Record<string, number>;
+  unsureIds: string[];
 };
 
 export type Reviewer = {
@@ -45,4 +50,7 @@ export type Reviewer = {
   questionCount: number;
   questions: Question[];
   createdAt: string;
+  // Stamped by storage.ts on every save, not by callers — so it can't be
+  // missed by a write path that forgets to set it.
+  updatedAt: string;
 };

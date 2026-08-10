@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { upload } from "@vercel/blob/client";
 import { getAttachments } from "@/app/lib/attachments";
 import { QUESTION_TYPES, TYPE_LABELS } from "@/app/lib/questions";
 import type { Question, QuestionType, Reviewer } from "@/app/types";
@@ -11,16 +12,6 @@ type Failure = { label: string; reason: string };
 type StreamMessage =
   | { type: "progress"; phase: "start" | "done"; label: string; completed: number; total: number }
   | { type: "done"; questions: Question[]; failures: Failure[] };
-
-function bufferToBase64(buffer: ArrayBuffer): string {
-  let binary = "";
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
-}
 
 const MIN_COUNT = 1;
 const MAX_COUNT = 50;
@@ -81,12 +72,18 @@ export default function GenerateBar({
     setAddedCount(null);
     try {
       const rawAttachments = await getAttachments(reviewer.id);
-      const attachments = rawAttachments.map((a) => ({
-        name: a.name,
-        mimeType: a.mimeType,
-        dataBase64: bufferToBase64(a.data),
-        field: a.field,
-      }));
+      // Uploaded straight to Blob storage from the browser — Vercel Functions
+      // cap request bodies at 4.5MB, far below what a PDF set can reach, so
+      // the generate request carries a blob URL per file instead of its bytes.
+      const attachments = await Promise.all(
+        rawAttachments.map(async (a) => {
+          const blob = await upload(`attachments/${reviewer.id}/${a.id}-${a.name}`, new Blob([a.data], { type: a.mimeType }), {
+            access: "public",
+            handleUploadUrl: "/api/blob-upload",
+          });
+          return { name: a.name, mimeType: a.mimeType, url: blob.url, field: a.field };
+        }),
+      );
 
       const res = await fetch("/api/generate", {
         method: "POST",

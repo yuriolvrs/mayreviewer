@@ -1,11 +1,10 @@
-import type { QuizAttempt, Reviewer } from "@/app/types";
+import { DEFAULT_QUESTION_COUNT } from "@/app/lib/questions";
+import type { Question, QuizAttempt, Reviewer } from "@/app/types";
 
 // The ONLY file that touches localStorage. Swapping to Supabase later means
 // rewriting the insides of these functions, not the components that call them.
 const STORAGE_KEY = "mayreviewer-reviewers";
 const ATTEMPTS_KEY = "mayreviewer-quiz-attempts";
-
-export const DEFAULT_QUESTION_COUNT = 10;
 
 function readJson<T>(key: string): T[] {
   if (typeof window === "undefined") return [];
@@ -19,9 +18,9 @@ function readJson<T>(key: string): T[] {
   }
 }
 
-// `subject`, `topics`, and `questionCount` were added after the first Reviewers
-// were already saved. Backfilling on read (rather than in each component) means
-// no screen has to defend against a missing field.
+// `subject`, `topics`, `questionCount`, and `updatedAt` were added after the
+// first Reviewers were already saved. Backfilling on read (rather than in each
+// component) means no screen has to defend against a missing field.
 function normalize(reviewer: Reviewer): Reviewer {
   return {
     ...reviewer,
@@ -31,6 +30,7 @@ function normalize(reviewer: Reviewer): Reviewer {
     projectMaterial: reviewer.projectMaterial ?? "",
     questionCount: reviewer.questionCount ?? DEFAULT_QUESTION_COUNT,
     questions: reviewer.questions ?? [],
+    updatedAt: reviewer.updatedAt ?? reviewer.createdAt,
   };
 }
 
@@ -42,13 +42,17 @@ export function getReviewer(id: string): Reviewer | undefined {
   return getReviewers().find((r) => r.id === id);
 }
 
+// Stamps `updatedAt` here, not in each caller, so every write path — autosave,
+// generation, question edits, imports — updates it the same way and none can
+// forget to.
 export function saveReviewer(reviewer: Reviewer): void {
+  const stamped = { ...reviewer, updatedAt: new Date().toISOString() };
   const reviewers = getReviewers();
-  const index = reviewers.findIndex((r) => r.id === reviewer.id);
+  const index = reviewers.findIndex((r) => r.id === stamped.id);
   if (index === -1) {
-    reviewers.push(reviewer);
+    reviewers.push(stamped);
   } else {
-    reviewers[index] = reviewer;
+    reviewers[index] = stamped;
   }
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(reviewers));
 }
@@ -77,7 +81,19 @@ export function deleteReviewer(id: string): void {
 // append-only and unbounded, and keeping them separate means a Reviewer write
 // (autosave, generation) can never race a quiz submit into overwriting one.
 function getAllAttempts(): QuizAttempt[] {
-  return readJson<QuizAttempt>(ATTEMPTS_KEY);
+  return readJson<QuizAttempt>(ATTEMPTS_KEY).map(normalizeAttempt);
+}
+
+// Attempts recorded before the results screen became reopenable kept only the
+// score. They stay in history — the score is still true — but with nothing to
+// reopen, which is what an empty `questions` means to the history list.
+function normalizeAttempt(attempt: QuizAttempt): QuizAttempt {
+  return {
+    ...attempt,
+    questions: attempt.questions ?? [],
+    answers: attempt.answers ?? {},
+    unsureIds: attempt.unsureIds ?? [],
+  };
 }
 
 export function hasQuizHistory(id: string): boolean {
@@ -91,13 +107,29 @@ export function getQuizHistory(reviewerId: string): QuizAttempt[] {
     .sort((a, b) => b.takenAt.localeCompare(a.takenAt));
 }
 
-export function saveQuizAttempt(reviewerId: string, score: number, total: number): QuizAttempt {
+// The one cross-Reviewer read in the app, backing the global /history screen.
+// Newest first, same as the per-Reviewer list.
+export function getAllQuizHistory(): QuizAttempt[] {
+  return getAllAttempts().sort((a, b) => b.takenAt.localeCompare(a.takenAt));
+}
+
+// Scored here rather than by the caller so the stored score can never drift
+// from the stored answers it's supposed to summarise.
+export function saveQuizAttempt(
+  reviewerId: string,
+  questions: Question[],
+  answers: Record<string, number>,
+  unsureIds: string[],
+): QuizAttempt {
   const attempt: QuizAttempt = {
     id: crypto.randomUUID(),
     reviewerId,
     takenAt: new Date().toISOString(),
-    score,
-    total,
+    score: questions.filter((q) => answers[q.id] === q.correctIndex).length,
+    total: questions.length,
+    questions,
+    answers,
+    unsureIds,
   };
   window.localStorage.setItem(ATTEMPTS_KEY, JSON.stringify([...getAllAttempts(), attempt]));
   return attempt;

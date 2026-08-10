@@ -12,6 +12,16 @@ export const QUESTION_TYPES: QuestionType[] = [
 ];
 export const QUESTION_SOURCES: QuestionSource[] = ["notes", "project", "manual"];
 
+// How many questions a Reviewer asks for per generation. Lives here because
+// the API route clamps against it and two forms validate against it — it was
+// hardcoded in six places, so raising the ceiling meant finding all six.
+//
+// The ceiling is a sanity bound, not a recommendation: what actually degrades
+// first is per-call quality and free-tier rate limits, well before 200.
+export const MIN_QUESTION_COUNT = 1;
+export const MAX_QUESTION_COUNT = 200;
+export const DEFAULT_QUESTION_COUNT = 10;
+
 export const TYPE_LABELS: Record<QuestionType, string> = {
   identification: "Identification",
   scenario: "Scenario",
@@ -62,6 +72,33 @@ export function groupQuestions(questions: Question[]): QuestionGroup[] {
 
 export function optionLetter(index: number): string {
   return String.fromCharCode(65 + index);
+}
+
+// Red at a failing score, easing through the warning tone and landing on green
+// once the attempt is solid — the number itself carries the verdict. Shared so
+// a score reads the same on the results screen and in the attempts list.
+export function scoreTone(percent: number): string {
+  if (percent < 50) return "text-error";
+  if (percent < 80) return "text-warning";
+  return "text-success";
+}
+
+// Seconds are noise on a list of attempts. Today's are the ones being compared
+// most, so they get a relative label; anything older reads as a plain date, with
+// the year only once it stops being obvious.
+export function formatTakenAt(takenAt: string): string {
+  const date = new Date(takenAt);
+  const now = new Date();
+  const time = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+  if (date.toDateString() === now.toDateString()) return `Today, ${time}`;
+
+  const day = date.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+    year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
+  });
+  return `${day}, ${time}`;
 }
 
 function isOptionalString(value: unknown): boolean {
@@ -164,6 +201,24 @@ export function sampleProportionally(pool: Question[], count: number): Question[
 // than a batch that lands a little short. The one exception is a set larger
 // than the entire budget, which is truncated rather than dropped, since
 // skipping it would return nothing at all.
+// Large requests are generated in several passes over the same material, and
+// separate sources often overlap, so the same question can come back twice.
+// Matching on the question text alone (normalised) rather than the options,
+// since a duplicate asked with shuffled choices is still a duplicate.
+export function dedupeQuestions(questions: Question[]): Question[] {
+  const seen = new Set<string>();
+  return questions.filter((q) => {
+    const key = q.question.toLowerCase().replace(/\s+/g, " ").trim();
+    // A set's questions are meaningless without their siblings, so they're
+    // never dropped — "Blank (3): what belongs here?" legitimately recurs
+    // across different code listings.
+    if (q.groupId) return true;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export function takeWithinBudget(questions: Question[], budget: number): Question[] {
   if (budget <= 0) return [];
 

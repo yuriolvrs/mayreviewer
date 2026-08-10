@@ -27,6 +27,7 @@ function reviewer(overrides: Partial<Reviewer> = {}): Reviewer {
     questionCount: 10,
     questions: [question("q1"), question("q2")],
     createdAt: "2026-08-01T00:00:00.000Z",
+    updatedAt: "2026-08-01T00:00:00.000Z",
     ...overrides,
   };
 }
@@ -55,14 +56,14 @@ describe("deleteWarning", () => {
   it("calls out quiz history only when attempts exist", () => {
     expect(deleteWarning(reviewer())).not.toContain("quiz history");
 
-    saveQuizAttempt("r1", 3, 4);
+    saveQuizAttempt("r1", [question("q1")], { q1: 0 }, []);
     const warning = deleteWarning(reviewer());
     expect(warning).toContain("quiz history");
     expect(warning).toContain('"CPU Scheduling"');
   });
 
   it("scopes the history check to this Reviewer", () => {
-    saveQuizAttempt("someone-else", 3, 4);
+    saveQuizAttempt("someone-else", [question("q1")], { q1: 0 }, []);
     expect(deleteWarning(reviewer())).not.toContain("quiz history");
   });
 });

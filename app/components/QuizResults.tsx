@@ -1,39 +1,96 @@
 "use client";
 
 import Link from "next/link";
-import { isPreformatted, optionLetter } from "@/app/lib/questions";
-import type { Question } from "@/app/types";
+import { useState, type ReactNode } from "react";
+import {
+  QUESTION_TYPES,
+  TYPE_LABELS,
+  groupQuestions,
+  isPreformatted,
+  optionLetter,
+  scoreTone,
+} from "@/app/lib/questions";
+import StimulusBlock from "@/app/components/StimulusBlock";
+import type { QuestionGroup } from "@/app/lib/questions";
+import type { Question, QuestionType } from "@/app/types";
 import type { Answers } from "@/app/components/QuizTaking";
 
-function QuestionCard({
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 10 10"
+      fill="none"
+      aria-hidden="true"
+      className={`shrink-0 transition-transform ${open ? "" : "-rotate-90"}`}
+    >
+      <path
+        d="M2 4l3 3 3-3"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// Missed and Marked unsure open by default — they're what the screen is for.
+// Correct is the long tail you go looking for, so it starts closed.
+function CollapsibleSection({
+  title,
+  count,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  count: number;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <section className="mt-10">
+      <h2>
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          className="-mx-2 flex items-center gap-2 rounded-lg px-2 py-1 text-[19px] font-semibold text-text-secondary hover:bg-surface-alt hover:text-text-primary"
+        >
+          <Chevron open={open} />
+          <span className="text-text-primary">{title}</span>
+          {count > 0 && <span>({count})</span>}
+        </button>
+      </h2>
+      {open && children}
+    </section>
+  );
+}
+
+function ResultRow({
   question,
   number,
   answers,
+  inGroup,
 }: {
   question: Question;
   number: number;
   answers: Answers;
+  inGroup: boolean;
 }) {
   const given = answers[question.id];
 
   return (
-    <li className="border-t border-border py-5 last:border-b">
+    <>
       <span className="font-mono text-[13px] text-text-tertiary">Question {number}</span>
-      {/* Missed questions are listed on their own, out of set order, so a set
-          question has to bring its problem with it or it can't be re-read. */}
-      {question.stimulus && (
-        <details className="mt-2">
-          <summary className="cursor-pointer text-[14px] text-text-secondary hover:text-text-primary">
-            {question.groupTitle || "Show the problem"}
-          </summary>
-          <pre className="mt-2 overflow-x-auto rounded-lg border border-border bg-surface-alt p-4 font-mono text-[14px] leading-relaxed text-text-primary">
-            {question.stimulus}
-          </pre>
-        </details>
-      )}
       <p
         className={`mt-2 text-[15px] leading-relaxed whitespace-pre-wrap text-text-primary ${
-          isPreformatted(question.type) && !question.stimulus ? "font-mono" : ""
+          // A set's listing lives in the shared block above, so only a
+          // standalone Timeline/Code question carries preformatted text itself.
+          isPreformatted(question.type) && !inGroup ? "font-mono" : ""
         }`}
       >
         {question.question}
@@ -56,7 +113,105 @@ function QuestionCard({
           </dd>
         </div>
       </dl>
-    </li>
+    </>
+  );
+}
+
+// Every question in a set shares one listing, so the listing is shown once with
+// all of the set's results stacked under it — repeating a 30-line program for
+// each blank buried the results between copies of the same code.
+function GroupBlock({
+  group,
+  numbering,
+  answers,
+  outcome,
+}: {
+  group: QuestionGroup;
+  numbering: Map<string, number>;
+  answers: Answers;
+  outcome: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const count = group.questions.length;
+  const noun = group.questions[0].type === "code" ? "blank" : "question";
+
+  return (
+    <div className="border-t border-border py-5 last:border-b">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className="-mx-2 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-text-secondary hover:bg-surface-alt hover:text-text-primary"
+      >
+        <Chevron open={open} />
+        <span className="text-[15px] font-semibold text-text-primary">
+          {group.title || (group.questions[0].type === "code" ? "The program" : "The problem")}
+        </span>
+        <span className="text-[14px]">
+          — {count} {noun}
+          {count === 1 ? "" : "s"} {outcome}
+        </span>
+      </button>
+
+      {open && <StimulusBlock stimulus={group.stimulus!} />}
+
+      <div className="mt-4 flex flex-col">
+        {group.questions.map((question, index) => (
+          <div
+            key={question.id}
+            className={index > 0 ? "mt-4 border-t border-dashed border-border pt-4" : ""}
+          >
+            <ResultRow
+              question={question}
+              number={numbering.get(question.id) ?? 0}
+              answers={answers}
+              inGroup
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ResultList({
+  questions,
+  numbering,
+  answers,
+  outcome,
+}: {
+  questions: Question[];
+  numbering: Map<string, number>;
+  answers: Answers;
+  outcome: string;
+}) {
+  // Filtering preserves order, so questions from one set stay contiguous and
+  // still collapse into a single group here.
+  const groups = groupQuestions(questions);
+
+  return (
+    <div className="mt-3 flex flex-col">
+      {groups.map((group) =>
+        group.stimulus ? (
+          <GroupBlock
+            key={group.key}
+            group={group}
+            numbering={numbering}
+            answers={answers}
+            outcome={outcome}
+          />
+        ) : (
+          <div key={group.key} className="border-t border-border py-5 last:border-b">
+            <ResultRow
+              question={group.questions[0]}
+              number={numbering.get(group.questions[0].id) ?? 0}
+              answers={answers}
+              inGroup={false}
+            />
+          </div>
+        ),
+      )}
+    </div>
   );
 }
 
@@ -66,37 +221,89 @@ export default function QuizResults({
   questions,
   answers,
   unsureIds,
+  takenAt,
   onRetake,
+  onBack,
 }: {
   reviewerId: string;
   reviewerName: string;
   questions: Question[];
   answers: Answers;
   unsureIds: string[];
+  // Both set only when reopening a past attempt from the history list, so the
+  // screen says which attempt this is and can get back to that list.
+  takenAt?: string;
   onRetake: () => void;
+  onBack?: () => void;
 }) {
+  const [missedType, setMissedType] = useState<"all" | QuestionType>("all");
+
   const numbering = new Map(questions.map((q, i) => [q.id, i + 1]));
   const missed = questions.filter((q) => answers[q.id] !== q.correctIndex);
+  const correct = questions.filter((q) => answers[q.id] === q.correctIndex);
   const unsure = questions.filter((q) => unsureIds.includes(q.id));
-  const score = questions.length - missed.length;
+  const score = correct.length;
   const percent = questions.length === 0 ? 0 : Math.round((score / questions.length) * 100);
+
+  // Which types actually appeared, so a quiz scoped to one type doesn't show
+  // three empty cards — or a filter row with nothing to filter.
+  const typesPresent = QUESTION_TYPES.filter((t) => questions.some((q) => q.type === t));
+  const missedTypes = QUESTION_TYPES.filter((t) => missed.some((q) => q.type === t));
+  const visibleMissed =
+    missedType === "all" ? missed : missed.filter((q) => q.type === missedType);
 
   return (
     <div className="flex flex-col">
-      <h1 className="text-[26px] font-semibold text-text-primary">Quiz results</h1>
-      <p className="mt-1 text-[15px] text-text-secondary">{reviewerName}</p>
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="self-start text-[15px] text-text-secondary hover:text-text-primary"
+        >
+          ← Your attempts
+        </button>
+      )}
 
-      <p className="mt-6 text-[34px] font-bold tracking-tight text-text-primary">
-        {score}/{questions.length}
-        <span className="ml-2 text-[19px] font-medium text-text-secondary">({percent}%)</span>
+      <h1 className={`text-[26px] font-semibold text-text-primary ${onBack ? "mt-4" : ""}`}>
+        Quiz results
+      </h1>
+      <p className="mt-1 text-[15px] text-text-secondary">
+        {reviewerName}
+        {takenAt && ` · taken ${new Date(takenAt).toLocaleString()}`}
       </p>
+
+      <p className={`mt-6 text-[34px] font-bold tracking-tight ${scoreTone(percent)}`}>
+        {score}/{questions.length}
+        <span className="ml-2 text-[19px] font-medium">({percent}%)</span>
+      </p>
+
+      <div className="mt-4 flex flex-wrap gap-3">
+        {typesPresent.map((type) => {
+          const ofType = questions.filter((q) => q.type === type);
+          const right = ofType.filter((q) => answers[q.id] === q.correctIndex).length;
+          return (
+            <div
+              key={type}
+              className="min-w-[124px] rounded-lg border border-border bg-surface-alt px-3.5 py-2.5"
+            >
+              <p className="font-mono text-[12px] tracking-wide text-text-tertiary uppercase">
+                {TYPE_LABELS[type]}
+              </p>
+              <p className="mt-1 text-[19px] font-semibold text-text-primary">
+                {right}
+                <span className="text-text-secondary">/{ofType.length}</span>
+              </p>
+            </div>
+          );
+        })}
+      </div>
 
       <div className="mt-6 flex items-center gap-3">
         <button
           onClick={onRetake}
           className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-white hover:bg-accent-hover"
         >
-          Retake quiz
+          {takenAt ? "Retake these questions" : "Retake quiz"}
         </button>
         <Link
           href={`/reviewer/${reviewerId}`}
@@ -106,52 +313,77 @@ export default function QuizResults({
         </Link>
       </div>
 
-      <section className="mt-10">
-        <h2 className="text-[19px] font-semibold text-text-primary">
-          Missed {missed.length > 0 && <span className="text-text-secondary">({missed.length})</span>}
-        </h2>
+      <CollapsibleSection title="Missed" count={missed.length} defaultOpen>
         {missed.length === 0 ? (
           <p className="mt-2 text-[15px] text-success">
             Nothing missed — you got every question right.
           </p>
         ) : (
-          <ol className="mt-3 flex flex-col">
-            {missed.map((question) => (
-              <QuestionCard
-                key={question.id}
-                question={question}
-                number={numbering.get(question.id) ?? 0}
-                answers={answers}
-              />
-            ))}
-          </ol>
+          <>
+            {missedTypes.length > 1 && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-alt px-4 py-3">
+                <span className="text-[14px] text-text-secondary">Type</span>
+                {(["all", ...missedTypes] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setMissedType(t)}
+                    className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
+                      missedType === t
+                        ? "bg-accent text-white"
+                        : "border border-border-strong text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    {t === "all" ? "All" : TYPE_LABELS[t]}
+                  </button>
+                ))}
+                <span className="ml-auto text-[14px] text-text-tertiary">
+                  {visibleMissed.length} shown
+                </span>
+              </div>
+            )}
+            <ResultList
+              questions={visibleMissed}
+              numbering={numbering}
+              answers={answers}
+              outcome="missed"
+            />
+          </>
         )}
-      </section>
+      </CollapsibleSection>
 
-      <section className="mt-10">
-        <h2 className="text-[19px] font-semibold text-text-primary">
-          Marked unsure {unsure.length > 0 && <span className="text-text-secondary">({unsure.length})</span>}
-        </h2>
+      <CollapsibleSection title="Correct" count={correct.length}>
+        {correct.length === 0 ? (
+          <p className="mt-2 text-[15px] text-text-secondary">
+            You didn&apos;t get any questions right this attempt.
+          </p>
+        ) : (
+          <ResultList
+            questions={correct}
+            numbering={numbering}
+            answers={answers}
+            outcome="correct"
+          />
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Marked unsure" count={unsure.length} defaultOpen>
         <p className="mt-1 text-[14px] text-text-secondary">
-          Shown even where you answered correctly — a lucky guess is still worth rereading.
+          Questions you flagged as unsure during the quiz, regardless of whether you got them
+          right.
         </p>
         {unsure.length === 0 ? (
           <p className="mt-2 text-[15px] text-text-secondary">
             You didn&apos;t flag any questions this attempt.
           </p>
         ) : (
-          <ol className="mt-3 flex flex-col">
-            {unsure.map((question) => (
-              <QuestionCard
-                key={question.id}
-                question={question}
-                number={numbering.get(question.id) ?? 0}
-                answers={answers}
-              />
-            ))}
-          </ol>
+          <ResultList
+            questions={unsure}
+            numbering={numbering}
+            answers={answers}
+            outcome="flagged"
+          />
         )}
-      </section>
+      </CollapsibleSection>
     </div>
   );
 }

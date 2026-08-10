@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getQuizHistory, getReviewer, saveQuizAttempt } from "@/app/lib/storage";
 import type { FeedbackMode, Question, QuizAttempt, Reviewer } from "@/app/types";
@@ -13,6 +13,11 @@ type Stage = "setup" | "taking" | "results";
 
 export default function QuizPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  // Set when the global History screen links here to reopen one specific
+  // attempt, rather than the per-Reviewer history list. Determines where
+  // the results screen's "Your attempts" back link returns to.
+  const attemptId = useSearchParams().get("attempt");
 
   const [reviewer, setReviewer] = useState<Reviewer | null | undefined>(undefined);
   const [history, setHistory] = useState<QuizAttempt[]>([]);
@@ -22,13 +27,27 @@ export default function QuizPage() {
   // The sampled subset for this attempt — scoring and results must run against
   // exactly what was asked, not the reviewer's whole pool.
   const [quizQuestions, setQuizQuestions] = useState<Question[]>([]);
+  // Set only while reopening an attempt from the history list; the results
+  // screen uses it to label which attempt is on screen.
+  const [reviewedAt, setReviewedAt] = useState<string | null>(null);
 
   useEffect(() => {
     // localStorage is a browser-only external store; one-off read on mount is intentional.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setReviewer(getReviewer(id) ?? null);
-    setHistory(getQuizHistory(id));
-  }, [id]);
+    const attempts = getQuizHistory(id);
+    setHistory(attempts);
+
+    // Arrived from the global History screen for one specific attempt — open
+    // it the same way QuizSetup's onViewAttempt does.
+    const attempt = attemptId ? attempts.find((a) => a.id === attemptId) : undefined;
+    if (attempt) {
+      setQuizQuestions(attempt.questions);
+      setSubmitted({ answers: attempt.answers, unsureIds: attempt.unsureIds });
+      setReviewedAt(attempt.takenAt);
+      setStage("results");
+    }
+  }, [id, attemptId]);
 
   if (reviewer === undefined) return null;
 
@@ -57,8 +76,7 @@ export default function QuizPage() {
             window.scrollTo({ top: 0 });
           }}
           onSubmit={(answers, unsureIds) => {
-            const score = quizQuestions.filter((q) => answers[q.id] === q.correctIndex).length;
-            saveQuizAttempt(reviewer.id, score, quizQuestions.length);
+            saveQuizAttempt(reviewer.id, quizQuestions, answers, unsureIds);
             setHistory(getQuizHistory(reviewer.id));
             setSubmitted({ answers, unsureIds });
             setStage("results");
@@ -78,13 +96,28 @@ export default function QuizPage() {
           questions={quizQuestions}
           answers={submitted.answers}
           unsureIds={submitted.unsureIds}
+          takenAt={reviewedAt ?? undefined}
           onRetake={() => {
             // Fresh attempt: QuizTaking is remounted by the stage switch, so
-            // answers and unsure flags both start empty again.
+            // answers and unsure flags both start empty again. Reopened from
+            // history, this re-serves that attempt's exact question set.
             setSubmitted(null);
+            setReviewedAt(null);
             setStage("taking");
             window.scrollTo({ top: 0 });
           }}
+          onBack={
+            reviewedAt
+              ? attemptId
+                ? () => router.push("/history")
+                : () => {
+                    setSubmitted(null);
+                    setReviewedAt(null);
+                    setStage("setup");
+                    window.scrollTo({ top: 0 });
+                  }
+              : undefined
+          }
         />
       </div>
     );
@@ -117,6 +150,15 @@ export default function QuizPage() {
           onStart={(questions) => {
             setQuizQuestions(questions);
             setStage("taking");
+            window.scrollTo({ top: 0 });
+          }}
+          onViewAttempt={(attempt) => {
+            // The attempt carries its own copy of what it asked, so reopening
+            // it doesn't depend on those questions still being in the pool.
+            setQuizQuestions(attempt.questions);
+            setSubmitted({ answers: attempt.answers, unsureIds: attempt.unsureIds });
+            setReviewedAt(attempt.takenAt);
+            setStage("results");
             window.scrollTo({ top: 0 });
           }}
         />

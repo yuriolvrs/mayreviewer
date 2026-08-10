@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { getReviewer } from "@/app/lib/storage";
 import { deleteWarning, removeReviewerCompletely } from "@/app/lib/reviewers";
 import type { Reviewer } from "@/app/types";
@@ -21,12 +21,28 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "import-export", label: "Import/Export" },
 ];
 
+// useSearchParams (for the `?tab=` deep link) requires a Suspense boundary
+// around anything that calls it, or a production build fails.
 export default function ReviewerSpacePage() {
+  return (
+    <Suspense fallback={null}>
+      <ReviewerSpace />
+    </Suspense>
+  );
+}
+
+function ReviewerSpace() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [reviewer, setReviewer] = useState<Reviewer | null | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<Tab>("details");
+  // Lets a caller (new-reviewer creation) land directly on a tab other than
+  // Details — e.g. `?tab=upload` — instead of only ever opening here first.
+  const requestedTab = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState<Tab>(
+    TABS.some((t) => t.id === requestedTab) ? (requestedTab as Tab) : "details",
+  );
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   useEffect(() => {

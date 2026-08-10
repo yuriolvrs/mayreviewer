@@ -53,8 +53,10 @@ export default function Navbar() {
 
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-surface pl-16 pr-16">
-      <Link href="/" className="text-[19px] font-semibold text-text-primary hover:opacity-70">
-        pre, May Reviewer ka ba?
+      <Link href="/" className="text-[19px] hover:opacity-70">
+        <span className="font-normal text-text-primary">pre, </span>
+        <span className="font-semibold text-text-primary">May Reviewer</span>
+        <span className="font-normal text-text-primary"> ka ba?</span>
       </Link>
 
       <nav className="flex items-center gap-6">

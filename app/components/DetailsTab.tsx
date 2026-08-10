@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { updateReviewer } from "@/app/lib/storage";
+import { MAX_QUESTION_COUNT, MIN_QUESTION_COUNT } from "@/app/lib/questions";
 import type { Reviewer } from "@/app/types";
 
 export default function DetailsTab({
@@ -54,8 +55,14 @@ export default function DetailsTab({
       setError("Reviewer name is required.");
       return;
     }
-    if (!Number.isInteger(questionCount) || questionCount < 1 || questionCount > 50) {
-      setError("Questions to Generate must be a whole number between 1 and 50.");
+    if (
+      !Number.isInteger(questionCount) ||
+      questionCount < MIN_QUESTION_COUNT ||
+      questionCount > MAX_QUESTION_COUNT
+    ) {
+      setError(
+        `Questions to generate must be a whole number between ${MIN_QUESTION_COUNT} and ${MAX_QUESTION_COUNT}.`,
+      );
       return;
     }
 
@@ -167,8 +174,8 @@ export default function DetailsTab({
         <div>
           <input
             type="number"
-            min={1}
-            max={50}
+            min={MIN_QUESTION_COUNT}
+            max={MAX_QUESTION_COUNT}
             value={questionCount}
             onChange={(e) => setQuestionCount(e.target.valueAsNumber)}
             aria-label="Questions to generate"

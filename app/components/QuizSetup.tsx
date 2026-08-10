@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { QUESTION_TYPES, TYPE_LABELS, isPreformatted, sampleProportionally } from "@/app/lib/questions";
+import {
+  QUESTION_TYPES,
+  TYPE_LABELS,
+  formatTakenAt,
+  isPreformatted,
+  sampleProportionally,
+  scoreTone,
+} from "@/app/lib/questions";
 import type { FeedbackMode, Question, QuestionType, QuizAttempt, Reviewer } from "@/app/types";
 
 const FEEDBACK_OPTIONS: { value: FeedbackMode; label: string; hint: string }[] = [
@@ -22,6 +29,40 @@ const FEEDBACK_OPTIONS: { value: FeedbackMode; label: string; hint: string }[] =
 const SECONDS_PER_QUESTION = 30;
 const SECONDS_PER_PREFORMATTED_QUESTION = 60;
 
+function ChevronRightIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+      <path
+        d="M4 2l3 3-3 3"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// How this attempt moved against the one before it. Compared in percent rather
+// than raw score, since attempts can be run at different question counts.
+function Delta({ change }: { change: number }) {
+  const [arrow, tone, label] =
+    change > 0
+      ? ["↑", "text-success", "up"]
+      : change < 0
+        ? ["↓", "text-error", "down"]
+        : ["–", "text-text-tertiary", "unchanged"];
+
+  return (
+    <span
+      className={`text-[14px] ${tone}`}
+      title={`${Math.abs(change)}% ${label} from the previous attempt`}
+    >
+      {arrow} {Math.abs(change)}%
+    </span>
+  );
+}
+
 function estimatedMinutes(pool: Question[], count: number): number {
   if (pool.length === 0 || count === 0) return 0;
   const averageSeconds =
@@ -38,12 +79,14 @@ export default function QuizSetup({
   feedbackMode,
   onFeedbackModeChange,
   onStart,
+  onViewAttempt,
 }: {
   reviewer: Reviewer;
   history: QuizAttempt[];
   feedbackMode: FeedbackMode;
   onFeedbackModeChange: (mode: FeedbackMode) => void;
   onStart: (questions: Question[]) => void;
+  onViewAttempt: (attempt: QuizAttempt) => void;
 }) {
   // Empty means "all" — the chip row shows that as the All types chip.
   const [scopeTypes, setScopeTypes] = useState<QuestionType[]>([]);
@@ -184,20 +227,64 @@ export default function QuizSetup({
           </p>
         ) : (
           <ul className="mt-3 flex flex-col">
-            {history.map((attempt) => (
-              <li
-                key={attempt.id}
-                className="flex items-center justify-between border-t border-border py-3 text-[15px] last:border-b"
-              >
-                <span className="text-text-secondary">
-                  {new Date(attempt.takenAt).toLocaleString()}
-                </span>
-                <span className="text-text-primary">
-                  {attempt.score}/{attempt.total} (
-                  {Math.round((attempt.score / attempt.total) * 100)}%)
-                </span>
-              </li>
-            ))}
+            {/* History is newest-first, so an attempt's predecessor is the row
+                below it — and the last row has none to compare against. */}
+            {history.map((attempt, index) => {
+              const percent = Math.round((attempt.score / attempt.total) * 100);
+              const previous = history[index + 1];
+              const summary = (
+                <>
+                  <span className="text-text-secondary">{formatTakenAt(attempt.takenAt)}</span>
+                  {/* Delta and score travel together on the right, so the
+                      comparison reads against the number it qualifies. */}
+                  <span className="ml-auto flex items-center gap-3">
+                    {previous && (
+                      <Delta
+                        change={percent - Math.round((previous.score / previous.total) * 100)}
+                      />
+                    )}
+                    <span className={`font-medium ${scoreTone(percent)}`}>
+                      {attempt.score}/{attempt.total} ({percent}%)
+                    </span>
+                  </span>
+                </>
+              );
+
+              // Attempts recorded before answers were kept have nothing to
+              // reopen. Rendered as the same disabled <button> rather than a
+              // plain <div> — a second element with its own box model here
+              // previously threw off the horizontal alignment between
+              // reopenable and non-reopenable rows.
+              const reopenable = attempt.questions.length > 0;
+              return (
+                <li key={attempt.id} className="border-t border-border last:border-b">
+                  <button
+                    type="button"
+                    disabled={!reopenable}
+                    onClick={() => onViewAttempt(attempt)}
+                    title={reopenable ? "View these results" : undefined}
+                    // No -mx-N to bleed past: unlike the auto-width buttons
+                    // elsewhere in the app, this row is already full-width, so
+                    // negative margin here only shrank the hover fill instead
+                    // of extending it — plain padding is the whole row.
+                    className={`flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left text-[15px] ${
+                      reopenable ? "group hover:bg-surface-alt" : ""
+                    }`}
+                  >
+                    {summary}
+                    {/* Slot stays a fixed w-4 whether or not the chevron
+                        renders, so the score column never shifts. */}
+                    <span
+                      className={`w-4 shrink-0 text-text-tertiary ${
+                        reopenable ? "group-hover:text-text-primary" : ""
+                      }`}
+                    >
+                      {reopenable && <ChevronRightIcon />}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

@@ -5,6 +5,8 @@ import {
   isQuestion,
   isValidQuestionFields,
   optionLetter,
+  scoreTone,
+  dedupeQuestions,
   takeWithinBudget,
 } from "@/app/lib/questions";
 import type { Question } from "@/app/types";
@@ -180,5 +182,71 @@ describe("takeWithinBudget", () => {
   it("keeps the questions it returns in their original order", () => {
     const input = [...standalone(2), ...set("a", 3)];
     expect(takeWithinBudget(input, 5).map((q) => q.id)).toEqual(input.map((q) => q.id));
+  });
+});
+
+describe("scoreTone", () => {
+  it.each([
+    [0, "text-error"],
+    [49, "text-error"],
+    [50, "text-warning"],
+    [79, "text-warning"],
+    [80, "text-success"],
+    [100, "text-success"],
+  ])("maps %i%% to %s", (percent, tone) => {
+    expect(scoreTone(percent)).toBe(tone);
+  });
+});
+
+describe("dedupeQuestions", () => {
+  it("keeps distinct questions untouched", () => {
+    const input = [question({ id: "a", question: "What is a semaphore?" }), question({ id: "b", question: "What is a mutex?" })];
+    expect(dedupeQuestions(input)).toHaveLength(2);
+  });
+
+  // Large counts are generated in several passes over the same material, so
+  // the batches converge on the same obvious questions.
+  it("drops a repeat of the same question text", () => {
+    const input = [
+      question({ id: "a", question: "What is a semaphore?" }),
+      question({ id: "b", question: "What is a semaphore?" }),
+    ];
+    expect(dedupeQuestions(input).map((q) => q.id)).toEqual(["a"]);
+  });
+
+  it("ignores casing and whitespace differences", () => {
+    const input = [
+      question({ id: "a", question: "What is a semaphore?" }),
+      question({ id: "b", question: "  what   is a SEMAPHORE?  " }),
+    ];
+    expect(dedupeQuestions(input)).toHaveLength(1);
+  });
+
+  it("treats a repeat with reshuffled options as a duplicate", () => {
+    const input = [
+      question({ id: "a", question: "Shortest next burst?", options: ["FCFS", "SJF", "RR", "P"], correctIndex: 1 }),
+      question({ id: "b", question: "Shortest next burst?", options: ["SJF", "FCFS", "RR", "P"], correctIndex: 0 }),
+    ];
+    expect(dedupeQuestions(input)).toHaveLength(1);
+  });
+
+  // "Blank (3): what belongs here?" legitimately recurs across different code
+  // listings — dropping it would gut the second listing's set.
+  it("never drops questions belonging to a set", () => {
+    const input = [
+      question({ id: "a1", question: "Blank (1): what belongs here?", groupId: "set1", stimulus: "listing A" }),
+      question({ id: "b1", question: "Blank (1): what belongs here?", groupId: "set2", stimulus: "listing B" }),
+    ];
+    expect(dedupeQuestions(input)).toHaveLength(2);
+  });
+
+  it("preserves the order of what it keeps", () => {
+    const input = [
+      question({ id: "a", question: "First?" }),
+      question({ id: "b", question: "Second?" }),
+      question({ id: "c", question: "First?" }),
+      question({ id: "d", question: "Third?" }),
+    ];
+    expect(dedupeQuestions(input).map((q) => q.id)).toEqual(["a", "b", "d"]);
   });
 });

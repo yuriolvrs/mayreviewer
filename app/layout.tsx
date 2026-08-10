@@ -15,7 +15,7 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "pre, May Reviewer ka ba?",
+  title: "May Reviewer",
   description: "Turn your notes into a practice exam that matches your professor's question style.",
 };
 

@@ -560,7 +560,7 @@ export default function EditQuestionsTab({
                     />
                   ) : (
                     <>
-                      <div className="flex items-start justify-between gap-6">
+                      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
                         <span className="shrink-0 font-mono text-[13px] tracking-wide text-text-tertiary uppercase">
                           Question {number} of {total} · {TYPE_LABELS[question.type]} ·{" "}
                           {SOURCE_LABELS[question.source]}

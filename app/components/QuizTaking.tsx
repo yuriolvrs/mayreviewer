@@ -135,7 +135,7 @@ export default function QuizTaking({
                     id={`question-${question.id}`}
                     className={`scroll-mt-6 py-6 ${group.stimulus ? "border-t border-border" : ""}`}
                   >
-                <div className="flex items-baseline justify-between gap-6">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
                   <span className="font-mono text-[14px] font-bold tracking-wide text-text-primary">
                     {numbering.get(question.id)} of {questions.length}
                   </span>

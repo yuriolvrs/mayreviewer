@@ -82,12 +82,12 @@ export default function DetailsTab({
 
   return (
     <div className="flex flex-col">
-      <div className="grid grid-cols-[160px_1fr] gap-6 py-6">
+      <div className="grid grid-cols-1 gap-6 py-6 md:grid-cols-[160px_1fr]">
         <div>
           <p className="text-[15px] font-medium text-text-primary">Reviewer info</p>
           <p className="mt-1 text-[14px] text-text-secondary">Name and subject for this reviewer.</p>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className="flex flex-col gap-1.5">
             <span className="text-[14px] text-text-secondary">
               Reviewer name <span className="text-error">*</span>
@@ -119,14 +119,14 @@ export default function DetailsTab({
         </div>
       </div>
 
-      <div className="grid grid-cols-[160px_1fr] gap-6 border-t border-border py-6">
+      <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
         <div>
           <p className="text-[15px] font-medium text-text-primary">Topics</p>
           <p className="mt-1 text-[14px] text-text-secondary">
             Optional. Weights question generation toward these topics.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-3">
+        <div className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2">
           {topics.map((topic, index) => {
             const showOverlay = Boolean(topic) && focusedTopic !== index;
             return (
@@ -172,7 +172,7 @@ export default function DetailsTab({
         </div>
       </div>
 
-      <div className="grid grid-cols-[160px_1fr] gap-6 border-t border-border py-6">
+      <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
         <div>
           <p className="text-[15px] font-medium text-text-primary">Question count</p>
           <p className="mt-1 text-[14px] text-text-secondary">How many questions to generate.</p>

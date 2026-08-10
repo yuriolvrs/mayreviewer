@@ -19,6 +19,7 @@ export default function DetailsTab({
   const [topics, setTopics] = useState<string[]>(reviewer.topics.length ? reviewer.topics : [""]);
   const [questionCount, setQuestionCount] = useState(reviewer.questionCount);
   const [error, setError] = useState("");
+  const [nameError, setNameError] = useState(false);
   const [savedMessage, setSavedMessage] = useState(false);
   // Browsers don't render text-overflow:ellipsis inside <input>, so an unfocused
   // topic is drawn as a real element on top of the (text-transparent) input.
@@ -52,7 +53,7 @@ export default function DetailsTab({
   function handleSave() {
     const trimmed = name.trim();
     if (!trimmed) {
-      setError("Reviewer name is required.");
+      setNameError(true);
       return;
     }
     if (
@@ -88,17 +89,22 @@ export default function DetailsTab({
         </div>
         <div className="grid grid-cols-2 gap-4">
           <label className="flex flex-col gap-1.5">
-            <span className="text-[14px] text-text-secondary">Reviewer name</span>
+            <span className="text-[14px] text-text-secondary">
+              Reviewer name <span className="text-error">*</span>
+            </span>
             <input
               type="text"
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
-                if (error) setError("");
+                if (nameError) setNameError(false);
               }}
               placeholder="e.g. CPU Scheduling"
-              className="h-11 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+              className={`h-11 rounded-lg border px-3 text-text-primary outline-none focus:ring-2 focus:ring-accent/20 ${
+                nameError ? "border-error focus:border-error" : "border-border focus:border-accent"
+              }`}
             />
+            {nameError && <span className="text-[13px] text-error">Reviewer name is required.</span>}
           </label>
           <label className="flex flex-col gap-1.5">
             <span className="text-[14px] text-text-secondary">Subject (optional)</span>

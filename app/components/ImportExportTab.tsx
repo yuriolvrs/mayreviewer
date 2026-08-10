@@ -1,31 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
+import { zipSync, strToU8 } from "fflate";
 import { updateReviewer } from "@/app/lib/storage";
-import { isQuestion } from "@/app/lib/questions";
-import { getAttachments, addAttachment, type AttachmentField } from "@/app/lib/attachments";
+import { getAttachments, addAttachment } from "@/app/lib/attachments";
+import { parseReviewerFile, type AttachmentManifestEntry, type ParsedAttachment } from "@/app/lib/reviewerFile";
 import type { Question, Reviewer } from "@/app/types";
-
-type AttachmentManifestEntry = {
-  id: string;
-  field: AttachmentField;
-  name: string;
-  mimeType: string;
-  path: string;
-};
-
-function isAttachmentManifestEntry(value: unknown): value is AttachmentManifestEntry {
-  if (typeof value !== "object" || value === null) return false;
-  const v = value as Record<string, unknown>;
-  return (
-    typeof v.id === "string" &&
-    (v.field === "notes" || v.field === "project") &&
-    typeof v.name === "string" &&
-    typeof v.mimeType === "string" &&
-    typeof v.path === "string"
-  );
-}
 
 type ExportedReviewer = {
   reviewerName: string;
@@ -33,6 +13,7 @@ type ExportedReviewer = {
   topics: string[];
   notes: string;
   projectMaterial: string;
+  questionCount: number;
   questions: Question[];
   createdAt: string;
   attachments?: AttachmentManifestEntry[];
@@ -45,8 +26,6 @@ function zipSafeName(name: string): string {
   return name.replace(/[/\\]/g, "_");
 }
 
-type PendingAttachment = AttachmentManifestEntry & { data: Uint8Array };
-
 // A parsed, validated file waiting on the user's confirmation — nothing is
 // written to the Reviewer until they press Merge.
 type PendingImport = {
@@ -55,9 +34,10 @@ type PendingImport = {
   questions: Question[];
   newQuestions: Question[];
   totalAttachments: number;
-  newAttachments: PendingAttachment[];
+  newAttachments: ParsedAttachment[];
   topics: string[];
   newTopics: string[];
+  questionCount: number;
 };
 
 export default function ImportExportTab({
@@ -91,6 +71,7 @@ export default function ImportExportTab({
       topics: reviewer.topics,
       notes: reviewer.notes,
       projectMaterial: reviewer.projectMaterial,
+      questionCount: reviewer.questionCount,
       questions: reviewer.questions,
       createdAt: reviewer.createdAt,
     };
@@ -116,6 +97,7 @@ export default function ImportExportTab({
         topics: reviewer.topics,
         notes: reviewer.notes,
         projectMaterial: reviewer.projectMaterial,
+        questionCount: reviewer.questionCount,
         questions: reviewer.questions,
         createdAt: reviewer.createdAt,
         attachments: manifest,
@@ -142,45 +124,12 @@ export default function ImportExportTab({
     setMessage(null);
     setPending(null);
 
-    const isArchive = file.name.toLowerCase().endsWith(".zip");
-    let reviewerJsonText: string;
-    let zipEntries: Record<string, Uint8Array> | null = null;
-
-    if (isArchive) {
-      try {
-        zipEntries = unzipSync(new Uint8Array(await file.arrayBuffer()));
-      } catch {
-        setMessage({ text: "Couldn't read that file as a valid .zip archive.", isError: true });
-        return;
-      }
-      const reviewerEntry = zipEntries["reviewer.json"];
-      if (!reviewerEntry) {
-        setMessage({ text: "That archive doesn't contain a reviewer.json.", isError: true });
-        return;
-      }
-      reviewerJsonText = strFromU8(reviewerEntry);
-    } else {
-      reviewerJsonText = await file.text();
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(reviewerJsonText);
-    } catch {
-      setMessage({ text: "Couldn't parse that file as valid JSON.", isError: true });
+    const result = await parseReviewerFile(file);
+    if (!result.ok) {
+      setMessage({ text: result.error, isError: true });
       return;
     }
-
-    // `parsed` can be any JSON value here — including null, which would throw
-    // on a property read outside the try above.
-    const questions =
-      typeof parsed === "object" && parsed !== null
-        ? (parsed as { questions?: unknown }).questions
-        : undefined;
-    if (!Array.isArray(questions) || !questions.every(isQuestion)) {
-      setMessage({ text: "That file doesn't look like a valid Reviewer export.", isError: true });
-      return;
-    }
+    const { fileName, isArchive, questions, topics, attachments, questionCount } = result.data;
 
     const existingIds = new Set(reviewer.questions.map((q) => q.id));
     const newQuestions = questions.filter((q) => !existingIds.has(q.id));
@@ -188,40 +137,22 @@ export default function ImportExportTab({
     // Topics merge the same way questions do — added to, never overwritten,
     // so re-importing the same file (or one from a classmate) can only grow
     // this reviewer's topic list, not replace it.
-    const topicsRaw =
-      typeof parsed === "object" && parsed !== null
-        ? (parsed as { topics?: unknown }).topics
-        : undefined;
-    const topics = Array.isArray(topicsRaw) ? topicsRaw.filter((t): t is string => typeof t === "string") : [];
     const existingTopics = new Set(reviewer.topics);
     const newTopics = topics.filter((t) => !existingTopics.has(t));
 
-    let totalAttachments = 0;
-    let newAttachments: PendingAttachment[] = [];
-    if (zipEntries) {
-      const manifestRaw =
-        typeof parsed === "object" && parsed !== null
-          ? (parsed as { attachments?: unknown }).attachments
-          : undefined;
-      const manifest = Array.isArray(manifestRaw) ? manifestRaw.filter(isAttachmentManifestEntry) : [];
-      totalAttachments = manifest.length;
-
-      const existingAttachmentIds = new Set((await getAttachments(reviewer.id)).map((a) => a.id));
-      const entries = zipEntries;
-      newAttachments = manifest
-        .filter((m) => !existingAttachmentIds.has(m.id) && entries[m.path])
-        .map((m) => ({ ...m, data: entries[m.path] }));
-    }
+    const existingAttachmentIds = new Set((await getAttachments(reviewer.id)).map((a) => a.id));
+    const newAttachments = attachments.filter((a) => !existingAttachmentIds.has(a.id));
 
     setPending({
-      fileName: file.name,
+      fileName,
       isArchive,
       questions,
       newQuestions,
-      totalAttachments,
+      totalAttachments: attachments.length,
       newAttachments,
       topics,
       newTopics,
+      questionCount,
     });
   }
 
@@ -351,6 +282,15 @@ export default function ImportExportTab({
                     <dt className="text-text-secondary">Topics in file</dt>
                     <dd className="text-text-primary">
                       {pending.topics.length} ({pending.newTopics.length} new)
+                    </dd>
+                  </div>
+                )}
+                {pending.questionCount !== reviewer.questionCount && (
+                  <div className="flex gap-2">
+                    <dt className="text-text-secondary">Questions to generate (in file)</dt>
+                    <dd className="text-text-primary">
+                      {pending.questionCount}{" "}
+                      <span className="text-text-tertiary">(currently {reviewer.questionCount})</span>
                     </dd>
                   </div>
                 )}

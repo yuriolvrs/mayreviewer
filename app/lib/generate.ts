@@ -20,6 +20,7 @@ export async function generateQuestions(
   types: QuestionType[],
   onProgress: (progress: GenerationProgress) => void,
   countByType: Record<QuestionType, number>,
+  signal?: AbortSignal,
 ): Promise<{ questions: Question[]; failures: GenerationFailure[] }> {
   const rawAttachments = await getAttachments(reviewer.id);
   // Uploaded straight to Blob storage from the browser — Vercel Functions cap
@@ -36,8 +37,11 @@ export async function generateQuestions(
     }),
   );
 
+  // Aborting also errors the response body stream, so the read loop below
+  // unwinds on cancel rather than sitting on a half-read NDJSON stream.
   const res = await fetch("/api/generate", {
     method: "POST",
+    signal,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       subject: reviewer.subject,

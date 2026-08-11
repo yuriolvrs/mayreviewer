@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { updateReviewer } from "@/app/lib/storage";
 import {
   QUESTION_SOURCES,
@@ -16,6 +16,7 @@ import {
   type GenerationProgress,
 } from "@/app/lib/generate";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
+import GenerationModal from "@/app/components/GenerationModal";
 import type { Question, QuestionSource, QuestionType, Reviewer } from "@/app/types";
 
 const TYPE_FILTERS: ("all" | QuestionType)[] = ["all", ...QUESTION_TYPES];
@@ -332,12 +333,19 @@ export default function QuestionsTab({
   const [selected, setSelected] = useState<string[]>([]);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
 
-  const [generating, setGenerating] = useState(false);
+  // The modal is the generation UI: "loading" while the stream runs, "success"
+  // once the pool is written, null the rest of the time.
+  const [genState, setGenState] = useState<"loading" | "success" | null>(null);
   const [progress, setProgress] = useState<GenerationProgress | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [failures, setFailures] = useState<GenerationFailure[]>([]);
   const [addedCount, setAddedCount] = useState<number | null>(null);
+  const [cancelled, setCancelled] = useState(false);
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const cancelledRef = useRef(false);
+
+  const generating = genState === "loading";
 
   const total = reviewer.questions.length;
   // Numbering follows stored order, so a question keeps its number no matter
@@ -430,11 +438,15 @@ export default function QuestionsTab({
   }
 
   async function runGeneration() {
-    setGenerating(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    cancelledRef.current = false;
+    setGenState("loading");
     setProgress(null);
     setGenerateError(null);
     setFailures([]);
     setAddedCount(null);
+    setCancelled(false);
     try {
       // The per-type counts are the request: a 0 means "none of these", so the
       // type list is narrowed to match rather than letting the server fall
@@ -446,19 +458,37 @@ export default function QuestionsTab({
         QUESTION_TYPES.filter((t) => byType[t] > 0),
         setProgress,
         byType,
+        controller.signal,
       );
+      // A cancel that lands in the gap between the stream finishing and this
+      // line still counts as a cancel — nothing gets written behind the user.
+      if (cancelledRef.current) return;
       // Written on completion, not before, so a failed generation leaves the
       // existing questions intact.
       updateReviewer(reviewer.id, { questions: result.questions });
       onChanged();
       setAddedCount(result.questions.length);
       setFailures(result.failures);
+      setGenState("success");
     } catch (err) {
+      if (cancelledRef.current) return;
       setGenerateError(err instanceof Error ? err.message : "Generation failed.");
-    } finally {
-      setGenerating(false);
+      setGenState(null);
       setProgress(null);
     }
+  }
+
+  // Questions only reach the client in the stream's final message, so there is
+  // never a partial pool to keep: cancelling discards the run outright and
+  // leaves whatever questions the reviewer already had untouched. The dialog
+  // closes immediately rather than waiting on the in-flight request, which may
+  // still be uploading attachments and can't be interrupted mid-upload.
+  function cancelGeneration() {
+    cancelledRef.current = true;
+    abortRef.current?.abort();
+    setGenState(null);
+    setProgress(null);
+    setCancelled(true);
   }
 
   function toggleSelected(id: string) {
@@ -525,33 +555,13 @@ export default function QuestionsTab({
         </button>
       </div>
 
-      {generating && (
-        <div className="rounded-lg border border-border bg-surface-alt px-4 py-3">
-          <p className="text-[15px] text-text-secondary">
-            {progress
-              ? `Generating questions… ${progress.completed} of ${progress.total} source${
-                  progress.total === 1 ? "" : "s"
-                }`
-              : "Generating questions…"}
-          </p>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface">
-            <div
-              className="h-full rounded-full bg-accent transition-all duration-300"
-              style={{
-                width: progress ? `${Math.round((progress.completed / progress.total) * 100)}%` : "0%",
-              }}
-            />
-          </div>
-        </div>
-      )}
-
       {!generating && generateError && (
         <p className="text-[15px] text-error">{generateError}</p>
       )}
 
-      {!generating && addedCount !== null && (
-        <p className="text-[15px] text-success">
-          {addedCount} question{addedCount === 1 ? "" : "s"} generated.
+      {cancelled && (
+        <p className="text-[15px] text-text-secondary">
+          Generation cancelled — your questions are unchanged.
         </p>
       )}
 
@@ -836,6 +846,16 @@ export default function QuestionsTab({
           })}
           </ul>
         </>
+      )}
+
+      {genState && (
+        <GenerationModal
+          state={genState}
+          progress={progress}
+          count={addedCount ?? 0}
+          onCancel={cancelGeneration}
+          onDone={() => setGenState(null)}
+        />
       )}
 
       {confirmOverwrite && (

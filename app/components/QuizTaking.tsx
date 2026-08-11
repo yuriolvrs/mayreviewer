@@ -103,6 +103,18 @@ export default function QuizTaking({
   return (
     <div className="flex gap-10">
       <div className="min-w-0 flex-1">
+        <div className="mb-4 flex items-center justify-between gap-3 lg:hidden">
+          <p className="text-[14px] text-text-secondary">
+            {answeredCount} of {questions.length} answered
+          </p>
+          <button
+            type="button"
+            onClick={() => setConfirmCancelOpen(true)}
+            className="shrink-0 rounded-lg border border-error px-2.5 py-1 text-[14px] font-medium text-error hover:bg-error-subtle"
+          >
+            Cancel quiz
+          </button>
+        </div>
         <div className="flex flex-col">
           {groups.map((group) => (
             <section key={group.key} className="border-t border-border last:border-b">

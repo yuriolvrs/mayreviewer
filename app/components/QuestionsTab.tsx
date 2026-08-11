@@ -14,6 +14,7 @@ import {
   generateQuestions,
   type GenerationFailure,
   type GenerationProgress,
+  type VerificationSummary,
 } from "@/app/lib/generate";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
 import GenerationModal from "@/app/components/GenerationModal";
@@ -239,7 +240,7 @@ function QuestionEditor({
                 setDraft({ ...draft, correctIndex: i });
               }}
               className="accent-success"
-              aria-label={`Mark option ${i + 1} correct`}
+              aria-label={`Mark option ${optionLetter(i)} correct`}
             />
             <input
               type="text"
@@ -251,7 +252,7 @@ function QuestionEditor({
                 })
               }
               placeholder={`Option ${optionLetter(i)}`}
-              aria-label={`Option ${i + 1}`}
+              aria-label={`Option ${optionLetter(i)}`}
               className="h-10 flex-1 rounded-lg border border-border bg-surface px-3 text-[15px] text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
             />
             {isCorrect(i) && (
@@ -266,7 +267,7 @@ function QuestionEditor({
                 type="button"
                 onClick={() => removeOption(i)}
                 title="Remove option"
-                aria-label={`Remove option ${i + 1}`}
+                aria-label={`Remove option ${optionLetter(i)}`}
                 className="shrink-0 text-text-tertiary hover:text-error"
               >
                 ✕
@@ -339,6 +340,7 @@ export default function QuestionsTab({
   const [progress, setProgress] = useState<GenerationProgress | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [failures, setFailures] = useState<GenerationFailure[]>([]);
+  const [verified, setVerified] = useState<VerificationSummary | null>(null);
   const [addedCount, setAddedCount] = useState<number | null>(null);
   const [cancelled, setCancelled] = useState(false);
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
@@ -445,6 +447,7 @@ export default function QuestionsTab({
     setProgress(null);
     setGenerateError(null);
     setFailures([]);
+    setVerified(null);
     setAddedCount(null);
     setCancelled(false);
     try {
@@ -469,6 +472,7 @@ export default function QuestionsTab({
       onChanged();
       setAddedCount(result.questions.length);
       setFailures(result.failures);
+      setVerified(result.verified);
       setGenState("success");
     } catch (err) {
       if (cancelledRef.current) return;
@@ -573,6 +577,14 @@ export default function QuestionsTab({
             </li>
           ))}
         </ul>
+      )}
+
+      {!generating && verified && (verified.corrected > 0 || verified.dropped > 0) && (
+        <p className="text-[14px] text-text-secondary">
+          Answer check: {verified.corrected > 0 && `fixed ${verified.corrected} wrong answer${verified.corrected === 1 ? "" : "s"}`}
+          {verified.corrected > 0 && verified.dropped > 0 && ", "}
+          {verified.dropped > 0 && `dropped ${verified.dropped} unanswerable question${verified.dropped === 1 ? "" : "s"}`}.
+        </p>
       )}
 
       {/* Two groups rather than one long wrapping run of controls: below `sm`

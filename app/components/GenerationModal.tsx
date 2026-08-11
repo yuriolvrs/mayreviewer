@@ -96,15 +96,16 @@ export default function GenerationModal({
               ? "Generating questions"
               : `${count} question${count === 1 ? "" : "s"} generated`}
           </h2>
-          <p className="mt-1 text-[15px] text-text-secondary">
-            {loading
-              ? "This may take a minute. Stay on this page."
-              : "They're ready in the list below — edit or delete any of them."}
-          </p>
+          {loading && (
+            <p className="mt-1 text-[15px] text-text-secondary">
+              This may take a minute. Stay on this page.
+            </p>
+          )}
           {loading && progress && (
             <p className="mt-1 text-[14px] text-text-tertiary">
-              {progress.completed} of {progress.total} source
-              {progress.total === 1 ? "" : "s"} processed
+              {progress.stage === "verify"
+                ? "Double-checking answers…"
+                : `${progress.completed} of ${progress.total} source${progress.total === 1 ? "" : "s"} processed`}
             </p>
           )}
         </div>

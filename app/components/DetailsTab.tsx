@@ -40,6 +40,8 @@ export default function DetailsTab({
   const [countByType, setCountByType] = useState(reviewer.questionCountByType);
   const [error, setError] = useState("");
   const [nameError, setNameError] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // Browsers don't render text-overflow:ellipsis inside <input>, so an unfocused
   // topic is drawn as a real element on top of the (text-transparent) input.
   const [focusedTopic, setFocusedTopic] = useState<number | null>(null);
@@ -109,6 +111,7 @@ export default function DetailsTab({
         saveNowRef.current();
         onSavedRef.current();
       }
+      clearTimeout(savedTimer.current);
     },
     [],
   );
@@ -191,13 +194,16 @@ export default function DetailsTab({
       questionCountByType: countByType,
     });
     onSaved();
+    setJustSaved(true);
+    clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => setJustSaved(false), 2000);
   }
 
   return (
     // The bar is fixed, so the tab reserves its height as scrollable slack —
     // enough that the last field can always be scrolled clear of it. It's
     // taller on mobile, where the bar's contents stack.
-    <div className={`flex flex-col ${dirty ? "pb-36 sm:pb-24" : ""}`}>
+    <div className={`flex flex-col ${dirty || justSaved ? "pb-36 sm:pb-24" : ""}`}>
       <div className="grid grid-cols-1 gap-6 py-6 md:grid-cols-[160px_1fr]">
         <div>
           <p className="text-[15px] font-medium text-text-primary">Reviewer info</p>
@@ -323,39 +329,45 @@ export default function DetailsTab({
 
       {/* Fixed rather than sticky: the actions stay reachable from anywhere on
           a long Details tab, not just once its end scrolls into view. */}
-      {dirty && (
+      {(dirty || justSaved) && (
         <div className="fixed inset-x-0 bottom-0 z-40">
           {/* Mirrors the page wrapper's own `max-w-4xl px-6` so the bar's edges
               land on the same line as the dividers and inputs above it. */}
           <div className="mx-auto w-full max-w-4xl px-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
-            {/* Stacked below `sm`: side by side, the message gets squeezed to a
-                few characters per line by the two buttons and the bar grows
-                taller than the stacked version it's avoiding. */}
-            <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface px-5 py-4 shadow-menu sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              {/* A failed save leaves the bar up, so its own status line is the
-                  only place a validation message is certain to be seen. */}
-              <span className={`text-[15px] ${error ? "text-error" : "text-text-secondary"}`}>
-                {error || "You have unsaved changes"}
-              </span>
-              <div className="flex shrink-0 items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={resetFields}
-                  className="rounded-lg px-4 py-2.5 text-[15px] font-medium text-text-secondary hover:bg-surface-alt hover:text-text-primary"
-                >
-                  Discard
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={!name.trim()}
-                  title={name.trim() ? undefined : "Reviewer name is required"}
-                  className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-white enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Save details
-                </button>
+            {dirty ? (
+              // Stacked below `sm`: side by side, the message gets squeezed to a
+              // few characters per line by the two buttons and the bar grows
+              // taller than the stacked version it's avoiding.
+              <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface px-5 py-4 shadow-menu sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                {/* A failed save leaves the bar up, so its own status line is the
+                    only place a validation message is certain to be seen. */}
+                <span className={`text-[15px] ${error ? "text-error" : "text-text-secondary"}`}>
+                  {error || "You have unsaved changes"}
+                </span>
+                <div className="flex shrink-0 items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={resetFields}
+                    className="rounded-lg px-4 py-2.5 text-[15px] font-medium text-text-secondary hover:bg-surface-alt hover:text-text-primary"
+                  >
+                    Discard
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={!name.trim()}
+                    title={name.trim() ? undefined : "Reviewer name is required"}
+                    className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-white enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Save details
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex items-center justify-end rounded-lg border border-border bg-surface px-5 py-4 shadow-menu">
+                <span className="text-[15px] text-success">✓ Saved</span>
+              </div>
+            )}
           </div>
         </div>
       )}

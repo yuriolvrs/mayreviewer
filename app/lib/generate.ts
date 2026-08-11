@@ -7,12 +7,30 @@ import type { Question, QuestionType, Reviewer } from "@/app/types";
 // progress back as it arrives. Lives here rather than in a component so the
 // Questions tab only has to own the UI state (button label, progress bar).
 
-export type GenerationProgress = { completed: number; total: number; label: string };
+export type GenerationProgress = {
+  completed: number;
+  total: number;
+  label: string;
+  stage?: "verify";
+};
 export type GenerationFailure = { label: string; reason: string };
+export type VerificationSummary = { corrected: number; dropped: number };
 
 type StreamMessage =
-  | { type: "progress"; phase: "start" | "done"; label: string; completed: number; total: number }
-  | { type: "done"; questions: Question[]; failures: GenerationFailure[] };
+  | {
+      type: "progress";
+      phase: "start" | "done";
+      label: string;
+      completed: number;
+      total: number;
+      stage?: "verify";
+    }
+  | {
+      type: "done";
+      questions: Question[];
+      failures: GenerationFailure[];
+      verified: VerificationSummary;
+    };
 
 export async function generateQuestions(
   reviewer: Reviewer,
@@ -21,7 +39,7 @@ export async function generateQuestions(
   onProgress: (progress: GenerationProgress) => void,
   countByType: Record<QuestionType, number>,
   signal?: AbortSignal,
-): Promise<{ questions: Question[]; failures: GenerationFailure[] }> {
+): Promise<{ questions: Question[]; failures: GenerationFailure[]; verified: VerificationSummary }> {
   const rawAttachments = await getAttachments(reviewer.id);
   // Uploaded straight to Blob storage from the browser — Vercel Functions cap
   // request bodies at 4.5MB, far below what a PDF set can reach, so the
@@ -64,7 +82,8 @@ export async function generateQuestions(
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  let result: { questions: Question[]; failures: GenerationFailure[] } | null = null;
+  let result: { questions: Question[]; failures: GenerationFailure[]; verified: VerificationSummary } | null =
+    null;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -81,9 +100,10 @@ export async function generateQuestions(
           completed: message.completed,
           total: message.total,
           label: message.label,
+          stage: message.stage,
         });
       } else if (message.type === "done") {
-        result = { questions: message.questions, failures: message.failures };
+        result = { questions: message.questions, failures: message.failures, verified: message.verified };
       }
     }
   }

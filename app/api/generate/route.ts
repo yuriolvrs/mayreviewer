@@ -270,6 +270,12 @@ ${standaloneDescriptions.map((d, i) => `${i + 1}. ${d}`).join("\n")}`;
     on its own line, with indentation preserved. Put ${setSize("code")} blanks inline as
     ___(1)___, ___(2)___, … numbered in reading order. A blank may span a parameter
     list, a whole statement, a function name, a type, or a keyword.
+  The listing must stay long enough that it never turns into a fill-in-the-blank grid —
+    keep at least 3 lines of intact, readable code between consecutive blanks (more
+    where the blank needs surrounding context to be inferable at all), even if that
+    means writing a longer function than the minimal one that would fit the blank count.
+    A reader scanning the listing should still be able to tell what the program does
+    without resolving a single blank.
   Every blank must be derivable from the listing itself — the syntax, type, or library
     call the surrounding code forces, or what the algorithm must do at that step. Never
     blank out a config setting or tunable (quantum, process count, seed, limits) — those
@@ -335,9 +341,16 @@ for this course but absent from the material is off limits — this outranks the
 above, so return fewer questions rather than reaching outside it. Never write a question
 about semaphores; they are not on this exam.
 
+Before finalizing a question with a computed answer (an average, a total, a time), do the
+computation, confirm the result exactly matches one of the four options, and only then write
+the question — never publish one whose worked answer isn't among its own options, and never
+let a wrong option be the one you'd actually compute.
+
 Every question also needs an "explanation": 1-2 sentences saying why the correct option is
 correct. Write it so it stands alone (the student reads it after answering, not while looking
-at the question) — reference the specific value/reasoning, not just "because it's right".
+at the question) — reference the specific value/reasoning, not just "because it's right". State
+the derivation directly and only once, as a finished result — never show hesitation,
+recalculation, or self-correction ("wait", "let me re-check", "re-evaluating") in the text.
 
 Every question also needs a "whyOthersWrong": 1-2 more sentences, about as long as the
 "explanation", ruling out the other options. Name each wrong option and say what it actually
@@ -475,12 +488,14 @@ type ProgressMessage = {
   ok?: boolean;
   count?: number;
   reason?: string;
+  stage?: "verify";
 };
 
 type DoneMessage = {
   type: "done";
   questions: Question[];
   failures: { label: string; reason: string }[];
+  verified: { corrected: number; dropped: number };
 };
 
 function truncate(text: string, max: number): string {
@@ -584,6 +599,188 @@ async function callGemini(
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Generation request failed." };
   }
+}
+
+// A second pass over the finished batch: each question is re-solved from
+// scratch and checked against what was marked correct, catching the model's
+// own arithmetic slips (a computed average that isn't one of its own four
+// options) before the student ever sees them. Chunked like generation itself,
+// so a 200-question batch doesn't go into one call.
+const VERIFY_CHUNK_SIZE = 25;
+const VERIFY_SCHEMA = {
+  type: "object",
+  properties: {
+    results: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          index: { type: "integer" },
+          verdict: { type: "string", enum: ["correct", "wrong", "drop"] },
+          correctIndex: { type: "integer" },
+        },
+        required: ["index", "verdict"],
+      },
+    },
+  },
+  required: ["results"],
+} as const;
+
+const OPTION_LETTERS = ["A", "B", "C", "D"];
+
+// Units, not questions, are what get packed into a chunk — a set's blanks
+// share one stimulus and must stay together so the model sees the whole
+// problem, never split across two calls that each only see half of it.
+function verifyUnits(questions: Question[]): number[][] {
+  const units: number[][] = [];
+  const unitByGroup = new Map<string, number>();
+  questions.forEach((q, i) => {
+    if (q.groupId) {
+      const existing = unitByGroup.get(q.groupId);
+      if (existing !== undefined) {
+        units[existing].push(i);
+        return;
+      }
+      unitByGroup.set(q.groupId, units.length);
+    }
+    units.push([i]);
+  });
+  return units;
+}
+
+function verifyChunks(questions: Question[]): number[][] {
+  const chunks: number[][] = [];
+  let current: number[] = [];
+  for (const unit of verifyUnits(questions)) {
+    if (current.length > 0 && current.length + unit.length > VERIFY_CHUNK_SIZE) {
+      chunks.push(current);
+      current = [];
+    }
+    current.push(...unit);
+  }
+  if (current.length > 0) chunks.push(current);
+  return chunks;
+}
+
+function renderVerifyBlock(questions: Question[], indices: number[]): string {
+  const blocks: string[] = [];
+  let lastGroupId: string | undefined;
+  for (const i of indices) {
+    const q = questions[i];
+    if (q.groupId && q.groupId !== lastGroupId) {
+      blocks.push(`Problem (${q.groupTitle ?? "set"}):\n${q.stimulus ?? ""}`);
+    }
+    lastGroupId = q.groupId;
+    blocks.push(
+      `[${i}] ${q.question}\n` +
+        q.options.map((opt, oi) => `  ${OPTION_LETTERS[oi]}) ${opt}`).join("\n") +
+        `\n  Marked correct: ${OPTION_LETTERS[q.correctIndex]}`,
+    );
+  }
+  return blocks.join("\n\n");
+}
+
+type VerifyVerdict = { index: number; verdict: "correct" | "wrong" | "drop"; correctIndex?: number };
+
+async function verifyChunk(
+  ai: GoogleGenAI,
+  questions: Question[],
+  indices: number[],
+): Promise<VerifyVerdict[]> {
+  const prompt = `You are fact-checking already-written multiple-choice exam questions. For EACH
+question below, work out the correct answer yourself from the information given — don't just
+trust the "Marked correct" label, actually recompute or re-derive it — then report a verdict
+for that question's [index]:
+- "correct" — the marked option is genuinely right.
+- "wrong" — a different option is actually right. Include "correctIndex" (0-3) for it.
+- "drop" — none of the four options is right, or the question can't be answered from the
+  information given.
+
+${renderVerifyBlock(questions, indices)}`;
+
+  const response = await withRetry(() =>
+    ai.models.generateContent({
+      model: MODEL,
+      contents: createUserContent([prompt]),
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION,
+        responseMimeType: "application/json",
+        responseSchema: VERIFY_SCHEMA,
+      },
+    }),
+  );
+
+  const text = response.text;
+  if (!text) return [];
+  try {
+    const parsed = JSON.parse(text) as { results?: unknown };
+    if (!Array.isArray(parsed.results)) return [];
+    return parsed.results.filter((r): r is VerifyVerdict => {
+      if (typeof r !== "object" || r === null) return false;
+      const v = r as Record<string, unknown>;
+      return (
+        typeof v.index === "number" &&
+        (v.verdict === "correct" || v.verdict === "wrong" || v.verdict === "drop")
+      );
+    });
+  } catch {
+    return [];
+  }
+}
+
+// Corrections are applied everywhere a verdict disagrees; drops only apply to
+// standalone questions. Removing one question from a Timeline/Code set would
+// shift every blank number after it out of sync with the stimulus markers it
+// still displays, so a set member the model can't verify is left as-is rather
+// than pulled — a wrong answer on one blank beats silently corrupting the rest
+// of the set's numbering.
+async function verifyQuestions(
+  ai: GoogleGenAI,
+  questions: Question[],
+): Promise<{ questions: Question[]; corrected: number; dropped: number }> {
+  const chunks = verifyChunks(questions);
+  const next = [...questions];
+  const toDrop = new Set<number>();
+  let corrected = 0;
+
+  await runWithConcurrency(chunks, SOURCE_CONCURRENCY, async (indices) => {
+    let results: VerifyVerdict[];
+    try {
+      results = await verifyChunk(ai, questions, indices);
+    } catch {
+      return; // Fail open — this chunk ships as originally generated.
+    }
+    const allowed = new Set(indices);
+    for (const r of results) {
+      if (!allowed.has(r.index)) continue;
+      const q = questions[r.index];
+      if (!q) continue;
+      if (r.verdict === "wrong" && typeof r.correctIndex === "number" && r.correctIndex >= 0 && r.correctIndex <= 3) {
+        next[r.index] = { ...q, correctIndex: r.correctIndex };
+        corrected++;
+      } else if (r.verdict === "drop" && !q.groupId) {
+        toDrop.add(r.index);
+      }
+    }
+  });
+
+  return { questions: next.filter((_, i) => !toDrop.has(i)), corrected, dropped: toDrop.size };
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(fallback);
+      },
+    );
+  });
 }
 
 async function generateChunked(
@@ -717,6 +914,7 @@ async function runWithConcurrency<T>(
 }
 
 export async function POST(request: Request) {
+  const startedAt = Date.now();
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return Response.json({ error: "Server is missing GEMINI_API_KEY." }, { status: 500 });
@@ -874,7 +1072,27 @@ export async function POST(request: Request) {
         }
       });
 
-      send({ type: "done", questions, failures });
+      // Bounded by whatever's left of the Function's own time limit, with a
+      // safety margin for the final send — a verification pass that ran long
+      // would otherwise risk the platform killing the invocation before the
+      // already-generated questions ever reached the client. Falling back to
+      // the unverified batch is strictly better than losing the run.
+      const budgetMs = maxDuration * 1000 - (Date.now() - startedAt) - 5000;
+      let finalQuestions = questions;
+      let verified = { corrected: 0, dropped: 0 };
+      if (questions.length > 0 && budgetMs > 5000) {
+        send({ type: "progress", phase: "start", label: "Verifying answers", completed: 0, total: 1, stage: "verify" });
+        const result = await withTimeout(verifyQuestions(ai, questions), budgetMs, {
+          questions,
+          corrected: 0,
+          dropped: 0,
+        });
+        finalQuestions = result.questions;
+        verified = { corrected: result.corrected, dropped: result.dropped };
+        send({ type: "progress", phase: "done", label: "Verifying answers", completed: 1, total: 1, stage: "verify" });
+      }
+
+      send({ type: "done", questions: finalQuestions, failures, verified });
       controller.close();
     },
   });

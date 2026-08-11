@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getQuizHistory, getReviewer, saveQuizAttempt } from "@/app/lib/storage";
+import { shuffleOptions } from "@/app/lib/questions";
 import type { FeedbackMode, Question, QuizAttempt, Reviewer } from "@/app/types";
 import QuizTaking, { type Answers } from "@/app/components/QuizTaking";
 import QuizResults from "@/app/components/QuizResults";
@@ -100,7 +101,8 @@ export default function QuizPage() {
           onRetake={() => {
             // Fresh attempt: QuizTaking is remounted by the stage switch, so
             // answers and unsure flags both start empty again. Reopened from
-            // history, this re-serves that attempt's exact question set.
+            // history, this re-serves that attempt's question set, reshuffled.
+            setQuizQuestions((prev) => prev.map(shuffleOptions));
             setSubmitted(null);
             setReviewedAt(null);
             setStage("taking");
@@ -148,7 +150,7 @@ export default function QuizPage() {
           feedbackMode={feedbackMode}
           onFeedbackModeChange={setFeedbackMode}
           onStart={(questions) => {
-            setQuizQuestions(questions);
+            setQuizQuestions(questions.map(shuffleOptions));
             setStage("taking");
             window.scrollTo({ top: 0 });
           }}

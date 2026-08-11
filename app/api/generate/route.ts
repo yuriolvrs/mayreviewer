@@ -353,9 +353,11 @@ the derivation directly and only once, as a finished result — never show hesit
 recalculation, or self-correction ("wait", "let me re-check", "re-evaluating") in the text.
 
 Every question also needs a "whyOthersWrong": 1-2 more sentences, about as long as the
-"explanation", ruling out the other options. Name each wrong option and say what it actually
-is or what it would take for it to be the answer — don't just repeat that the correct one is
-correct.`;
+"explanation", ruling out the other options. Refer to each wrong option by its content (what
+it actually says or would compute to), never by its letter or position (never "Option A" or
+"the first choice") — option order is shuffled per attempt, so a letter reference goes stale.
+Say what it actually is or what it would take for it to be the answer — don't just repeat that
+the correct one is correct.`;
 }
 
 type IncomingAttachment = {

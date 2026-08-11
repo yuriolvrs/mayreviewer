@@ -183,6 +183,17 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
+// Reorders a question's options fresh for each attempt, so the correct
+// answer isn't always sitting in the same slot on a retake.
+export function shuffleOptions(question: Question): Question {
+  const order = shuffle(question.options.map((_, i) => i));
+  return {
+    ...question,
+    options: order.map((i) => question.options[i]),
+    correctIndex: order.indexOf(question.correctIndex),
+  };
+}
+
 // Picking the first N questions in stored order would skew a shortened quiz
 // toward whichever type generation happened to emit first. Each type instead
 // gets a share of the quiz matching its share of the pool, and which specific

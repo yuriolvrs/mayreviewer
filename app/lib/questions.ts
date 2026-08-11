@@ -149,6 +149,7 @@ export function isValidQuestionFields(value: unknown): value is Omit<Question, "
     isOptionalString(q.groupTitle) &&
     isOptionalString(q.stimulus) &&
     isOptionalString(q.explanation) &&
+    isOptionalString(q.whyOthersWrong) &&
     typeof q.type === "string" &&
     QUESTION_TYPES.includes(q.type as QuestionType) &&
     typeof q.question === "string" &&

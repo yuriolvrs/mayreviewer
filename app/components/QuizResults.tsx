@@ -118,6 +118,11 @@ function ResultRow({
           {question.explanation}
         </p>
       )}
+      {question.whyOthersWrong && (
+        <p className="mt-2 text-[14px] leading-relaxed text-text-secondary">
+          {question.whyOthersWrong}
+        </p>
+      )}
     </>
   );
 }

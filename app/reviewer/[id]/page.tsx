@@ -118,7 +118,10 @@ function ReviewerSpace() {
         {/* The three labels are wider than a narrow phone at their desktop
             size, so they step down below `sm`; anything still over scrolls
             inside the nav rather than dragging the whole page sideways. */}
-        <nav className="mt-4 flex items-center gap-1 overflow-x-auto border-b border-border-strong">
+        {/* `pb-px` absorbs the tabs' `-mb-px` overhang so the horizontal
+            scroll container doesn't also report 1px of vertical overflow
+            (which renders a stray vertical scrollbar on Windows). */}
+        <nav className="mt-4 flex items-center gap-1 overflow-x-auto pb-px border-b border-border-strong">
           {TABS.map((tab) => (
             <button
               key={tab.id}

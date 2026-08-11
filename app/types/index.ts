@@ -24,6 +24,11 @@ export type Question = {
   // older stored questions (generated or hand-written) without one still
   // validate — the UI just omits the explanation for those.
   explanation?: string;
+  // The matching one or two sentences on why the other options are wrong,
+  // shown as a second paragraph under `explanation`. Optional for the same
+  // reason, and independently so — questions stored before it existed keep
+  // showing their single paragraph.
+  whyOthersWrong?: string;
 };
 
 export type FeedbackMode = "immediate" | "end-only";

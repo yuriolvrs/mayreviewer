@@ -273,9 +273,9 @@ export default function QuizTaking({
                       </a>
                     )}
                   </span>
-                  {/* Three buttons never fit beside the number on a phone, and
-                      `shrink-0` alone pushed the third one past the viewport
-                      edge. Below `sm` they get the full row and wrap within it. */}
+                  {/* Both buttons never fit beside the number on a phone, and
+                      `shrink-0` alone pushed one past the viewport edge.
+                      Below `sm` they get the full row and wrap within it. */}
                   <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
                     <button
                       type="button"
@@ -304,17 +304,6 @@ export default function QuizTaking({
                     >
                       {isUnsure ? "Marked unsure" : "Mark as unsure"}
                     </button>
-                    {showFeedback && (
-                      <button
-                        type="button"
-                        onClick={() => confirmAnswer(question.id)}
-                        disabled={!isAnswered || isConfirmed}
-                        title={!isAnswered ? "Select an option first" : undefined}
-                        className="rounded-lg border border-accent px-2.5 py-1 text-[14px] font-medium text-accent enabled:hover:bg-accent-subtle disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        {isConfirmed ? "Answer confirmed" : "Confirm answer"}
-                      </button>
-                    )}
                   </div>
                 </div>
 
@@ -397,11 +386,28 @@ export default function QuizTaking({
                   })}
                 </div>
 
-                {showFeedback && isConfirmed && question.explanation && (
-                  <p className="mt-3 rounded-lg bg-surface-alt px-3.5 py-2.5 text-[14px] leading-relaxed text-text-secondary">
-                    {question.explanation}
-                  </p>
+                {showFeedback && (
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => confirmAnswer(question.id)}
+                      disabled={!isAnswered || isConfirmed}
+                      title={!isAnswered ? "Select an option first" : undefined}
+                      className="rounded-lg border border-accent px-2.5 py-1 text-[14px] font-medium text-accent enabled:hover:bg-accent-subtle disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {isConfirmed ? "Answer confirmed" : "Confirm answer"}
+                    </button>
+                  </div>
                 )}
+
+                {showFeedback &&
+                  isConfirmed &&
+                  (question.explanation || question.whyOthersWrong) && (
+                    <div className="mt-3 space-y-2 rounded-lg bg-surface-alt px-3.5 py-2.5 text-[14px] leading-relaxed text-text-secondary">
+                      {question.explanation && <p>{question.explanation}</p>}
+                      {question.whyOthersWrong && <p>{question.whyOthersWrong}</p>}
+                    </div>
+                  )}
                   </div>
                 );
               })}

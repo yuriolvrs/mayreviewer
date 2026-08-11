@@ -86,6 +86,7 @@ const MC_FIELDS = {
   options: { type: "array", items: { type: "string" }, minItems: 4, maxItems: 4 },
   correctIndex: { type: "integer" },
   explanation: { type: "string" },
+  whyOthersWrong: { type: "string" },
 } as const;
 
 const RESPONSE_SCHEMA = {
@@ -100,7 +101,15 @@ const RESPONSE_SCHEMA = {
           ...MC_FIELDS,
           source: { type: "string", enum: ["notes", "project"] },
         },
-        required: ["type", "question", "options", "correctIndex", "explanation", "source"],
+        required: [
+          "type",
+          "question",
+          "options",
+          "correctIndex",
+          "explanation",
+          "whyOthersWrong",
+          "source",
+        ],
       },
     },
     sets: {
@@ -117,7 +126,7 @@ const RESPONSE_SCHEMA = {
             items: {
               type: "object",
               properties: MC_FIELDS,
-              required: ["question", "options", "correctIndex", "explanation"],
+              required: ["question", "options", "correctIndex", "explanation", "whyOthersWrong"],
             },
           },
         },
@@ -232,17 +241,27 @@ ${standaloneDescriptions.map((d, i) => `${i + 1}. ${d}`).join("\n")}`;
   "title": the algorithm, e.g. "SJF (non-preemptive)", "Round Robin, quantum = 2",
     "Priority (preemptive)", "LRU page replacement, 3 frames".
   "stimulus": the algorithm name on its own line, a blank line, then the problem data
-    as a plain-text table — a header line, then ONE LINE PER PROCESS, space-padded so
-    the columns line up in a monospace font. For scheduling use columns
-    Process / AT / BT (add Priority only for priority scheduling); for paging give the
-    reference string and the frame count. Nothing else — no questions in the stimulus.
-  "questions": ${setSize("timeline")} questions tracing THAT table: completion time of a given
-    process, its turnaround time, its waiting time, which process holds the CPU at time t,
-    the order processes finish in, average waiting/turnaround time, total page faults,
-    whether a given reference hits or faults, which page is evicted at a step.
-    Each question names the process/step it asks about. Do not restate the table.
-    Every question must require actually running the algorithm — never ask for a value
-    that can be read straight off the table (an arrival time, a burst time, a row count).${setTarget("timeline")}`;
+    as a plain-text table, space-padded so the columns line up in a monospace font.
+    Nothing else — no questions in the stimulus.
+    For SCHEDULING: a header line, then ONE LINE PER PROCESS, columns Process / AT / BT
+      (add Priority only for priority scheduling).
+    For PAGING: a "Frames: N" line, then a Step row numbering the references 1, 2, 3, …
+      and a Page row beneath it holding the reference string, one column per reference,
+      the two rows aligned. At most 12 references, each one or two digits, so the block
+      never runs wider than a phone screen. Never write the reference string as a bare
+      comma-separated sentence — the Step row is what the questions index by.
+  "questions": ${setSize("timeline")} questions tracing THAT table.
+    Scheduling: completion time of a given process, its turnaround time, its waiting
+      time, which process holds the CPU at time t, the order processes finish in,
+      average waiting/turnaround time.
+    Paging: total page faults over the whole string, whether the reference at step N
+      hits or faults, which page is evicted at step N (the victim leaving the frames,
+      not the page being loaded), which pages occupy the frames after step N.
+    A paging question names its step by the Step row's number, a scheduling question
+    names its process. Do not restate the table. Use the algorithm the source material
+    actually names. Every question must require actually running the algorithm — never
+    ask for a value that can be read straight off the table (an arrival time, a burst
+    time, the page referenced at a given step, a row count).${setTarget("timeline")}`;
 
   const codeBlock = `CODE set (type "code") — fill in the blanks:
   "title": what the program does, e.g. "std::set traversal with a function object".
@@ -251,6 +270,13 @@ ${standaloneDescriptions.map((d, i) => `${i + 1}. ${d}`).join("\n")}`;
     on its own line, with indentation preserved. Put ${setSize("code")} blanks inline as
     ___(1)___, ___(2)___, … numbered in reading order. A blank may span a parameter
     list, a whole statement, a function name, a type, or a keyword.
+  Every blank must be derivable from the listing itself — the syntax, type, or library
+    call the surrounding code forces, or what the algorithm must do at that step. Never
+    blank out a config setting or tunable (quantum, process count, seed, limits) — those
+    are user choices, not right answers.
+  Build the listing around C++ fundamentals as they appear in an OS emulator — classes,
+    pointers/references, STL containers and iterators, function objects, dynamic
+    allocation — not around configuration files.
   "questions": exactly one question per blank and NO OTHERS — the count must equal the
     number of blanks, in order, each phrased like "Blank (3): what belongs here?" with
     4 code-literal options. Never ask about anything outside a blank. Do not restate
@@ -260,15 +286,18 @@ ${standaloneDescriptions.map((d, i) => `${i + 1}. ${d}`).join("\n")}`;
     .filter(Boolean)
     .join("\n\n");
 
-  // With a stated mix the sets are required, since their questions are the only
-  // way this chunk can hit its Timeline/Code targets — "return none if the
-  // material doesn't cover it" is the out the model was taking.
+  // With a stated mix the sets are strongly pressed for, since their questions
+  // are the only way this chunk can hit its Timeline/Code targets — "return none
+  // if the material doesn't cover it" was the out the model kept taking. But the
+  // counts stop short of being absolute: a chunk whose material has no traceable
+  // problem in it should come up short rather than invent an off-syllabus one.
   const setsIntro = typeCounts
     ? `
 Also return the problem SETs described below in "sets". A set is ONE problem
 that the student traces once, followed by the questions about that same problem.
-Every question in a set counts toward the ${count} total. Each set's counts below are
-exact — build the problem out of whatever the source material covers most closely.
+Every question in a set counts toward the ${count} total. Meet each set's counts below
+using a problem the source material itself covers. Only if the material contains no
+such problem at all, return fewer sets — never invent one from an uncovered topic.
 `
     : `
 Also return up to ${maxSets} problem SET${maxSets > 1 ? "s" : ""} in "sets". A set is ONE problem
@@ -300,9 +329,20 @@ program to make it fit. Two sets must never pose the same problem twice.`;
 ${standaloneBlock}
 ${setsBlock}${focus}
 
+Stay inside the source material. Every question must be answerable from the topics,
+algorithms, code, and terminology the material actually covers. A topic that is standard
+for this course but absent from the material is off limits — this outranks the counts
+above, so return fewer questions rather than reaching outside it. Never write a question
+about semaphores; they are not on this exam.
+
 Every question also needs an "explanation": 1-2 sentences saying why the correct option is
 correct. Write it so it stands alone (the student reads it after answering, not while looking
-at the question) — reference the specific value/reasoning, not just "because it's right".`;
+at the question) — reference the specific value/reasoning, not just "because it's right".
+
+Every question also needs a "whyOthersWrong": 1-2 more sentences, about as long as the
+"explanation", ruling out the other options. Name each wrong option and say what it actually
+is or what it would take for it to be the answer — don't just repeat that the correct one is
+correct.`;
 }
 
 type IncomingAttachment = {

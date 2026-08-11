@@ -36,6 +36,7 @@ function blankQuestion(): Question {
     correctIndex: 0,
     source: "manual",
     explanation: "",
+    whyOthersWrong: "",
   };
 }
 
@@ -294,6 +295,19 @@ function QuestionEditor({
           onChange={(e) => setDraft({ ...draft, explanation: e.target.value })}
           rows={2}
           placeholder="Optional, but shown alongside the answer in results and immediate feedback…"
+          className="w-full resize-y rounded-lg border border-border bg-surface p-3 text-[15px] text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+        />
+      </label>
+
+      <label className="flex flex-col gap-1.5">
+        <span className="text-[14px] text-text-secondary">
+          Why not the others — a sentence or two ruling out the remaining options
+        </span>
+        <textarea
+          value={draft.whyOthersWrong ?? ""}
+          onChange={(e) => setDraft({ ...draft, whyOthersWrong: e.target.value })}
+          rows={2}
+          placeholder="Optional, shown as a second paragraph under the explanation…"
           className="w-full resize-y rounded-lg border border-border bg-surface p-3 text-[15px] text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
         />
       </label>
@@ -805,6 +819,13 @@ export default function QuestionsTab({
                         <p className="mt-3 text-[14px] leading-relaxed text-text-secondary">
                           <span className="font-medium text-text-primary">Explanation:</span>{" "}
                           {question.explanation}
+                        </p>
+                      )}
+
+                      {question.whyOthersWrong && (
+                        <p className="mt-2 text-[14px] leading-relaxed text-text-secondary">
+                          <span className="font-medium text-text-primary">Why not the others:</span>{" "}
+                          {question.whyOthersWrong}
                         </p>
                       )}
                     </>

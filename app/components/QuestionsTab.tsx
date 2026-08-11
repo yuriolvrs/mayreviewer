@@ -491,7 +491,7 @@ export default function QuestionsTab({
           placeholder="Search questions…"
           aria-label="Search questions"
           disabled={generating}
-          className="h-11 min-w-[220px] flex-1 rounded-lg border border-border bg-surface px-3 text-[15px] text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-40"
+          className="h-11 w-full rounded-lg border border-border bg-surface px-3 text-[15px] text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:min-w-[220px] sm:flex-1"
         />
         <select
           value={sort}

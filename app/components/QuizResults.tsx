@@ -113,6 +113,11 @@ function ResultRow({
           </dd>
         </div>
       </dl>
+      {question.explanation && (
+        <p className="mt-2 text-[14px] leading-relaxed text-text-secondary">
+          {question.explanation}
+        </p>
+      )}
     </>
   );
 }

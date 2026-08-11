@@ -7,6 +7,7 @@ import { saveReviewer } from "@/app/lib/storage";
 import { MAX_QUESTION_COUNT, MIN_QUESTION_COUNT } from "@/app/lib/questions";
 import { addAttachment } from "@/app/lib/attachments";
 import { parseReviewerFile, type ParsedReviewerFile } from "@/app/lib/reviewerFile";
+import QuestionCountControl from "@/app/components/QuestionCountControl";
 import type { Reviewer } from "@/app/types";
 
 // Reasonable starting point for a reviewer with no questions yet — matches
@@ -342,17 +343,7 @@ export default function NewReviewerPage() {
             <p className="text-[15px] font-medium text-text-primary">Question count</p>
             <p className="mt-1 text-[14px] text-text-secondary">How many questions to generate.</p>
           </div>
-          <div>
-            <input
-              type="number"
-              min={MIN_QUESTION_COUNT}
-              max={MAX_QUESTION_COUNT}
-              value={questionCount}
-              onChange={(e) => setQuestionCount(e.target.valueAsNumber)}
-              aria-label="Questions to generate"
-              className="h-11 w-24 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-            />
-          </div>
+          <QuestionCountControl value={questionCount} onChange={setQuestionCount} />
         </div>
 
         {error && <p className="pb-2 text-[15px] text-error">{error}</p>}

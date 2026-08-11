@@ -6,12 +6,27 @@ const BLANK_MARKER = /(_{2,}\(\d+\)_{2,})/g;
 
 // A stimulus wide enough to scroll gives no hint that it does; the fade only
 // shows while there's still content past the right edge.
-export default function StimulusBlock({ stimulus }: { stimulus: string }) {
+export default function StimulusBlock({
+  stimulus,
+  questionIds,
+}: {
+  stimulus: string;
+  // Blanks are numbered ___(1)___, ___(2)___, … in reading order, one per
+  // question in the set — so blank N jumps to questionIds[N - 1].
+  questionIds?: string[];
+}) {
   const [atEnd, setAtEnd] = useState(true);
 
   function measure(el: HTMLPreElement | null) {
     if (!el) return;
     setAtEnd(Math.ceil(el.scrollLeft + el.clientWidth) >= el.scrollWidth);
+  }
+
+  function jumpToQuestion(id: string) {
+    document.getElementById(`question-${id}`)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   }
 
   // Every blank is highlighted, not just the one whose question is in view —
@@ -26,15 +41,31 @@ export default function StimulusBlock({ stimulus }: { stimulus: string }) {
         onScroll={(e) => measure(e.currentTarget)}
         className="overflow-x-auto rounded-lg border border-border bg-surface-alt p-4 font-mono text-[14px] leading-relaxed text-text-primary"
       >
-        {parts.map((part, i) =>
-          /^_{2,}\(\d+\)_{2,}$/.test(part) ? (
-            <mark key={i} className="rounded bg-info-subtle px-1 font-bold text-info">
+        {parts.map((part, i) => {
+          const match = /^_{2,}\((\d+)\)_{2,}$/.exec(part);
+          if (!match) return <span key={i}>{part}</span>;
+
+          const targetId = questionIds?.[Number(match[1]) - 1];
+          if (!targetId) {
+            return (
+              <mark key={i} className="rounded bg-info-subtle px-1 font-bold text-info">
+                {part}
+              </mark>
+            );
+          }
+
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => jumpToQuestion(targetId)}
+              title="Jump to this question"
+              className="rounded bg-info-subtle px-1 font-bold text-info underline decoration-dotted underline-offset-2 hover:bg-info-subtle/70"
+            >
               {part}
-            </mark>
-          ) : (
-            <span key={i}>{part}</span>
-          ),
-        )}
+            </button>
+          );
+        })}
       </pre>
       {!atEnd && (
         <div

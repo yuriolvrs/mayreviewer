@@ -20,6 +20,9 @@ export default function QuizTaking({
 }) {
   const [answers, setAnswers] = useState<Answers>({});
   const [unsureIds, setUnsureIds] = useState<string[]>([]);
+  // Immediate mode only: an option pick is provisional until confirmed, so
+  // right/wrong doesn't flash before the reader has committed to it.
+  const [confirmedIds, setConfirmedIds] = useState<string[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -68,15 +71,21 @@ export default function QuizTaking({
   }, [questions]);
 
   function selectOption(questionId: string, optionIndex: number) {
+    if (confirmedIds.includes(questionId)) return;
     setAnswers((prev) => ({ ...prev, [questionId]: optionIndex }));
   }
 
   function clearSelection(questionId: string) {
+    if (confirmedIds.includes(questionId)) return;
     setAnswers((prev) => {
       const next = { ...prev };
       delete next[questionId];
       return next;
     });
+  }
+
+  function confirmAnswer(questionId: string) {
+    setConfirmedIds((prev) => (prev.includes(questionId) ? prev : [...prev, questionId]));
   }
 
   function toggleUnsure(questionId: string) {
@@ -119,7 +128,7 @@ export default function QuizTaking({
           {groups.map((group) => (
             <section key={group.key} className="border-t border-border last:border-b">
               {group.stimulus && (
-                <div className="pt-6">
+                <div id={`stimulus-${group.key}`} className="scroll-mt-6 pt-6">
                   <p className="font-mono text-[13px] tracking-wide text-text-tertiary uppercase">
                     {group.questions[0].type === "code" ? "Program" : "Problem"} · questions{" "}
                     {numbering.get(group.questions[0].id)}–
@@ -130,7 +139,10 @@ export default function QuizTaking({
                       {group.title}
                     </h2>
                   )}
-                  <StimulusBlock stimulus={group.stimulus} />
+                  <StimulusBlock
+                    stimulus={group.stimulus}
+                    questionIds={group.questions.map((q) => q.id)}
+                  />
                 </div>
               )}
 
@@ -138,8 +150,9 @@ export default function QuizTaking({
                 const selected = answers[question.id];
                 const isAnswered = selected !== undefined;
                 const isUnsure = unsureIds.includes(question.id);
+                const isConfirmed = confirmedIds.includes(question.id);
                 const revealAnswer =
-                  showFeedback && isAnswered && selected !== question.correctIndex;
+                  showFeedback && isConfirmed && selected !== question.correctIndex;
 
                 return (
                   <div
@@ -148,15 +161,35 @@ export default function QuizTaking({
                     className={`scroll-mt-6 py-6 ${group.stimulus ? "border-t border-border" : ""}`}
                   >
                 <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-                  <span className="font-mono text-[14px] font-bold tracking-wide text-text-primary">
+                  <span className="flex items-baseline gap-2 font-mono text-[14px] font-bold tracking-wide text-text-primary">
                     {numbering.get(question.id)}.
+                    {group.stimulus && (
+                      <a
+                        href={`#stimulus-${group.key}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          document
+                            .getElementById(`stimulus-${group.key}`)
+                            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }}
+                        className="font-sans text-[13px] font-normal text-text-tertiary underline decoration-dotted underline-offset-2 hover:text-text-secondary"
+                      >
+                        ↑ Back to problem
+                      </a>
+                    )}
                   </span>
                   <div className="flex shrink-0 items-center gap-2">
                     <button
                       type="button"
                       onClick={() => clearSelection(question.id)}
-                      disabled={!isAnswered}
-                      title={isAnswered ? undefined : "No answer selected yet"}
+                      disabled={!isAnswered || isConfirmed}
+                      title={
+                        !isAnswered
+                          ? "No answer selected yet"
+                          : isConfirmed
+                            ? "Answer is locked in immediate feedback mode"
+                            : undefined
+                      }
                       className="rounded-lg border border-border px-2.5 py-1 text-[14px] font-medium text-text-secondary enabled:hover:border-border-strong enabled:hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       Clear selection
@@ -173,6 +206,17 @@ export default function QuizTaking({
                     >
                       {isUnsure ? "Marked unsure" : "Mark as unsure"}
                     </button>
+                    {showFeedback && (
+                      <button
+                        type="button"
+                        onClick={() => confirmAnswer(question.id)}
+                        disabled={!isAnswered || isConfirmed}
+                        title={!isAnswered ? "Select an option first" : undefined}
+                        className="rounded-lg border border-accent px-2.5 py-1 text-[14px] font-medium text-accent enabled:hover:bg-accent-subtle disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {isConfirmed ? "Answer confirmed" : "Confirm answer"}
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -192,11 +236,16 @@ export default function QuizTaking({
                     const isSelected = selected === optionIndex;
                     const isCorrectOption = optionIndex === question.correctIndex;
 
-                    // Only ever styled in immediate mode: the picked option is
-                    // marked right/wrong, and a wrong pick also points at the
-                    // correct one so the question is actually worth something.
-                    let stateClass = "border-border hover:border-border-strong";
-                    if (showFeedback && isSelected) {
+                    // Only ever styled in immediate mode, and only once the pick
+                    // is confirmed: the picked option is marked right/wrong, and
+                    // a wrong pick also points at the correct one so the
+                    // question is actually worth something.
+                    const locked = showFeedback && isConfirmed;
+
+                    let stateClass = locked
+                      ? "border-border"
+                      : "border-border hover:border-border-strong";
+                    if (showFeedback && isConfirmed && isSelected) {
                       stateClass = isCorrectOption
                         ? "border-success bg-success-subtle"
                         : "border-error bg-error-subtle";
@@ -209,14 +258,17 @@ export default function QuizTaking({
                     return (
                       <label
                         key={optionIndex}
-                        className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3.5 py-2.5 ${stateClass}`}
+                        className={`flex items-start gap-3 rounded-lg border px-3.5 py-2.5 ${
+                          locked ? "cursor-default" : "cursor-pointer"
+                        } ${stateClass}`}
                       >
                         <input
                           type="radio"
                           name={`q-${question.id}`}
                           checked={isSelected}
+                          disabled={locked}
                           onChange={() => selectOption(question.id, optionIndex)}
-                          className="mt-1 accent-accent"
+                          className="mt-1 accent-accent disabled:cursor-default"
                         />
                         <span
                           className={`text-text-primary ${
@@ -228,7 +280,7 @@ export default function QuizTaking({
                           </span>{" "}
                           {option}
                         </span>
-                        {showFeedback && isSelected && (
+                        {showFeedback && isConfirmed && isSelected && (
                           <span
                             className={`ml-auto shrink-0 self-center text-[14px] font-medium ${
                               isCorrectOption ? "text-success" : "text-error"
@@ -246,6 +298,12 @@ export default function QuizTaking({
                     );
                   })}
                 </div>
+
+                {showFeedback && isConfirmed && question.explanation && (
+                  <p className="mt-3 rounded-lg bg-surface-alt px-3.5 py-2.5 text-[14px] leading-relaxed text-text-secondary">
+                    {question.explanation}
+                  </p>
+                )}
                   </div>
                 );
               })}

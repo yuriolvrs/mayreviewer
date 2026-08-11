@@ -29,6 +29,7 @@ function blankQuestion(): Question {
     options: ["", ""],
     correctIndex: 0,
     source: "manual",
+    explanation: "",
   };
 }
 
@@ -265,6 +266,19 @@ function QuestionEditor({
       <p className="text-[14px] text-text-tertiary">
         Select the radio next to the correct option. The highlighted option is currently correct.
       </p>
+
+      <label className="flex flex-col gap-1.5">
+        <span className="text-[14px] text-text-secondary">
+          Explanation — a sentence or two on why that option is correct
+        </span>
+        <textarea
+          value={draft.explanation ?? ""}
+          onChange={(e) => setDraft({ ...draft, explanation: e.target.value })}
+          rows={2}
+          placeholder="Optional, but shown alongside the answer in results and immediate feedback…"
+          className="w-full resize-y rounded-lg border border-border bg-surface p-3 text-[15px] text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+        />
+      </label>
     </div>
   );
 }
@@ -655,6 +669,13 @@ export default function EditQuestionsTab({
                           </li>
                         ))}
                       </ol>
+
+                      {question.explanation && (
+                        <p className="mt-3 text-[14px] leading-relaxed text-text-secondary">
+                          <span className="font-medium text-text-primary">Explanation:</span>{" "}
+                          {question.explanation}
+                        </p>
+                      )}
                     </>
                   )}
                 </div>

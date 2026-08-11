@@ -78,6 +78,7 @@ const MC_FIELDS = {
   question: { type: "string" },
   options: { type: "array", items: { type: "string" }, minItems: 4, maxItems: 4 },
   correctIndex: { type: "integer" },
+  explanation: { type: "string" },
 } as const;
 
 const RESPONSE_SCHEMA = {
@@ -92,7 +93,7 @@ const RESPONSE_SCHEMA = {
           ...MC_FIELDS,
           source: { type: "string", enum: ["notes", "project"] },
         },
-        required: ["type", "question", "options", "correctIndex", "source"],
+        required: ["type", "question", "options", "correctIndex", "explanation", "source"],
       },
     },
     sets: {
@@ -106,7 +107,11 @@ const RESPONSE_SCHEMA = {
           source: { type: "string", enum: ["notes", "project"] },
           questions: {
             type: "array",
-            items: { type: "object", properties: MC_FIELDS, required: ["question", "options", "correctIndex"] },
+            items: {
+              type: "object",
+              properties: MC_FIELDS,
+              required: ["question", "options", "correctIndex", "explanation"],
+            },
           },
         },
         required: ["type", "title", "stimulus", "source", "questions"],
@@ -231,7 +236,11 @@ program to make it fit. Two sets must never pose the same problem twice.`;
   return `Generate exactly ${count} practice exam questions for a ${course} final.
 
 ${standaloneBlock}
-${setsBlock}${focus}`;
+${setsBlock}${focus}
+
+Every question also needs an "explanation": 1-2 sentences saying why the correct option is
+correct. Write it so it stands alone (the student reads it after answering, not while looking
+at the question) — reference the specific value/reasoning, not just "because it's right".`;
 }
 
 type IncomingAttachment = {

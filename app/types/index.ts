@@ -20,6 +20,10 @@ export type Question = {
   groupId?: string;
   groupTitle?: string;
   stimulus?: string;
+  // One or two sentences on why the correct option is correct. Optional so
+  // older stored questions (generated or hand-written) without one still
+  // validate — the UI just omits the explanation for those.
+  explanation?: string;
 };
 
 export type FeedbackMode = "immediate" | "end-only";

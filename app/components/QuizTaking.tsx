@@ -276,7 +276,7 @@ export default function QuizTaking({
                   {/* Both buttons never fit beside the number on a phone, and
                       `shrink-0` alone pushed one past the viewport edge.
                       Below `sm` they get the full row and wrap within it. */}
-                  <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
+                  <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:shrink-0">
                     <button
                       type="button"
                       onClick={() => clearSelection(question.id)}

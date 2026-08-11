@@ -737,7 +737,7 @@ ${renderVerifyBlock(questions, indices)}`;
 async function verifyQuestions(
   ai: GoogleGenAI,
   questions: Question[],
-): Promise<{ questions: Question[]; corrected: number; dropped: number }> {
+): Promise<{ questions: Question[]; corrected: number; dropped: Question[] }> {
   const chunks = verifyChunks(questions);
   const next = [...questions];
   const toDrop = new Set<number>();
@@ -764,7 +764,21 @@ async function verifyQuestions(
     }
   });
 
-  return { questions: next.filter((_, i) => !toDrop.has(i)), corrected, dropped: toDrop.size };
+  return {
+    questions: next.filter((_, i) => !toDrop.has(i)),
+    corrected,
+    dropped: [...toDrop].map((i) => questions[i]),
+  };
+}
+
+// Only standalone types (Identification/Scenario) can ever be dropped by
+// verification, so a backfill request only ever asks for those — never
+// Timeline/Code, which don't have the material budget a single small request
+// would need to build a whole traceable problem.
+function backfillTypeCounts(dropped: Question[]): Record<QuestionType, number> {
+  const counts = Object.fromEntries(QUESTION_TYPES.map((t) => [t, 0])) as Record<QuestionType, number>;
+  for (const q of dropped) counts[q.type] = (counts[q.type] ?? 0) + 1;
+  return counts;
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
@@ -1077,18 +1091,76 @@ export async function POST(request: Request) {
       // would otherwise risk the platform killing the invocation before the
       // already-generated questions ever reached the client. Falling back to
       // the unverified batch is strictly better than losing the run.
-      const budgetMs = maxDuration * 1000 - (Date.now() - startedAt) - 5000;
+      const timeLeftMs = () => maxDuration * 1000 - (Date.now() - startedAt) - 5000;
       let finalQuestions = questions;
       let verified = { corrected: 0, dropped: 0 };
-      if (questions.length > 0 && budgetMs > 5000) {
+      if (questions.length > 0 && timeLeftMs() > 5000) {
         send({ type: "progress", phase: "start", label: "Verifying answers", completed: 0, total: 1, stage: "verify" });
-        const result = await withTimeout(verifyQuestions(ai, questions), budgetMs, {
+        const result = await withTimeout(verifyQuestions(ai, questions), timeLeftMs(), {
           questions,
           corrected: 0,
-          dropped: 0,
+          dropped: [] as Question[],
         });
         finalQuestions = result.questions;
-        verified = { corrected: result.corrected, dropped: result.dropped };
+        verified = { corrected: result.corrected, dropped: result.dropped.length };
+
+        // A dropped question leaves a hole in the count the user asked for —
+        // fill it with fresh standalone questions from the same sources rather
+        // than just shipping short. One round only: if a replacement also
+        // fails verification it's left out rather than dropped and re-tried
+        // again, so this can't loop indefinitely eating the time budget.
+        if (result.dropped.length > 0 && timeLeftMs() > 8000) {
+          send({
+            type: "progress",
+            phase: "start",
+            label: "Filling in replacement questions",
+            completed: 0,
+            total: 1,
+            stage: "verify",
+          });
+          const typeCounts = backfillTypeCounts(result.dropped);
+          const backfillPlans = planGeneration(result.dropped.length, jobs.length, typeCounts);
+          const backfilled: Question[] = [];
+          let typeRoom = { ...typeCounts };
+
+          await withTimeout(
+            runWithConcurrency(jobs, SOURCE_CONCURRENCY, async (job, i) => {
+              if (backfilled.length >= result.dropped.length) return;
+              const jobResult = await job.run(backfillPlans[i]);
+              if (!("questions" in jobResult)) return;
+              const fresh = dedupeQuestions([...finalQuestions, ...backfilled, ...jobResult.questions]).slice(
+                finalQuestions.length + backfilled.length,
+              );
+              const taken = takeWithinTypeBudget(fresh, typeRoom);
+              typeRoom = taken.remaining;
+              backfilled.push(...taken.kept);
+            }),
+            timeLeftMs(),
+            undefined,
+          );
+
+          if (backfilled.length > 0 && timeLeftMs() > 3000) {
+            const rechecked = await withTimeout(verifyQuestions(ai, backfilled), timeLeftMs(), {
+              questions: backfilled,
+              corrected: 0,
+              dropped: [] as Question[],
+            });
+            finalQuestions = [...finalQuestions, ...rechecked.questions];
+            verified = {
+              corrected: verified.corrected + rechecked.corrected,
+              dropped: result.dropped.length - rechecked.questions.length,
+            };
+          }
+          send({
+            type: "progress",
+            phase: "done",
+            label: "Filling in replacement questions",
+            completed: 1,
+            total: 1,
+            stage: "verify",
+          });
+        }
+
         send({ type: "progress", phase: "done", label: "Verifying answers", completed: 1, total: 1, stage: "verify" });
       }
 

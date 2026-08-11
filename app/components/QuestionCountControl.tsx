@@ -1,86 +1,65 @@
 "use client";
 
 import { useState } from "react";
-import { MAX_QUESTION_COUNT, MIN_QUESTION_COUNT, QUESTION_TYPES, TYPE_LABELS } from "@/app/lib/questions";
+import { MAX_QUESTION_COUNT, QUESTION_TYPES, TYPE_LABELS, sumCounts } from "@/app/lib/questions";
 import type { QuestionType } from "@/app/types";
 
-// Splits a total evenly across question types, handing any remainder to the
-// outermost types first (then working inward) so it doesn't always land on
-// the same one — e.g. 50 -> 13, 12, 12, 13, not 13, 13, 12, 12.
-function splitEvenly(total: number): Record<QuestionType, number> {
-  const n = QUESTION_TYPES.length;
-  const base = Math.floor(total / n);
-  let remainder = total - base * n;
+// Counts are held as text, not numbers, so a field can sit empty while it's
+// being retyped instead of snapping back the moment it's cleared — an empty
+// number input reports `valueAsNumber: NaN`, which React refuses to render.
+// An empty field counts as 0; the caller's min/max check rejects an empty
+// total on save.
+function toCount(text: string): number {
+  const parsed = parseInt(text, 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
 
-  const counts = Object.fromEntries(QUESTION_TYPES.map((t) => [t, base])) as Record<QuestionType, number>;
+function toNumbers(counts: Record<QuestionType, string>): Record<QuestionType, number> {
+  return Object.fromEntries(QUESTION_TYPES.map((t) => [t, toCount(counts[t])])) as Record<
+    QuestionType,
+    number
+  >;
+}
 
-  let lo = 0;
-  let hi = n - 1;
-  while (remainder > 0 && lo <= hi) {
-    counts[QUESTION_TYPES[lo]]++;
-    remainder--;
-    if (hi !== lo && remainder > 0) {
-      counts[QUESTION_TYPES[hi]]++;
-      remainder--;
-    }
-    lo++;
-    hi--;
-  }
-  return counts;
+function toText(counts: Record<QuestionType, number>): Record<QuestionType, string> {
+  return Object.fromEntries(QUESTION_TYPES.map((t) => [t, String(counts[t] ?? 0)])) as Record<
+    QuestionType,
+    string
+  >;
 }
 
 export default function QuestionCountControl({
   value,
   onChange,
 }: {
-  value: number;
-  onChange: (value: number) => void;
+  value: Record<QuestionType, number>;
+  onChange: (byType: Record<QuestionType, number>) => void;
 }) {
-  const [customizing, setCustomizing] = useState(false);
-  const [perType, setPerType] = useState<Record<QuestionType, number>>(() => splitEvenly(value));
+  const [text, setText] = useState<Record<QuestionType, string>>(() => toText(value));
 
-  const total = QUESTION_TYPES.reduce((sum, t) => sum + (perType[t] || 0), 0);
-
-  function updateType(type: QuestionType, count: number) {
-    const next = { ...perType, [type]: count };
-    setPerType(next);
-    onChange(QUESTION_TYPES.reduce((sum, t) => sum + (next[t] || 0), 0));
+  // What we last sent up. Anything else moving `value` came from outside (a
+  // different reviewer loaded, a save refreshing props), and only then should
+  // the fields be re-seeded — otherwise clearing one would immediately refill
+  // it with the 0 we just reported.
+  const [lastReported, setLastReported] = useState(value);
+  if (!QUESTION_TYPES.every((t) => value[t] === lastReported[t])) {
+    setLastReported(value);
+    setText(toText(value));
   }
 
-  if (!customizing) {
-    return (
-      <div>
-        <input
-          type="number"
-          min={MIN_QUESTION_COUNT}
-          max={MAX_QUESTION_COUNT}
-          value={value}
-          onChange={(e) => onChange(e.target.valueAsNumber)}
-          aria-label="Questions to generate"
-          className="h-11 w-24 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-        />
-        <div className="mt-2">
-          <button
-            type="button"
-            onClick={() => {
-              // Only re-split when the retained breakdown no longer adds up to
-              // the total — otherwise collapsing and expanding again would
-              // flatten a breakdown the user deliberately made uneven.
-              if (total !== value) setPerType(splitEvenly(value));
-              setCustomizing(true);
-            }}
-            className="text-[14px] font-medium text-accent hover:underline"
-          >
-            Customize by type
-          </button>
-        </div>
-      </div>
-    );
+  const total = sumCounts(toNumbers(text));
+
+  function updateType(type: QuestionType, raw: string) {
+    const next = { ...text, [type]: raw };
+    setText(next);
+    const byType = toNumbers(next);
+    setLastReported(byType);
+    onChange(byType);
   }
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {QUESTION_TYPES.map((type) => (
           <label key={type} className="flex flex-col gap-1.5">
             <span className="text-[14px] text-text-secondary">{TYPE_LABELS[type]}</span>
@@ -88,8 +67,8 @@ export default function QuestionCountControl({
               type="number"
               min={0}
               max={MAX_QUESTION_COUNT}
-              value={perType[type]}
-              onChange={(e) => updateType(type, e.target.valueAsNumber)}
+              value={text[type]}
+              onChange={(e) => updateType(type, e.target.value)}
               aria-label={`${TYPE_LABELS[type]} questions to generate`}
               className="h-11 w-full rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
             />
@@ -99,15 +78,6 @@ export default function QuestionCountControl({
       <p className="mt-3 text-[14px] text-text-secondary">
         Total: {total} question{total === 1 ? "" : "s"}
       </p>
-      <div className="mt-2">
-        <button
-          type="button"
-          onClick={() => setCustomizing(false)}
-          className="text-[14px] font-medium text-accent hover:underline"
-        >
-          Use total only
-        </button>
-      </div>
     </div>
   );
 }

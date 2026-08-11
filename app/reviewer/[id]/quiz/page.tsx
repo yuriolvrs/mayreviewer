@@ -139,7 +139,7 @@ export default function QuizPage() {
 
       {total === 0 ? (
         <p className="mt-8 text-[15px] text-text-secondary">
-          No questions yet — generate some in the Sources tab first.
+          No questions yet — generate some in the Questions tab first.
         </p>
       ) : (
         <QuizSetup

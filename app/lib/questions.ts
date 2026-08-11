@@ -22,6 +22,40 @@ export const MIN_QUESTION_COUNT = 1;
 export const MAX_QUESTION_COUNT = 200;
 export const DEFAULT_QUESTION_COUNT = 10;
 
+// Splits a total evenly across question types, handing any remainder to the
+// outermost types first (then working inward) so it doesn't always land on the
+// same one — e.g. 50 -> 13, 12, 12, 13, not 13, 13, 12, 12. Used to seed the
+// per-type counts for reviewers saved before the breakdown existed.
+export function splitCountEvenly(total: number): Record<QuestionType, number> {
+  const n = QUESTION_TYPES.length;
+  const safe = Number.isFinite(total) && total > 0 ? Math.floor(total) : 0;
+  const base = Math.floor(safe / n);
+  let remainder = safe - base * n;
+
+  const counts = Object.fromEntries(QUESTION_TYPES.map((t) => [t, base])) as Record<
+    QuestionType,
+    number
+  >;
+
+  let lo = 0;
+  let hi = n - 1;
+  while (remainder > 0 && lo <= hi) {
+    counts[QUESTION_TYPES[lo]]++;
+    remainder--;
+    if (hi !== lo && remainder > 0) {
+      counts[QUESTION_TYPES[hi]]++;
+      remainder--;
+    }
+    lo++;
+    hi--;
+  }
+  return counts;
+}
+
+export function sumCounts(byType: Record<QuestionType, number>): number {
+  return QUESTION_TYPES.reduce((sum, t) => sum + (byType[t] || 0), 0);
+}
+
 export const TYPE_LABELS: Record<QuestionType, string> = {
   identification: "Identification",
   scenario: "Scenario",
@@ -218,6 +252,33 @@ export function dedupeQuestions(questions: Question[]): Question[] {
     seen.add(key);
     return true;
   });
+}
+
+// Per-type variant, used when the Reviewer asked for a specific mix. Each type
+// gets its own ceiling and sets are still kept whole, so a reviewer that asked
+// for 5 timeline questions can't be handed a 9-question timeline set. The
+// remaining budget is returned rather than mutated, since it carries across
+// every source in one generation.
+//
+// A type whose budget is smaller than the sets it arrives in simply comes up
+// short — Timeline and Code are generated as whole problem sets, so their
+// counts are honoured approximately where Identification and Scenario are exact.
+export function takeWithinTypeBudget(
+  questions: Question[],
+  budget: Record<QuestionType, number>,
+): { kept: Question[]; remaining: Record<QuestionType, number> } {
+  const remaining = { ...budget };
+  const kept: Question[] = [];
+
+  for (const group of groupQuestions(questions)) {
+    const type = group.questions[0].type;
+    if (group.questions.length <= (remaining[type] ?? 0)) {
+      kept.push(...group.questions);
+      remaining[type] -= group.questions.length;
+    }
+  }
+
+  return { kept, remaining };
 }
 
 export function takeWithinBudget(questions: Question[], budget: number): Question[] {

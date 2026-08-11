@@ -6,18 +6,16 @@ import { Suspense, useEffect, useState } from "react";
 import { getReviewer } from "@/app/lib/storage";
 import { deleteWarning, removeReviewerCompletely } from "@/app/lib/reviewers";
 import type { Reviewer } from "@/app/types";
-import UploadTab from "@/app/components/UploadTab";
 import ImportExportTab from "@/app/components/ImportExportTab";
 import DetailsTab from "@/app/components/DetailsTab";
-import EditQuestionsTab from "@/app/components/EditQuestionsTab";
+import QuestionsTab from "@/app/components/QuestionsTab";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
 
-type Tab = "details" | "upload" | "edit" | "import-export";
+type Tab = "details" | "questions" | "import-export";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "details", label: "Details" },
-  { id: "upload", label: "Sources" },
-  { id: "edit", label: "Edit Questions" },
+  { id: "questions", label: "Questions" },
   { id: "import-export", label: "Import/Export" },
 ];
 
@@ -38,7 +36,7 @@ function ReviewerSpace() {
 
   const [reviewer, setReviewer] = useState<Reviewer | null | undefined>(undefined);
   // Lets a caller (new-reviewer creation) land directly on a tab other than
-  // Details — e.g. `?tab=upload` — instead of only ever opening here first.
+  // Details — e.g. `?tab=questions` — instead of only ever opening here first.
   const requestedTab = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState<Tab>(
     TABS.some((t) => t.id === requestedTab) ? (requestedTab as Tab) : "details",
@@ -143,7 +141,8 @@ function ReviewerSpace() {
               </p>
               {!hasQuestions && (
                 <p className="mb-4 text-[15px] text-text-secondary">
-                  No questions yet — generate some in the Sources tab first.
+                  No questions yet — add your source material below, then generate them from the
+                  Questions tab.
                 </p>
               )}
               <DetailsTab
@@ -153,11 +152,8 @@ function ReviewerSpace() {
               />
             </>
           )}
-          {activeTab === "upload" && (
-            <UploadTab reviewer={reviewer} onSaved={refresh} />
-          )}
-          {activeTab === "edit" && (
-            <EditQuestionsTab reviewer={reviewer} onChanged={refresh} />
+          {activeTab === "questions" && (
+            <QuestionsTab reviewer={reviewer} onChanged={refresh} />
           )}
           {activeTab === "import-export" && (
             <ImportExportTab reviewer={reviewer} onImported={refresh} />

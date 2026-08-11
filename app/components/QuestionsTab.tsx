@@ -10,6 +10,12 @@ import {
   isPreformatted,
   optionLetter,
 } from "@/app/lib/questions";
+import {
+  generateQuestions,
+  type GenerationFailure,
+  type GenerationProgress,
+} from "@/app/lib/generate";
+import ConfirmDialog from "@/app/components/ConfirmDialog";
 import type { Question, QuestionSource, QuestionType, Reviewer } from "@/app/types";
 
 const TYPE_FILTERS: ("all" | QuestionType)[] = ["all", ...QUESTION_TYPES];
@@ -53,7 +59,7 @@ function autoSizeQuestion(el: HTMLTextAreaElement | null) {
   el.style.height = `${Math.min(Math.max(el.scrollHeight, MIN_QUESTION_PX), MAX_QUESTION_PX)}px`;
 }
 
-function CaretIcon() {
+function CaretIcon({ className = "" }: { className?: string }) {
   return (
     <svg
       width="10"
@@ -61,7 +67,7 @@ function CaretIcon() {
       viewBox="0 0 10 10"
       fill="none"
       aria-hidden="true"
-      className="pointer-events-none shrink-0"
+      className={`pointer-events-none shrink-0 ${className}`}
     >
       <path
         d="M2 4l3 3 3-3"
@@ -70,6 +76,18 @@ function CaretIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  );
+}
+
+function SparkleIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <path
+        d="M7 1.5 8.3 5.1 11.9 6.4 8.3 7.7 7 11.3 5.7 7.7 2.1 6.4 5.7 5.1z"
+        fill="currentColor"
+      />
+      <path d="M11.2 9.6 11.8 11.2 13.4 11.8 11.8 12.4 11.2 14 10.6 12.4 9 11.8 10.6 11.2z" fill="currentColor" />
     </svg>
   );
 }
@@ -136,14 +154,14 @@ function QuestionEditor({
             <span className="text-[14px] font-bold text-text-primary">
               {number !== undefined ? `${number}.` : "New"}
             </span>{" "}
-            <span className="text-text-tertiary uppercase">Type:</span>
+            <span className="text-text-tertiary uppercase">· Type:</span>
           </span>
-          <span className="inline-flex items-center gap-0.5 rounded px-1 text-text-secondary hover:bg-surface-alt">
+          <span className="relative inline-flex shrink-0 items-center rounded px-1 text-text-secondary hover:bg-surface-alt">
             <select
               value={draft.type}
               onChange={(e) => setDraft({ ...draft, type: e.target.value as QuestionType })}
               aria-label="Question type"
-              className="cursor-pointer appearance-none border-0 bg-transparent p-0 font-mono text-[13px] tracking-wide text-inherit uppercase outline-none hover:underline focus:underline"
+              className="cursor-pointer appearance-none border-0 bg-transparent p-0 pr-4 font-mono text-[13px] tracking-wide text-inherit uppercase outline-none hover:underline focus:underline"
             >
               {QUESTION_TYPES.map((t) => (
                 <option key={t} value={t} className="normal-case">
@@ -151,7 +169,7 @@ function QuestionEditor({
                 </option>
               ))}
             </select>
-            <CaretIcon />
+            <CaretIcon className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2" />
           </span>
           <span className="font-mono text-[13px] tracking-wide text-text-tertiary uppercase">
             · Source: {SOURCE_LABELS[draft.source]}
@@ -283,7 +301,7 @@ function QuestionEditor({
   );
 }
 
-export default function EditQuestionsTab({
+export default function QuestionsTab({
   reviewer,
   onChanged,
 }: {
@@ -299,6 +317,13 @@ export default function EditQuestionsTab({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+
+  const [generating, setGenerating] = useState(false);
+  const [progress, setProgress] = useState<GenerationProgress | null>(null);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [failures, setFailures] = useState<GenerationFailure[]>([]);
+  const [addedCount, setAddedCount] = useState<number | null>(null);
+  const [confirmOverwrite, setConfirmOverwrite] = useState(false);
 
   const total = reviewer.questions.length;
   // Numbering follows stored order, so a question keeps its number no matter
@@ -383,6 +408,45 @@ export default function EditQuestionsTab({
     if (editingId && doomed.has(editingId)) cancelEdit();
   }
 
+  // Generating replaces the whole pool, so an existing set has to be confirmed
+  // away first — same guard the Sources tab's Generate bar used to apply.
+  function handleGenerateClick() {
+    if (total > 0) setConfirmOverwrite(true);
+    else runGeneration();
+  }
+
+  async function runGeneration() {
+    setGenerating(true);
+    setProgress(null);
+    setGenerateError(null);
+    setFailures([]);
+    setAddedCount(null);
+    try {
+      // The per-type counts are the request: a 0 means "none of these", so the
+      // type list is narrowed to match rather than letting the server fall
+      // back to all four.
+      const byType = reviewer.questionCountByType;
+      const result = await generateQuestions(
+        reviewer,
+        reviewer.questionCount,
+        QUESTION_TYPES.filter((t) => byType[t] > 0),
+        setProgress,
+        byType,
+      );
+      // Written on completion, not before, so a failed generation leaves the
+      // existing questions intact.
+      updateReviewer(reviewer.id, { questions: result.questions });
+      onChanged();
+      setAddedCount(result.questions.length);
+      setFailures(result.failures);
+    } catch (err) {
+      setGenerateError(err instanceof Error ? err.message : "Generation failed.");
+    } finally {
+      setGenerating(false);
+      setProgress(null);
+    }
+  }
+
   function toggleSelected(id: string) {
     setSelected((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
   }
@@ -412,13 +476,15 @@ export default function EditQuestionsTab({
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search questions…"
           aria-label="Search questions"
-          className="h-11 min-w-[220px] flex-1 rounded-lg border border-border bg-surface px-3 text-[15px] text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+          disabled={generating}
+          className="h-11 min-w-[220px] flex-1 rounded-lg border border-border bg-surface px-3 text-[15px] text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-40"
         />
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as Sort)}
           aria-label="Sort questions"
-          className="h-11 shrink-0 rounded-lg border border-border bg-surface px-3 text-[15px] text-text-primary outline-none focus:border-accent"
+          disabled={generating}
+          className="h-11 shrink-0 rounded-lg border border-border bg-surface px-3 text-[15px] text-text-primary outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-40"
         >
           <option value="newest">Sort: Newest</option>
           <option value="oldest">Sort: Oldest</option>
@@ -428,11 +494,62 @@ export default function EditQuestionsTab({
         <button
           type="button"
           onClick={startCreate}
-          className="h-11 shrink-0 rounded-lg bg-accent px-4 text-[15px] font-medium text-white hover:bg-accent-hover"
+          disabled={generating}
+          className="h-11 shrink-0 rounded-lg border border-border-strong px-4 text-[15px] font-medium text-text-secondary enabled:hover:border-accent enabled:hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
         >
           + Add question
         </button>
+        <button
+          type="button"
+          onClick={handleGenerateClick}
+          disabled={generating}
+          title={`Generate ${reviewer.questionCount} questions from this reviewer's sources`}
+          className="flex h-11 shrink-0 items-center gap-2 rounded-lg bg-accent px-4 text-[15px] font-medium text-white enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <SparkleIcon />
+          {generating ? "Generating…" : "Generate"}
+        </button>
       </div>
+
+      {generating && (
+        <div className="rounded-lg border border-border bg-surface-alt px-4 py-3">
+          <p className="text-[15px] text-text-secondary">
+            {progress
+              ? `Generating questions… ${progress.completed} of ${progress.total} source${
+                  progress.total === 1 ? "" : "s"
+                }`
+              : "Generating questions…"}
+          </p>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface">
+            <div
+              className="h-full rounded-full bg-accent transition-all duration-300"
+              style={{
+                width: progress ? `${Math.round((progress.completed / progress.total) * 100)}%` : "0%",
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {!generating && generateError && (
+        <p className="text-[15px] text-error">{generateError}</p>
+      )}
+
+      {!generating && addedCount !== null && (
+        <p className="text-[15px] text-success">
+          {addedCount} question{addedCount === 1 ? "" : "s"} generated.
+        </p>
+      )}
+
+      {!generating && failures.length > 0 && (
+        <ul className="ml-5 list-disc text-[14px] text-text-secondary">
+          {failures.map((f) => (
+            <li key={f.label}>
+              <span className="font-medium text-text-primary">{f.label}</span> — {f.reason}
+            </li>
+          ))}
+        </ul>
+      )}
 
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-alt px-4 py-3">
         <span className="text-[14px] text-text-secondary">Type</span>
@@ -485,7 +602,8 @@ export default function EditQuestionsTab({
 
       {total === 0 ? (
         <p className="text-[15px] text-text-secondary">
-          No questions yet — generate some in the Sources tab, or add one by hand.
+          No questions yet — add your notes in the Details tab, then hit Generate. You can also add
+          one by hand.
         </p>
       ) : visible.length === 0 ? (
         <p className="text-[15px] text-text-secondary">No questions match these filters.</p>
@@ -684,6 +802,22 @@ export default function EditQuestionsTab({
           })}
           </ul>
         </>
+      )}
+
+      {confirmOverwrite && (
+        <ConfirmDialog
+          title="Overwrite existing questions?"
+          body={`This reviewer already has ${total} question${
+            total === 1 ? "" : "s"
+          }. Generating new questions will replace all of them. This can't be undone.`}
+          confirmLabel="Overwrite and generate"
+          destructive
+          onConfirm={() => {
+            setConfirmOverwrite(false);
+            runGeneration();
+          }}
+          onCancel={() => setConfirmOverwrite(false)}
+        />
       )}
     </div>
   );

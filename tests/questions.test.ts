@@ -8,6 +8,7 @@ import {
   scoreTone,
   dedupeQuestions,
   takeWithinBudget,
+  takeWithinTypeBudget,
 } from "@/app/lib/questions";
 import type { Question } from "@/app/types";
 
@@ -248,5 +249,76 @@ describe("dedupeQuestions", () => {
       question({ id: "d", question: "Third?" }),
     ];
     expect(dedupeQuestions(input).map((q) => q.id)).toEqual(["a", "b", "d"]);
+  });
+});
+
+describe("takeWithinTypeBudget", () => {
+  const ident = (n: number, prefix = "i") =>
+    Array.from({ length: n }, (_, i) => question({ id: `${prefix}${i}`, type: "identification" }));
+
+  const scenario = (n: number) =>
+    Array.from({ length: n }, (_, i) => question({ id: `sc${i}`, type: "scenario" }));
+
+  const timelineSet = (key: string, n: number) =>
+    Array.from({ length: n }, (_, i) =>
+      question({ id: `${key}-${i}`, type: "timeline", groupId: key, stimulus: "table" }),
+    );
+
+  const budget = (over: Partial<Record<Question["type"], number>> = {}) => ({
+    identification: 0,
+    scenario: 0,
+    timeline: 0,
+    code: 0,
+    ...over,
+  });
+
+  it("caps each type independently", () => {
+    const { kept } = takeWithinTypeBudget(
+      [...ident(8), ...scenario(8)],
+      budget({ identification: 3, scenario: 5 }),
+    );
+    expect(kept.filter((q) => q.type === "identification")).toHaveLength(3);
+    expect(kept.filter((q) => q.type === "scenario")).toHaveLength(5);
+  });
+
+  it("drops a type entirely when its budget is zero", () => {
+    const { kept } = takeWithinTypeBudget(
+      [...ident(4), ...scenario(4)],
+      budget({ identification: 4 }),
+    );
+    expect(kept.every((q) => q.type === "identification")).toBe(true);
+  });
+
+  it("keeps a set whole or not at all", () => {
+    const { kept } = takeWithinTypeBudget(timelineSet("a", 8), budget({ timeline: 5 }));
+    expect(kept).toEqual([]);
+  });
+
+  it("takes a later set that fits after skipping an oversized one", () => {
+    const { kept } = takeWithinTypeBudget(
+      [...timelineSet("big", 9), ...timelineSet("small", 4)],
+      budget({ timeline: 5 }),
+    );
+    expect(kept.map((q) => q.groupId)).toEqual(["small", "small", "small", "small"]);
+  });
+
+  // The budget is spent down across every source in one generation, so what
+  // comes back has to be usable as the next call's ceiling.
+  it("reports the budget left over", () => {
+    const { remaining } = takeWithinTypeBudget(ident(2), budget({ identification: 5, scenario: 4 }));
+    expect(remaining.identification).toBe(3);
+    expect(remaining.scenario).toBe(4);
+  });
+
+  it("does not mutate the budget it was given", () => {
+    const original = budget({ identification: 5 });
+    takeWithinTypeBudget(ident(2), original);
+    expect(original.identification).toBe(5);
+  });
+
+  it("keeps returned questions in their original order", () => {
+    const input = [...ident(2), ...timelineSet("a", 3)];
+    const { kept } = takeWithinTypeBudget(input, budget({ identification: 2, timeline: 3 }));
+    expect(kept.map((q) => q.id)).toEqual(input.map((q) => q.id));
   });
 });

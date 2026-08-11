@@ -51,7 +51,13 @@ export type Reviewer = {
   topics: string[];
   notes: string;
   projectMaterial: string;
+  // The total, kept as a mirror of `questionCountByType`'s sum — it's what the
+  // rest of the app reads when it just needs "how many". `storage.ts` derives
+  // it on read so the two can't drift.
   questionCount: number;
+  // How many questions of each type to generate. The editable setting;
+  // reviewers saved before it existed get one seeded from their total.
+  questionCountByType: Record<QuestionType, number>;
   questions: Question[];
   createdAt: string;
   // Stamped by storage.ts on every save, not by callers — so it can't be

@@ -1,10 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { updateReviewer } from "@/app/lib/storage";
-import { MAX_QUESTION_COUNT, MIN_QUESTION_COUNT } from "@/app/lib/questions";
+import {
+  MAX_QUESTION_COUNT,
+  MIN_QUESTION_COUNT,
+  QUESTION_TYPES,
+  sumCounts,
+} from "@/app/lib/questions";
 import QuestionCountControl from "@/app/components/QuestionCountControl";
-import type { Reviewer } from "@/app/types";
+import SourceSections, { type SaveStatus } from "@/app/components/SourceSections";
+import type { QuestionType, Reviewer } from "@/app/types";
+
+// Long enough that a burst of typing is one write, short enough that switching
+// away feels already-saved.
+const DEBOUNCE_MS = 1200;
+
+type SourceField = "notes" | "project";
+
+function sameCountByType(
+  a: Record<QuestionType, number>,
+  b: Record<QuestionType, number>,
+): boolean {
+  return QUESTION_TYPES.every((t) => a[t] === b[t]);
+}
 
 export default function DetailsTab({
   reviewer,
@@ -18,26 +37,117 @@ export default function DetailsTab({
   const [name, setName] = useState(reviewer.reviewerName);
   const [subject, setSubject] = useState(reviewer.subject);
   const [topics, setTopics] = useState<string[]>(reviewer.topics.length ? reviewer.topics : [""]);
-  const [questionCount, setQuestionCount] = useState(reviewer.questionCount);
+  const [countByType, setCountByType] = useState(reviewer.questionCountByType);
   const [error, setError] = useState("");
   const [nameError, setNameError] = useState(false);
-  const [savedMessage, setSavedMessage] = useState(false);
   // Browsers don't render text-overflow:ellipsis inside <input>, so an unfocused
   // topic is drawn as a real element on top of the (text-transparent) input.
   const [focusedTopic, setFocusedTopic] = useState<number | null>(null);
+
+  // The source fields autosave on their own debounce rather than waiting for
+  // "Save details" — they're the two fields a generation reads, and the old
+  // Sources tab saved them this way before it was folded in here.
+  const [notesStatus, setNotesStatus] = useState<SaveStatus>("idle");
+  const [projectStatus, setProjectStatus] = useState<SaveStatus>("idle");
+  const notesRef = useRef(reviewer.notes);
+  const projectRef = useRef(reviewer.projectMaterial);
+  const timers = useRef<Partial<Record<SourceField, ReturnType<typeof setTimeout>>>>({});
+  const saveNowRef = useRef<() => void>(() => {});
+  const onSavedRef = useRef(onSaved);
+
+  // Everything the sticky bar's Discard reverts, and everything a fresh
+  // Reviewer has to re-seed — one path so the two can't drift apart.
+  function resetFields() {
+    setName(reviewer.reviewerName);
+    setSubject(reviewer.subject);
+    setTopics(reviewer.topics.length ? reviewer.topics : [""]);
+    setCountByType(reviewer.questionCountByType);
+    setNameError(false);
+    setError("");
+  }
 
   useEffect(() => {
     setName(reviewer.reviewerName);
     setSubject(reviewer.subject);
     setTopics(reviewer.topics.length ? reviewer.topics : [""]);
-    setQuestionCount(reviewer.questionCount);
-  }, [reviewer.id, reviewer.reviewerName, reviewer.subject, reviewer.topics, reviewer.questionCount]);
+    setCountByType(reviewer.questionCountByType);
+  }, [
+    reviewer.id,
+    reviewer.reviewerName,
+    reviewer.subject,
+    reviewer.topics,
+    reviewer.questionCountByType,
+  ]);
+
+  useEffect(() => {
+    notesRef.current = reviewer.notes;
+    projectRef.current = reviewer.projectMaterial;
+  }, [reviewer.id, reviewer.notes, reviewer.projectMaterial]);
+
+  // `updateReviewer` re-reads before writing, so an autosave here can't revert
+  // questions added by a generation that finished while the user was typing.
+  useEffect(() => {
+    saveNowRef.current = () => {
+      updateReviewer(reviewer.id, {
+        notes: notesRef.current,
+        projectMaterial: projectRef.current,
+      });
+    };
+    onSavedRef.current = onSaved;
+  });
+
+  // Flush a pending debounce on unmount — switching tabs must not drop edits.
+  // The parent has to be told too: it hands every sibling tab its own copy of
+  // the Reviewer, and a flush that writes silently leaves those copies stale.
+  useEffect(
+    () => () => {
+      const pending = timers.current;
+      const hadPending = Boolean(pending.notes || pending.project);
+      if (pending.notes) clearTimeout(pending.notes);
+      if (pending.project) clearTimeout(pending.project);
+      if (hadPending) {
+        saveNowRef.current();
+        onSavedRef.current();
+      }
+    },
+    [],
+  );
+
+  function flushSource(field: SourceField) {
+    delete timers.current[field];
+    saveNowRef.current();
+    onSaved();
+    if (field === "notes") setNotesStatus("saved");
+    else setProjectStatus("saved");
+  }
+
+  function handleSourceChange(field: SourceField, value: string, immediate?: boolean) {
+    if (field === "notes") {
+      notesRef.current = value;
+      setNotesStatus("saving");
+    } else {
+      projectRef.current = value;
+      setProjectStatus("saving");
+    }
+
+    clearTimeout(timers.current[field]);
+    if (immediate) {
+      flushSource(field);
+    } else {
+      timers.current[field] = setTimeout(() => flushSource(field), DEBOUNCE_MS);
+    }
+  }
+
+  // Derived, never stored separately — the per-type fields are the setting.
+  const questionCount = sumCounts(countByType);
 
   const dirty =
     name !== reviewer.reviewerName ||
     subject !== reviewer.subject ||
     topics.join("\n") !== (reviewer.topics.length ? reviewer.topics : [""]).join("\n") ||
-    questionCount !== reviewer.questionCount;
+    // Compared per type, not just by total, so re-splitting the same number of
+    // questions across types still counts as a change worth saving.
+    !sameCountByType(countByType, reviewer.questionCountByType);
 
   function updateTopic(index: number, value: string) {
     setTopics((prev) => prev.map((t, i) => (i === index ? value : t)));
@@ -52,6 +162,9 @@ export default function DetailsTab({
   }
 
   function handleSave() {
+    // Cleared up front so a fixed problem's message doesn't linger in the
+    // sticky bar and resurface on the next edit.
+    setError("");
     const trimmed = name.trim();
     if (!trimmed) {
       setNameError(true);
@@ -68,21 +181,20 @@ export default function DetailsTab({
       return;
     }
 
-    // Re-reads before writing, so saving details can't revert notes typed in
-    // the Sources tab (or questions added by a generation) since this render.
+    // Re-reads before writing, so saving details can't revert a source-field
+    // autosave (or questions added by a generation) since this render.
     updateReviewer(reviewer.id, {
       reviewerName: trimmed,
       subject: subject.trim(),
       topics: topics.map((t) => t.trim()).filter(Boolean),
       questionCount,
+      questionCountByType: countByType,
     });
-    setSavedMessage(true);
     onSaved();
-    setTimeout(() => setSavedMessage(false), 2000);
   }
 
   return (
-    <div className="flex flex-col">
+    <div className={`flex flex-col ${dirty ? "pb-24" : ""}`}>
       <div className="grid grid-cols-1 gap-6 py-6 md:grid-cols-[160px_1fr]">
         <div>
           <p className="text-[15px] font-medium text-text-primary">Reviewer info</p>
@@ -178,22 +290,18 @@ export default function DetailsTab({
           <p className="text-[15px] font-medium text-text-primary">Question count</p>
           <p className="mt-1 text-[14px] text-text-secondary">How many questions to generate.</p>
         </div>
-        <QuestionCountControl value={questionCount} onChange={setQuestionCount} />
+        <QuestionCountControl value={countByType} onChange={setCountByType} />
       </div>
 
-      {error && <p className="pb-2 text-[15px] text-error">{error}</p>}
-
-      <div className="flex items-center justify-end gap-3 border-t border-border py-6">
-        {savedMessage && <span className="text-[15px] text-success">Saved.</span>}
-        <button
-          onClick={handleSave}
-          disabled={!dirty}
-          title={dirty ? undefined : "No changes to save"}
-          className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-white enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Save details
-        </button>
-      </div>
+      <SourceSections
+        reviewerId={reviewer.id}
+        notes={reviewer.notes}
+        projectMaterial={reviewer.projectMaterial}
+        onNotesChange={(text, immediate) => handleSourceChange("notes", text, immediate)}
+        onProjectChange={(text, immediate) => handleSourceChange("project", text, immediate)}
+        notesStatus={notesStatus}
+        projectStatus={projectStatus}
+      />
 
       <div className="flex items-center justify-between rounded-lg border border-error px-5 py-4">
         <div>
@@ -209,6 +317,42 @@ export default function DetailsTab({
           Delete reviewer
         </button>
       </div>
+
+      {/* Fixed rather than sticky: the actions stay reachable from anywhere on
+          a long Details tab, not just once its end scrolls into view. */}
+      {dirty && (
+        <div className="fixed inset-x-0 bottom-0 z-40">
+          {/* Mirrors the page wrapper's own `max-w-4xl px-6` so the bar's edges
+              land on the same line as the dividers and inputs above it. */}
+          <div className="mx-auto w-full max-w-4xl px-6 pb-4">
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface px-5 py-4 shadow-menu">
+              {/* A failed save leaves the bar up, so its own status line is the
+                  only place a validation message is certain to be seen. */}
+              <span className={`text-[15px] ${error ? "text-error" : "text-text-secondary"}`}>
+                {error || "You have unsaved changes"}
+              </span>
+              <div className="flex shrink-0 items-center gap-3">
+                <button
+                  type="button"
+                  onClick={resetFields}
+                  className="rounded-lg px-4 py-2.5 text-[15px] font-medium text-text-secondary hover:bg-surface-alt hover:text-text-primary"
+                >
+                  Discard
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={!name.trim()}
+                  title={name.trim() ? undefined : "Reviewer name is required"}
+                  className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-white enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Save details
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

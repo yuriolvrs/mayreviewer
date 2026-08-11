@@ -76,19 +76,14 @@ function isPdf(file: File): boolean {
 
 const ACCEPTED = ".pdf,.docx,.txt,.cpp";
 
-export type SaveStatus = "idle" | "saving" | "saved";
-
 export default function ContentField({
-  label,
   initialText,
   onChange,
   placeholder,
   surfaceClassName = "bg-surface",
   reviewerId,
   field,
-  status = "idle",
 }: {
-  label: string;
   initialText: string;
   // `immediate` skips the parent's debounce — used for file add/remove, where
   // there's no typing to wait out.
@@ -97,7 +92,6 @@ export default function ContentField({
   surfaceClassName?: string;
   reviewerId: string;
   field: AttachmentField;
-  status?: SaveStatus;
 }) {
   const [mode, setMode] = useState<"upload" | "paste">(initialText ? "paste" : "upload");
   const [pasteText, setPasteText] = useState(initialText);
@@ -227,14 +221,6 @@ export default function ContentField({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <span className="text-[18px] font-semibold text-text-primary">{label}</span>
-        {status === "saving" && (
-          <span className="text-[14px] text-text-tertiary">Saving…</span>
-        )}
-        {status === "saved" && <span className="text-[14px] text-success">✓ Saved</span>}
-      </div>
-
       <div className="flex gap-4 border-b border-border">
         <button
           type="button"

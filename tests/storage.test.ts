@@ -36,6 +36,7 @@ function reviewer(overrides: Partial<Reviewer> = {}): Reviewer {
     notes: "notes",
     projectMaterial: "",
     questionCount: 10,
+    questionCountByType: { identification: 3, scenario: 2, timeline: 2, code: 3 },
     questions: [question("q1")],
     createdAt: "2026-08-01T00:00:00.000Z",
     updatedAt: "2026-08-01T00:00:00.000Z",
@@ -75,6 +76,12 @@ describe("getReviewers", () => {
     expect(migrated.subject).toBe("");
     expect(migrated.topics).toEqual([]);
     expect(migrated.questionCount).toBe(10);
+    expect(migrated.questionCountByType).toEqual({
+      identification: 3,
+      scenario: 2,
+      timeline: 2,
+      code: 3,
+    });
     expect(migrated.questions).toEqual([]);
     expect(migrated.notes).toBe("");
     expect(migrated.projectMaterial).toBe("");
@@ -82,8 +89,49 @@ describe("getReviewers", () => {
   });
 
   it("leaves already-complete Reviewers untouched", () => {
-    saveReviewer(reviewer({ questionCount: 25 }));
+    saveReviewer(
+      reviewer({
+        questionCount: 25,
+        questionCountByType: { identification: 7, scenario: 6, timeline: 6, code: 6 },
+      }),
+    );
     expect(getReviewers()[0].questionCount).toBe(25);
+  });
+
+  // The per-type breakdown is the setting the user edits; the flat total is a
+  // mirror of it, so a stored pair that disagrees resolves to the breakdown.
+  it("derives questionCount from the per-type breakdown", () => {
+    saveReviewer(
+      reviewer({
+        questionCount: 999,
+        questionCountByType: { identification: 4, scenario: 3, timeline: 2, code: 1 },
+      }),
+    );
+    expect(getReviewers()[0].questionCount).toBe(10);
+  });
+
+  it("seeds a per-type breakdown for Reviewers saved before it existed", () => {
+    localStorage.setItem(
+      REVIEWERS_KEY,
+      JSON.stringify([
+        {
+          id: "old",
+          reviewerName: "Legacy",
+          questionCount: 50,
+          createdAt: "2026-08-01T00:00:00.000Z",
+        },
+      ]),
+    );
+
+    const [migrated] = getReviewers();
+    // Split evenly, remainder to the outermost types.
+    expect(migrated.questionCountByType).toEqual({
+      identification: 13,
+      scenario: 12,
+      timeline: 12,
+      code: 13,
+    });
+    expect(migrated.questionCount).toBe(50);
   });
 });
 

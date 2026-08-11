@@ -1,7 +1,13 @@
 import { unzipSync, strFromU8 } from "fflate";
-import { DEFAULT_QUESTION_COUNT, MAX_QUESTION_COUNT, MIN_QUESTION_COUNT, isQuestion } from "@/app/lib/questions";
+import {
+  DEFAULT_QUESTION_COUNT,
+  MAX_QUESTION_COUNT,
+  MIN_QUESTION_COUNT,
+  QUESTION_TYPES,
+  isQuestion,
+} from "@/app/lib/questions";
 import type { AttachmentField } from "@/app/lib/attachments";
-import type { Question } from "@/app/types";
+import type { Question, QuestionType } from "@/app/types";
 
 export type AttachmentManifestEntry = {
   id: string;
@@ -34,6 +40,7 @@ export type ParsedReviewerFile = {
   notes: string;
   projectMaterial: string;
   questionCount: number;
+  questionCountByType?: Record<QuestionType, number>;
   questions: Question[];
   attachments: ParsedAttachment[];
 };
@@ -90,6 +97,24 @@ export async function parseReviewerFile(
       ? questionCountRaw
       : DEFAULT_QUESTION_COUNT;
 
+  // Only kept when it agrees with the total it's supposed to break down —
+  // an inconsistent pair in a hand-edited file would otherwise steer
+  // generation toward a mix the file never actually claimed.
+  const byTypeRaw = obj.questionCountByType;
+  const byType =
+    typeof byTypeRaw === "object" && byTypeRaw !== null
+      ? (byTypeRaw as Record<string, unknown>)
+      : undefined;
+  const questionCountByType =
+    byType &&
+    QUESTION_TYPES.every((t) => Number.isInteger(byType[t]) && (byType[t] as number) >= 0) &&
+    QUESTION_TYPES.reduce((sum, t) => sum + (byType[t] as number), 0) === questionCount
+      ? (Object.fromEntries(QUESTION_TYPES.map((t) => [t, byType[t] as number])) as Record<
+          QuestionType,
+          number
+        >)
+      : undefined;
+
   let attachments: ParsedAttachment[] = [];
   if (zipEntries) {
     const manifestRaw = obj.attachments;
@@ -111,6 +136,7 @@ export async function parseReviewerFile(
       notes: typeof obj.notes === "string" ? obj.notes : "",
       projectMaterial: typeof obj.projectMaterial === "string" ? obj.projectMaterial : "",
       questionCount,
+      questionCountByType,
       questions,
       attachments,
     },

@@ -1,4 +1,4 @@
-import { DEFAULT_QUESTION_COUNT } from "@/app/lib/questions";
+import { DEFAULT_QUESTION_COUNT, splitCountEvenly, sumCounts } from "@/app/lib/questions";
 import type { Question, QuizAttempt, Reviewer } from "@/app/types";
 
 // The ONLY file that touches localStorage. Swapping to Supabase later means
@@ -22,13 +22,21 @@ function readJson<T>(key: string): T[] {
 // first Reviewers were already saved. Backfilling on read (rather than in each
 // component) means no screen has to defend against a missing field.
 function normalize(reviewer: Reviewer): Reviewer {
+  // The per-type breakdown is the setting the user edits; the flat total is
+  // derived from it here so no read path can see the two disagree. Reviewers
+  // saved before the breakdown existed get one split evenly from their total.
+  const questionCountByType =
+    reviewer.questionCountByType ??
+    splitCountEvenly(reviewer.questionCount ?? DEFAULT_QUESTION_COUNT);
+
   return {
     ...reviewer,
     subject: reviewer.subject ?? "",
     topics: reviewer.topics ?? [],
     notes: reviewer.notes ?? "",
     projectMaterial: reviewer.projectMaterial ?? "",
-    questionCount: reviewer.questionCount ?? DEFAULT_QUESTION_COUNT,
+    questionCountByType,
+    questionCount: sumCounts(questionCountByType),
     questions: reviewer.questions ?? [],
     updatedAt: reviewer.updatedAt ?? reviewer.createdAt,
   };

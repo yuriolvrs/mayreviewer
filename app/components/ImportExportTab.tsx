@@ -5,7 +5,7 @@ import { zipSync, strToU8 } from "fflate";
 import { updateReviewer } from "@/app/lib/storage";
 import { getAttachments, addAttachment } from "@/app/lib/attachments";
 import { parseReviewerFile, type AttachmentManifestEntry, type ParsedAttachment } from "@/app/lib/reviewerFile";
-import type { Question, Reviewer } from "@/app/types";
+import type { Question, QuestionType, Reviewer } from "@/app/types";
 
 type ExportedReviewer = {
   reviewerName: string;
@@ -14,6 +14,7 @@ type ExportedReviewer = {
   notes: string;
   projectMaterial: string;
   questionCount: number;
+  questionCountByType?: Record<QuestionType, number>;
   questions: Question[];
   createdAt: string;
   attachments?: AttachmentManifestEntry[];
@@ -72,6 +73,7 @@ export default function ImportExportTab({
       notes: reviewer.notes,
       projectMaterial: reviewer.projectMaterial,
       questionCount: reviewer.questionCount,
+      questionCountByType: reviewer.questionCountByType,
       questions: reviewer.questions,
       createdAt: reviewer.createdAt,
     };
@@ -98,6 +100,7 @@ export default function ImportExportTab({
         notes: reviewer.notes,
         projectMaterial: reviewer.projectMaterial,
         questionCount: reviewer.questionCount,
+        questionCountByType: reviewer.questionCountByType,
         questions: reviewer.questions,
         createdAt: reviewer.createdAt,
         attachments: manifest,

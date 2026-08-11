@@ -4,11 +4,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { saveReviewer } from "@/app/lib/storage";
-import { MAX_QUESTION_COUNT, MIN_QUESTION_COUNT } from "@/app/lib/questions";
+import {
+  MAX_QUESTION_COUNT,
+  MIN_QUESTION_COUNT,
+  splitCountEvenly,
+  sumCounts,
+} from "@/app/lib/questions";
 import { addAttachment } from "@/app/lib/attachments";
 import { parseReviewerFile, type ParsedReviewerFile } from "@/app/lib/reviewerFile";
 import QuestionCountControl from "@/app/components/QuestionCountControl";
-import type { Reviewer } from "@/app/types";
+import SourceSections from "@/app/components/SourceSections";
+import type { QuestionType, Reviewer } from "@/app/types";
 
 // Reasonable starting point for a reviewer with no questions yet — matches
 // what most first generations ask for, without forcing the max every time.
@@ -19,9 +25,20 @@ export default function NewReviewerPage() {
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
   const [topics, setTopics] = useState<string[]>([""]);
-  const [questionCount, setQuestionCount] = useState(DEFAULT_NEW_QUESTION_COUNT);
+  const [countByType, setCountByType] = useState<Record<QuestionType, number>>(() =>
+    splitCountEvenly(DEFAULT_NEW_QUESTION_COUNT),
+  );
+  const [notes, setNotes] = useState("");
+  const [projectMaterial, setProjectMaterial] = useState("");
   const [error, setError] = useState("");
   const [nameError, setNameError] = useState(false);
+
+  // Uploaded files are keyed by reviewer id in IndexedDB, so the id has to
+  // exist before the reviewer does — it's minted here and reused on create so
+  // anything attached while filling the form is already attached to the
+  // reviewer that gets saved. Abandoning the form leaves those files orphaned;
+  // they're inert without a reviewer pointing at them.
+  const [draftId] = useState(() => crypto.randomUUID());
   // Browsers don't render text-overflow:ellipsis inside <input>, so an unfocused
   // topic is drawn as a real element on top of the (text-transparent) input.
   const [focusedTopic, setFocusedTopic] = useState<number | null>(null);
@@ -51,6 +68,7 @@ export default function NewReviewerPage() {
       setNameError(true);
       return;
     }
+    const questionCount = sumCounts(countByType);
     if (
       !Number.isInteger(questionCount) ||
       questionCount < MIN_QUESTION_COUNT ||
@@ -64,21 +82,22 @@ export default function NewReviewerPage() {
 
     const now = new Date().toISOString();
     const reviewer: Reviewer = {
-      id: crypto.randomUUID(),
+      id: draftId,
       reviewerName: trimmed,
       subject: subject.trim(),
       topics: topics.map((t) => t.trim()).filter(Boolean),
-      notes: "",
-      projectMaterial: "",
+      notes,
+      projectMaterial,
       questionCount,
+      questionCountByType: countByType,
       questions: [],
       createdAt: now,
       updatedAt: now,
     };
     saveReviewer(reviewer);
-    // Straight to Sources — a brand-new reviewer has no source material yet,
-    // and that's the next thing it needs.
-    router.push(`/reviewer/${reviewer.id}?tab=upload`);
+    // Straight to Questions — if sources were attached while filling this form,
+    // Generate is the very next thing to click.
+    router.push(`/reviewer/${reviewer.id}?tab=questions`);
   }
 
   async function handleImportFileSelected(file: File) {
@@ -110,6 +129,8 @@ export default function NewReviewerPage() {
         notes: importPending.notes,
         projectMaterial: importPending.projectMaterial,
         questionCount: importPending.questionCount,
+        questionCountByType:
+          importPending.questionCountByType ?? splitCountEvenly(importPending.questionCount),
         questions: importPending.questions,
         createdAt: now,
         updatedAt: now,
@@ -343,8 +364,16 @@ export default function NewReviewerPage() {
             <p className="text-[15px] font-medium text-text-primary">Question count</p>
             <p className="mt-1 text-[14px] text-text-secondary">How many questions to generate.</p>
           </div>
-          <QuestionCountControl value={questionCount} onChange={setQuestionCount} />
+          <QuestionCountControl value={countByType} onChange={setCountByType} />
         </div>
+
+        <SourceSections
+          reviewerId={draftId}
+          notes={notes}
+          projectMaterial={projectMaterial}
+          onNotesChange={setNotes}
+          onProjectChange={setProjectMaterial}
+        />
 
         {error && <p className="pb-2 text-[15px] text-error">{error}</p>}
 

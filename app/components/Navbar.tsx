@@ -24,12 +24,12 @@ export default function Navbar() {
 
   return (
     <header className="flex h-auto shrink-0 flex-wrap items-center justify-between gap-y-3 border-b border-border bg-surface px-4 py-3 md:h-16 md:flex-nowrap md:px-16 md:py-0">
-      <Link href="/" className="flex items-center gap-2 text-[16px] hover:opacity-70 md:text-[19px]">
+      <Link href="/" className="flex items-center gap-2 hover:opacity-70">
         <img src="/icon.svg" alt="" className="h-6 w-6" />
-        <span>
-          <span className="font-normal text-text-primary">pre, </span>
-          <span className="font-semibold text-text-primary">May Reviewer</span>
-          <span className="font-normal text-text-primary"> ka ba?</span>
+        <span className="flex flex-col leading-none text-text-primary">
+          <span className="mb-[-2px] text-[11px] font-normal">pre,</span>
+          <span className="text-xl font-bold tracking-tight">May Reviewer</span>
+          <span className="mt-[-2px] self-end text-[11px] font-normal">ka ba?</span>
         </span>
       </Link>
 
@@ -65,6 +65,13 @@ export default function Navbar() {
           </button>
           {menuOpen && (
             <div className="absolute right-0 top-11 w-40 rounded-lg border border-border bg-surface py-1 shadow-menu">
+              <Link
+                href="/about"
+                onClick={() => setMenuOpen(false)}
+                className="block px-3 py-2 text-left text-[15px] text-text-primary hover:bg-surface-alt"
+              >
+                About
+              </Link>
               <button
                 disabled
                 className="block w-full px-3 py-2 text-left text-[15px] text-text-tertiary disabled:cursor-not-allowed"

@@ -25,6 +25,7 @@ function reviewer(overrides: Partial<Reviewer> = {}): Reviewer {
     notes: "",
     projectMaterial: "",
     questionCount: 10,
+    questionCountByType: { identification: 3, scenario: 2, timeline: 2, code: 3 },
     questions: [question("q1"), question("q2")],
     createdAt: "2026-08-01T00:00:00.000Z",
     updatedAt: "2026-08-01T00:00:00.000Z",

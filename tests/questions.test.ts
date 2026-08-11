@@ -289,9 +289,20 @@ describe("takeWithinTypeBudget", () => {
     expect(kept.every((q) => q.type === "identification")).toBe(true);
   });
 
-  it("keeps a set whole or not at all", () => {
+  // An oversized set is trimmed rather than dropped only when it would leave
+  // the type with nothing — a Reviewer that asked for Timeline questions and
+  // got zero because the one set ran a question long is the worse outcome.
+  it("trims the only set of a type down to its budget", () => {
     const { kept } = takeWithinTypeBudget(timelineSet("a", 8), budget({ timeline: 5 }));
-    expect(kept).toEqual([]);
+    expect(kept.map((q) => q.id)).toEqual(["a-0", "a-1", "a-2", "a-3", "a-4"]);
+  });
+
+  it("does not trim a set once the type already has questions", () => {
+    const { kept } = takeWithinTypeBudget(
+      [...timelineSet("small", 4), ...timelineSet("big", 9)],
+      budget({ timeline: 6 }),
+    );
+    expect(kept.map((q) => q.groupId)).toEqual(Array(4).fill("small"));
   });
 
   it("takes a later set that fits after skipping an oversized one", () => {

@@ -504,7 +504,7 @@ export default function QuestionsTab({
           onClick={handleGenerateClick}
           disabled={generating}
           title={`Generate ${reviewer.questionCount} questions from this reviewer's sources`}
-          className="flex h-11 shrink-0 items-center gap-2 rounded-lg bg-accent px-4 text-[15px] font-medium text-white enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 text-[15px] font-medium text-white enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:shrink-0"
         >
           <SparkleIcon />
           {generating ? "Generating…" : "Generate"}
@@ -551,41 +551,49 @@ export default function QuestionsTab({
         </ul>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-alt px-4 py-3">
-        <span className="text-[14px] text-text-secondary">Type</span>
-        {TYPE_FILTERS.map((t) => (
-          <button
-            key={t}
-            onClick={() => setTypeFilter(t)}
-            className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
-              typeFilter === t
-                ? "bg-accent text-white"
-                : "border border-border-strong text-text-secondary hover:text-text-primary"
-            }`}
-          >
-            {t === "all" ? "All" : TYPE_LABELS[t]}
-          </button>
-        ))}
-
-        <div className="mx-2 h-6 w-px bg-border-strong" />
-
-        <span className="text-[14px] text-text-secondary">Source</span>
-        <select
-          value={sourceFilter}
-          onChange={(e) => setSourceFilter(e.target.value as "all" | QuestionSource)}
-          aria-label="Filter by source"
-          className="h-8 rounded-lg border border-border bg-surface px-2 text-[14px] text-text-primary outline-none focus:border-accent"
-        >
-          {SOURCE_FILTERS.map((s) => (
-            <option key={s} value={s}>
-              {s === "all" ? "All" : SOURCE_LABELS[s]}
-            </option>
+      {/* Two groups rather than one long wrapping run of controls: below `sm`
+          they stack as whole rows, so the chips can't leave a stray chip sitting
+          on the dropdown's line with a mismatched baseline. Above `sm` the
+          groups flow back into the single row they always were. */}
+      <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-alt px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[14px] text-text-secondary">Type</span>
+          {TYPE_FILTERS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTypeFilter(t)}
+              className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
+                typeFilter === t
+                  ? "bg-accent text-white"
+                  : "border border-border-strong text-text-secondary hover:text-text-primary"
+              }`}
+            >
+              {t === "all" ? "All" : TYPE_LABELS[t]}
+            </button>
           ))}
-        </select>
+        </div>
 
-        <span className="ml-auto text-[14px] text-text-tertiary">
-          {total} question{total === 1 ? "" : "s"} total
-        </span>
+        <div className="mx-2 hidden h-6 w-px bg-border-strong sm:block" />
+
+        <div className="flex items-center gap-2 sm:flex-1">
+          <span className="shrink-0 text-[14px] text-text-secondary">Source</span>
+          <select
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value as "all" | QuestionSource)}
+            aria-label="Filter by source"
+            className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-surface px-2 text-[14px] text-text-primary outline-none focus:border-accent sm:flex-none"
+          >
+            {SOURCE_FILTERS.map((s) => (
+              <option key={s} value={s}>
+                {s === "all" ? "All" : SOURCE_LABELS[s]}
+              </option>
+            ))}
+          </select>
+
+          <span className="ml-auto shrink-0 pl-2 text-[14px] text-text-tertiary">
+            {total} question{total === 1 ? "" : "s"} total
+          </span>
+        </div>
       </div>
 
       {creating && draft && (
@@ -703,21 +711,26 @@ export default function QuestionsTab({
                           </span>
                         </span>
 
-                        <div className="flex shrink-0 items-center gap-3 text-[14px]">
+                        {/* `ml-auto` so that when this drops to its own row on a
+                            narrow screen it lands right-aligned instead of
+                            stacking flush under the label. Below `sm` it's also
+                            a size and weight lighter than that label, so the
+                            two don't read as equals. */}
+                        <div className="ml-auto flex shrink-0 items-center gap-3 text-[13px] sm:text-[14px]">
                           {confirmDeleteId === question.id ? (
                             <>
-                              <span className="text-text-secondary">
+                              <span className="text-text-tertiary sm:text-text-secondary">
                                 Really delete this question?
                               </span>
                               <button
                                 onClick={() => deleteQuestions([question.id])}
-                                className="font-medium text-error hover:underline"
+                                className="text-error hover:underline sm:font-medium"
                               >
                                 Yes
                               </button>
                               <button
                                 onClick={() => setConfirmDeleteId(null)}
-                                className="font-medium text-text-secondary hover:text-text-primary"
+                                className="text-text-tertiary hover:text-text-primary sm:font-medium sm:text-text-secondary"
                               >
                                 Cancel
                               </button>
@@ -726,13 +739,13 @@ export default function QuestionsTab({
                             <>
                               <button
                                 onClick={() => startEdit(question)}
-                                className="font-medium text-text-secondary hover:text-text-primary"
+                                className="text-text-tertiary hover:text-text-primary sm:font-medium sm:text-text-secondary"
                               >
                                 Edit
                               </button>
                               <button
                                 onClick={() => setConfirmDeleteId(question.id)}
-                                className="font-medium text-text-secondary hover:text-error"
+                                className="text-text-tertiary hover:text-error sm:font-medium sm:text-text-secondary"
                               >
                                 Delete
                               </button>

@@ -92,8 +92,10 @@ function ReviewerSpace() {
           <span className="text-text-tertiary">{reviewer.reviewerName}</span>
         </nav>
 
-        <div className="flex items-center justify-between">
-          <h1 className="text-[26px] font-semibold text-text-primary">{reviewer.reviewerName}</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="min-w-0 break-words text-[26px] font-semibold text-text-primary">
+            {reviewer.reviewerName}
+          </h1>
           <div className="flex shrink-0 items-center gap-4">
             {hasQuestions ? (
               <Link
@@ -113,12 +115,15 @@ function ReviewerSpace() {
           </div>
         </div>
 
-        <nav className="mt-4 flex items-center gap-1 border-b border-border-strong">
+        {/* The three labels are wider than a narrow phone at their desktop
+            size, so they step down below `sm`; anything still over scrolls
+            inside the nav rather than dragging the whole page sideways. */}
+        <nav className="mt-4 flex items-center gap-1 overflow-x-auto border-b border-border-strong">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`-mb-px rounded-t-md border-b-2 px-3 py-2 text-[17px] font-medium ${
+              className={`-mb-px shrink-0 rounded-t-md border-b-2 px-2.5 py-2 text-[15px] font-medium whitespace-nowrap sm:px-3 sm:text-[17px] ${
                 activeTab === tab.id
                   ? "border-accent bg-accent-subtle text-text-primary"
                   : "border-transparent text-text-secondary hover:text-text-primary"

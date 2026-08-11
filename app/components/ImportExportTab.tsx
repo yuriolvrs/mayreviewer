@@ -202,7 +202,7 @@ export default function ImportExportTab({
 
   return (
     <div className="flex flex-col">
-      <div className="grid grid-cols-[160px_1fr] gap-6 py-6">
+      <div className="grid grid-cols-1 gap-6 py-6 md:grid-cols-[160px_1fr]">
         <div>
           <p className="text-[15px] font-medium text-text-primary">Export</p>
           <p className="mt-1 text-[14px] text-text-secondary">
@@ -233,7 +233,7 @@ export default function ImportExportTab({
         </div>
       </div>
 
-      <div className="grid grid-cols-[160px_1fr] gap-6 border-t border-border py-6">
+      <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
         <div>
           <p className="text-[15px] font-medium text-text-primary">Import</p>
           <p className="mt-1 text-[14px] text-text-secondary">

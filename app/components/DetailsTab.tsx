@@ -194,7 +194,10 @@ export default function DetailsTab({
   }
 
   return (
-    <div className={`flex flex-col ${dirty ? "pb-24" : ""}`}>
+    // The bar is fixed, so the tab reserves its height as scrollable slack —
+    // enough that the last field can always be scrolled clear of it. It's
+    // taller on mobile, where the bar's contents stack.
+    <div className={`flex flex-col ${dirty ? "pb-36 sm:pb-24" : ""}`}>
       <div className="grid grid-cols-1 gap-6 py-6 md:grid-cols-[160px_1fr]">
         <div>
           <p className="text-[15px] font-medium text-text-primary">Reviewer info</p>
@@ -278,7 +281,7 @@ export default function DetailsTab({
           <button
             type="button"
             onClick={addTopic}
-            className="col-span-2 flex h-11 items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong text-[15px] font-medium text-text-secondary hover:border-accent hover:text-accent"
+            className="col-span-full flex h-11 items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong text-[15px] font-medium text-text-secondary hover:border-accent hover:text-accent"
           >
             + Add topic
           </button>
@@ -303,7 +306,7 @@ export default function DetailsTab({
         projectStatus={projectStatus}
       />
 
-      <div className="flex items-center justify-between rounded-lg border border-error px-5 py-4">
+      <div className="flex flex-col gap-3 rounded-lg border border-error px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-[15px] font-semibold text-error">Danger zone</p>
           <p className="mt-1 text-[14px] text-text-secondary">
@@ -324,14 +327,17 @@ export default function DetailsTab({
         <div className="fixed inset-x-0 bottom-0 z-40">
           {/* Mirrors the page wrapper's own `max-w-4xl px-6` so the bar's edges
               land on the same line as the dividers and inputs above it. */}
-          <div className="mx-auto w-full max-w-4xl px-6 pb-4">
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface px-5 py-4 shadow-menu">
+          <div className="mx-auto w-full max-w-4xl px-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            {/* Stacked below `sm`: side by side, the message gets squeezed to a
+                few characters per line by the two buttons and the bar grows
+                taller than the stacked version it's avoiding. */}
+            <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface px-5 py-4 shadow-menu sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               {/* A failed save leaves the bar up, so its own status line is the
                   only place a validation message is certain to be seen. */}
               <span className={`text-[15px] ${error ? "text-error" : "text-text-secondary"}`}>
                 {error || "You have unsaved changes"}
               </span>
-              <div className="flex shrink-0 items-center gap-3">
+              <div className="flex shrink-0 items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={resetFields}

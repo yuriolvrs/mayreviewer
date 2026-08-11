@@ -109,6 +109,90 @@ export default function QuizTaking({
     onSubmit(answers, unsureIds);
   }
 
+  // The grid and its legend are the same on both layouts — the sidebar can't
+  // fit beside the questions on a phone, so below `lg` the identical markup is
+  // served from a collapsed disclosure above them instead of being dropped.
+  const jumpGrid = (
+    <div className="grid grid-cols-5 gap-1.5">
+      {questions.map((question, index) => {
+        const isAnswered = answers[question.id] !== undefined;
+        const isCorrect = answers[question.id] === question.correctIndex;
+        const isUnsure = unsureIds.includes(question.id);
+        const isActive = question.id === activeId;
+
+        // Fill carries status; the ring carries position, so the two never
+        // have to compete for the same visual channel. Correctness only
+        // shows in immediate mode — end-only keeps a neutral "answered"
+        // fill, since revealing right/wrong here would defeat the mode.
+        let stateClass = "border-border bg-surface text-text-secondary";
+        if (isUnsure) stateClass = "border-warning bg-warning-subtle text-warning";
+        else if (isAnswered) {
+          stateClass = showFeedback
+            ? isCorrect
+              ? "border-success bg-success-subtle text-success"
+              : "border-error bg-error-subtle text-error"
+            : "border-border-strong bg-surface-alt text-text-primary";
+        }
+
+        const answeredState = showFeedback ? (isCorrect ? "Correct" : "Incorrect") : "Answered";
+        const state = isUnsure
+          ? isAnswered
+            ? `${answeredState}, marked unsure`
+            : "Unanswered, marked unsure"
+          : isAnswered
+            ? answeredState
+            : "Unanswered";
+
+        return (
+          <button
+            key={question.id}
+            onClick={() => jumpTo(question.id)}
+            title={`Question ${index + 1} — ${state}${isActive ? ", currently viewing" : ""}`}
+            aria-current={isActive ? "true" : undefined}
+            className={`rounded border py-1 font-mono text-[13px] ${stateClass} ${
+              isActive ? "ring-2 ring-text-secondary ring-offset-1" : ""
+            }`}
+          >
+            {index + 1}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const legend = (
+    <div className="border-t border-border pt-3">
+      <p className="text-[13px] font-medium text-text-primary">Legend</p>
+      <dl className="mt-2 flex flex-col gap-1.5 text-[13px] text-text-secondary">
+        <div className="flex items-center gap-2">
+          <span className="h-3 w-3 shrink-0 rounded-sm border border-border bg-surface" />
+          <dd>Unanswered</dd>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="h-3 w-3 shrink-0 rounded-sm border border-warning bg-warning-subtle" />
+          <dd>Marked unsure</dd>
+        </div>
+        {showFeedback ? (
+          <>
+            <div className="flex items-center gap-2">
+              <span className="h-3 w-3 shrink-0 rounded-sm border border-success bg-success-subtle" />
+              <dd>Correct</dd>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="h-3 w-3 shrink-0 rounded-sm border border-error bg-error-subtle" />
+              <dd>Incorrect</dd>
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="h-3 w-3 shrink-0 rounded-sm border border-border-strong bg-surface-alt" />
+            <dd>Answered</dd>
+          </div>
+        )}
+      </dl>
+    </div>
+  );
+
   return (
     <div className="flex gap-10">
       <div className="min-w-0 flex-1">
@@ -124,6 +208,17 @@ export default function QuizTaking({
             Cancel quiz
           </button>
         </div>
+
+        <details className="mb-4 rounded-lg border border-border bg-surface-alt lg:hidden">
+          <summary className="cursor-pointer px-4 py-2.5 text-[14px] font-medium text-text-secondary hover:text-text-primary">
+            Jump to a question
+          </summary>
+          <div className="px-4 pb-4">
+            {jumpGrid}
+            <div className="mt-4">{legend}</div>
+          </div>
+        </details>
+
         <div className="flex flex-col">
           {groups.map((group) => (
             <section key={group.key} className="border-t border-border last:border-b">
@@ -178,7 +273,10 @@ export default function QuizTaking({
                       </a>
                     )}
                   </span>
-                  <div className="flex shrink-0 items-center gap-2">
+                  {/* Three buttons never fit beside the number on a phone, and
+                      `shrink-0` alone pushed the third one past the viewport
+                      edge. Below `sm` they get the full row and wrap within it. */}
+                  <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
                     <button
                       type="button"
                       onClick={() => clearSelection(question.id)}
@@ -335,86 +433,9 @@ export default function QuizTaking({
           </button>
         </div>
 
-        <div className="mt-3 grid grid-cols-5 gap-1.5">
-          {questions.map((question, index) => {
-            const isAnswered = answers[question.id] !== undefined;
-            const isCorrect = answers[question.id] === question.correctIndex;
-            const isUnsure = unsureIds.includes(question.id);
-            const isActive = question.id === activeId;
+        <div className="mt-3">{jumpGrid}</div>
 
-            // Fill carries status; the ring carries position, so the two never
-            // have to compete for the same visual channel. Correctness only
-            // shows in immediate mode — end-only keeps a neutral "answered"
-            // fill, since revealing right/wrong here would defeat the mode.
-            let stateClass = "border-border bg-surface text-text-secondary";
-            if (isUnsure) stateClass = "border-warning bg-warning-subtle text-warning";
-            else if (isAnswered) {
-              stateClass = showFeedback
-                ? isCorrect
-                  ? "border-success bg-success-subtle text-success"
-                  : "border-error bg-error-subtle text-error"
-                : "border-border-strong bg-surface-alt text-text-primary";
-            }
-
-            const answeredState = showFeedback
-              ? isCorrect
-                ? "Correct"
-                : "Incorrect"
-              : "Answered";
-            const state = isUnsure
-              ? isAnswered
-                ? `${answeredState}, marked unsure`
-                : "Unanswered, marked unsure"
-              : isAnswered
-                ? answeredState
-                : "Unanswered";
-
-            return (
-              <button
-                key={question.id}
-                onClick={() => jumpTo(question.id)}
-                title={`Question ${index + 1} — ${state}${isActive ? ", currently viewing" : ""}`}
-                aria-current={isActive ? "true" : undefined}
-                className={`rounded border py-1 font-mono text-[13px] ${stateClass} ${
-                  isActive ? "ring-2 ring-text-secondary ring-offset-1" : ""
-                }`}
-              >
-                {index + 1}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="mt-4 border-t border-border pt-3">
-          <p className="text-[13px] font-medium text-text-primary">Legend</p>
-          <dl className="mt-2 flex flex-col gap-1.5 text-[13px] text-text-secondary">
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 shrink-0 rounded-sm border border-border bg-surface" />
-              <dd>Unanswered</dd>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 shrink-0 rounded-sm border border-warning bg-warning-subtle" />
-              <dd>Marked unsure</dd>
-            </div>
-            {showFeedback ? (
-              <>
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 shrink-0 rounded-sm border border-success bg-success-subtle" />
-                  <dd>Correct</dd>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="h-3 w-3 shrink-0 rounded-sm border border-error bg-error-subtle" />
-                  <dd>Incorrect</dd>
-                </div>
-              </>
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-3 shrink-0 rounded-sm border border-border-strong bg-surface-alt" />
-                <dd>Answered</dd>
-              </div>
-            )}
-          </dl>
-        </div>
+        <div className="mt-4">{legend}</div>
       </aside>
 
       {confirmCancelOpen && (

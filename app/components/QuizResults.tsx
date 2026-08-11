@@ -282,7 +282,7 @@ export default function QuizResults({
         <span className="ml-2 text-[19px] font-medium">({percent}%)</span>
       </p>
 
-      <div className="mt-4 flex flex-wrap gap-3">
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:flex sm:flex-wrap">
         {typesPresent.map((type) => {
           const ofType = questions.filter((q) => q.type === type);
           const right = ofType.filter((q) => answers[q.id] === q.correctIndex).length;
@@ -303,7 +303,7 @@ export default function QuizResults({
         })}
       </div>
 
-      <div className="mt-6 flex items-center gap-3">
+      <div className="mt-6 flex flex-wrap items-center gap-3">
         <button
           onClick={onRetake}
           className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-white hover:bg-accent-hover"

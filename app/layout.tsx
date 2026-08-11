@@ -22,6 +22,12 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // The Details tab's unsaved-changes bar is `position: fixed; bottom: 0`.
+  // Under the browser default the layout viewport doesn't shrink when the
+  // on-screen keyboard opens, so that bar ends up behind the keyboard exactly
+  // when it's needed — while editing a field. Resizing the content instead
+  // keeps `bottom: 0` meaning "above the keyboard".
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

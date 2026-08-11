@@ -255,30 +255,49 @@ export function dedupeQuestions(questions: Question[]): Question[] {
 }
 
 // Per-type variant, used when the Reviewer asked for a specific mix. Each type
-// gets its own ceiling and sets are still kept whole, so a reviewer that asked
-// for 5 timeline questions can't be handed a 9-question timeline set. The
-// remaining budget is returned rather than mutated, since it carries across
-// every source in one generation.
+// gets its own ceiling and sets are kept whole where they fit, so a reviewer
+// that asked for 5 timeline questions isn't handed a 9-question timeline set on
+// top of everything else. The remaining budget is returned rather than mutated,
+// since it carries across every source in one generation.
 //
-// A type whose budget is smaller than the sets it arrives in simply comes up
-// short — Timeline and Code are generated as whole problem sets, so their
-// counts are honoured approximately where Identification and Scenario are exact.
+// Timeline and Code arrive as whole problem sets, so their counts are honoured
+// approximately where Identification and Scenario are exact — a type comes up
+// short when its sets don't divide neatly into its budget.
 export function takeWithinTypeBudget(
   questions: Question[],
   budget: Record<QuestionType, number>,
 ): { kept: Question[]; remaining: Record<QuestionType, number> } {
   const remaining = { ...budget };
   const kept: Question[] = [];
+  const groups = groupQuestions(questions);
 
-  for (const group of groupQuestions(questions)) {
+  // Types that were asked for but haven't been given anything yet. A set that
+  // overshoots its type's budget by one question would otherwise take the type
+  // to zero, which is how a Reviewer asking for 10 Timeline questions could end
+  // up with none of them.
+  const empty = new Set(QUESTION_TYPES.filter((t) => (budget[t] ?? 0) > 0));
+
+  for (const group of groups) {
     const type = group.questions[0].type;
     if (group.questions.length <= (remaining[type] ?? 0)) {
       kept.push(...group.questions);
       remaining[type] -= group.questions.length;
+      empty.delete(type);
     }
   }
 
-  return { kept, remaining };
+  // Second pass, same rule as `takeWithinBudget`: only when nothing of a type
+  // fit whole is a set taken partially, since none of that type is worse.
+  for (const group of groups) {
+    const type = group.questions[0].type;
+    if (!empty.has(type)) continue;
+    kept.push(...group.questions.slice(0, remaining[type]));
+    remaining[type] = 0;
+    empty.delete(type);
+  }
+
+  const order = new Map(questions.map((q, i) => [q.id, i]));
+  return { kept: kept.sort((a, b) => order.get(a.id)! - order.get(b.id)!), remaining };
 }
 
 export function takeWithinBudget(questions: Question[], budget: number): Question[] {

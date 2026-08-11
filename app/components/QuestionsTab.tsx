@@ -498,7 +498,7 @@ export default function QuestionsTab({
           onChange={(e) => setSort(e.target.value as Sort)}
           aria-label="Sort questions"
           disabled={generating}
-          className="h-11 shrink-0 rounded-lg border border-border bg-surface px-3 text-[15px] text-text-primary outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-40"
+          className="h-11 min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 text-[15px] text-text-primary outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none sm:shrink-0"
         >
           <option value="newest">Sort: Newest</option>
           <option value="oldest">Sort: Oldest</option>
@@ -509,7 +509,7 @@ export default function QuestionsTab({
           type="button"
           onClick={startCreate}
           disabled={generating}
-          className="h-11 shrink-0 rounded-lg border border-border-strong px-4 text-[15px] font-medium text-text-secondary enabled:hover:border-accent enabled:hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
+          className="h-11 min-w-0 flex-1 rounded-lg border border-border-strong px-4 text-[15px] font-medium text-text-secondary enabled:hover:border-accent enabled:hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none sm:shrink-0"
         >
           + Add question
         </button>

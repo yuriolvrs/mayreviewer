@@ -264,7 +264,7 @@ export default function QuizResults({
 
   return (
     <div className="flex flex-col">
-      {onBack && (
+      {onBack ? (
         <button
           type="button"
           onClick={onBack}
@@ -272,11 +272,16 @@ export default function QuizResults({
         >
           ← Your attempts
         </button>
+      ) : (
+        <Link
+          href={`/reviewer/${reviewerId}`}
+          className="self-start text-[15px] text-text-secondary hover:text-text-primary"
+        >
+          ← {reviewerName}
+        </Link>
       )}
 
-      <h1 className={`text-[26px] font-semibold text-text-primary ${onBack ? "mt-4" : ""}`}>
-        Quiz results
-      </h1>
+      <h1 className="mt-4 text-[26px] font-semibold text-text-primary">Quiz results</h1>
       <p className="mt-1 text-[15px] text-text-secondary">
         {reviewerName}
         {takenAt && ` · taken ${new Date(takenAt).toLocaleString()}`}
@@ -308,19 +313,13 @@ export default function QuizResults({
         })}
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center gap-3">
+      <div className="mt-6 flex justify-center">
         <button
           onClick={onRetake}
           className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-white hover:bg-accent-hover"
         >
           Retake quiz
         </button>
-        <Link
-          href={`/reviewer/${reviewerId}`}
-          className="rounded-lg border border-border px-4 py-2.5 text-[15px] font-medium text-text-primary hover:border-border-strong"
-        >
-          Back to reviewer
-        </Link>
       </div>
 
       <CollapsibleSection title="Incorrect" count={missed.length} defaultOpen>

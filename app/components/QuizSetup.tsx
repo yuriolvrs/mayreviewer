@@ -208,7 +208,7 @@ export default function QuizSetup({
         </div>
       </div>
 
-      <div className="mt-6 flex justify-end">
+      <div className="mt-6 flex justify-center">
         <button
           onClick={() => onStart(sampleProportionally(pool, count))}
           disabled={available === 0}

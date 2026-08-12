@@ -95,19 +95,28 @@ export function deleteReviewer(id: string): void {
 // append-only and unbounded, and keeping them separate means a Reviewer write
 // (autosave, generation) can never race a quiz submit into overwriting one.
 function getAllAttempts(): QuizAttempt[] {
-  return readJson<QuizAttempt>(ATTEMPTS_KEY).map(normalizeAttempt);
+  // Legacy attempts backfill to their own Reviewer's questionsGeneratedAt
+  // (see normalizeAttempt) rather than a fixed sentinel. A Reviewer that
+  // hasn't regenerated since this field shipped shows no divider at all —
+  // regenerates that happened before this field existed aren't detectable
+  // and don't get one either; only a regenerate from here on does.
+  const generatedAtByReviewer = new Map(getReviewers().map((r) => [r.id, r.questionsGeneratedAt]));
+  return readJson<QuizAttempt>(ATTEMPTS_KEY).map((a) => normalizeAttempt(a, generatedAtByReviewer));
 }
 
 // Attempts recorded before the results screen became reopenable kept only the
 // score. They stay in history — the score is still true — but with nothing to
 // reopen, which is what an empty `questions` means to the history list.
-function normalizeAttempt(attempt: QuizAttempt): QuizAttempt {
+function normalizeAttempt(attempt: QuizAttempt, generatedAtByReviewer: Map<string, string>): QuizAttempt {
   return {
     ...attempt,
     questions: attempt.questions ?? [],
     answers: attempt.answers ?? {},
     unsureIds: attempt.unsureIds ?? [],
-    questionSetGeneratedAt: attempt.questionSetGeneratedAt ?? LEGACY_QUESTION_SET,
+    // Falls back to the fixed sentinel only for an orphaned attempt whose
+    // Reviewer was deleted — there's no set to match it to.
+    questionSetGeneratedAt:
+      attempt.questionSetGeneratedAt ?? generatedAtByReviewer.get(attempt.reviewerId) ?? LEGACY_QUESTION_SET,
   };
 }
 

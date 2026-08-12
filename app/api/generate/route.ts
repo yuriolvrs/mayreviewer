@@ -17,6 +17,7 @@ import {
   MIN_SET_SIZE,
   planGeneration,
   type ChunkPlan,
+  type TopicTarget,
 } from "@/app/lib/generationPlan";
 import { createRateLimiter, clientKey } from "@/app/lib/rateLimit";
 import {
@@ -84,6 +85,11 @@ const checkRateLimit = createRateLimiter(RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
 // exhaustion vector, so it stays capped.
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const ATTACHMENT_FETCH_TIMEOUT_MS = 30_000;
+
+// The already-asked list repeats in every chunk's prompt, so it's capped at a
+// size that stays cheap there rather than at the pool's own ceiling of 200.
+const MAX_AVOID = 60;
+const MAX_AVOID_CHARS = 200;
 
 // Timeline and Code questions are no longer standalone: each is a *set* of
 // questions over one shared problem (a scheduling trace, a code listing with
@@ -177,7 +183,11 @@ function setShape(n: number): { sets: number; size: string } {
 function questionHeader(
   count: number,
   subject: string,
-  topics: string[],
+  // This chunk's share of the Reviewer's topics, with a target for each. Listing
+  // the topics flat ("weight the questions toward A, B, C…") left the split to
+  // the model, which meant the material's most salient topics were asked about
+  // every time and the rest never were.
+  topicTargets: TopicTarget[],
   types: QuestionType[],
   // This chunk's own per-type targets — already dealt out by `planGeneration`
   // against the whole request, so they're stated to the model as-is.
@@ -186,8 +196,15 @@ function questionHeader(
   const want = (type: QuestionType): number | undefined => typeCounts?.[type];
   const course = subject.trim() || "Intro to Operating Systems";
   const focus =
-    topics.length > 0
-      ? `\n\nWeight the questions toward these topics: ${topics.join(", ")}. Cover other material from the source only where these don't apply.`
+    topicTargets.length > 0
+      ? `\n\nSpread the questions across these topics, aiming for about this many of each:
+${topicTargets.map((t) => `- ${t.topic}: ${t.count}`).join("\n")}
+These targets cover the standalone questions; a problem set's questions count toward whichever
+topic its problem belongs to. Cover other material from the source only where these topics don't
+apply. Within a topic, don't stop at its headline definition — ask about the parts of it the
+source material actually develops, including the ones a first pass would skip. If the material
+genuinely doesn't cover one of these topics, give its share to the others rather than reaching
+outside the material for it.`
       : "";
 
   // The two standalone types live in "questions", the two set types in "sets" —
@@ -476,6 +493,7 @@ type GenerateRequestBody = {
   count?: number;
   types?: string[];
   countByType?: Record<string, number>;
+  avoid?: { question?: unknown; answer?: unknown }[];
   attachments?: IncomingAttachment[];
 };
 
@@ -483,6 +501,9 @@ type PromptContext = {
   subject: string;
   topics: string[];
   types: QuestionType[];
+  // The facts the Reviewer's existing pool already tests, sent so a
+  // regeneration over unchanged material lands on different ones.
+  avoid: { question: string; answer: string }[];
   // Random per request, so untrusted material can't close its own fence.
   fenceToken: string;
 };
@@ -863,17 +884,50 @@ async function generateChunked(
   const questions: Question[] = [];
   let lastError: string | undefined;
 
+  // The batch hint below only separates chunks of one generation from each
+  // other. Nothing carried between generations, so a regenerate over unchanged
+  // material was a cold start on identical input and came back with largely the
+  // same questions — this is the only thing that differs between the two runs.
+  //
+  // What it asks for is a different ANSWER, not a different topic. Staying on
+  // the same topics is the point; what the student kept seeing again was the
+  // same fact inside them, and a concept that has only ever been a wrong option
+  // is exactly the one worth promoting.
+  const alreadyAsked =
+    context.avoid.length > 0
+      ? `\n\nThe student has already been given the questions listed below, written from this same
+material on an earlier pass, each shown with the answer it tested.
+
+Cover the SAME topics again — that part is deliberate. What has to change is which fact inside
+those topics each question tests. Do not write a question whose correct answer is one of the
+answers listed below, and do not reword one of these questions or re-ask it as a scenario instead
+of a definition; both are still the same question.
+
+Instead, move to the neighbouring facts the material covers. Where an answer below is one of a
+family of related concepts, the rest of that family — the ones that would have made plausible
+wrong options for it — are the strongest candidates to be correct answers this time: if a listed
+answer was one allocation strategy, make a different one the answer; if it was one process state,
+ask about another; if it was one page-replacement algorithm, ask about the others.
+Where a topic really does come down to a single fact already listed, ask about the material's
+detail around it — its consequence, its cause, its edge case — rather than restating it.
+${fence(
+  "ALREADY_ASKED",
+  context.fenceToken,
+  context.avoid.map((q) => `- ${q.question}\n  answer tested: ${q.answer}`).join("\n"),
+)}`
+      : "";
+
   for (const [i, plan] of chunks.entries()) {
     // Batches see the same material, so without this they converge on the same
     // obvious questions. Exact repeats are still dropped at assembly.
     const batch =
-      chunks.length > 1
+      (chunks.length > 1
         ? `\n\nThis is batch ${i + 1} of ${chunks.length} drawn from this same material. Cover parts of it the other batches would not; do not repeat a question you would have asked in another batch.`
-        : "";
+        : "") + alreadyAsked;
     const header = questionHeader(
       plan.count,
       context.subject,
-      context.topics,
+      plan.topics ?? [],
       context.types,
       plan.typeCounts,
     );
@@ -1101,6 +1155,24 @@ export async function POST(request: Request) {
       ? parsedByType
       : undefined;
 
+  // Capped rather than sent whole: a 200-question pool would be a large share
+  // of every prompt, and the model doesn't need the full list to get the idea.
+  // Both halves are clamped like any other model-bound field — these strings
+  // originate in generated output, which was itself written from untrusted
+  // material, so they come back around as untrusted too.
+  const avoid = (Array.isArray(body.avoid) ? body.avoid : [])
+    .flatMap((entry) => {
+      if (typeof entry !== "object" || entry === null) return [];
+      const { question, answer } = entry as Record<string, unknown>;
+      if (typeof question !== "string" || typeof answer !== "string") return [];
+      const clamped = {
+        question: clampToLine(question, MAX_AVOID_CHARS),
+        answer: clampToLine(answer, MAX_AVOID_CHARS),
+      };
+      return clamped.question && clamped.answer ? [clamped] : [];
+    })
+    .slice(0, MAX_AVOID);
+
   const ai = new GoogleGenAI({ apiKey });
   // Optional — only enables the fallback path when Gemini itself fails.
   // Absent MISTRAL_API_KEY, behavior is unchanged from Gemini-only.
@@ -1112,6 +1184,7 @@ export async function POST(request: Request) {
     subject: clampToLine(typeof body.subject === "string" ? body.subject : "", MAX_SUBJECT_CHARS),
     topics: clampTopics(Array.isArray(body.topics) ? body.topics.filter((t) => typeof t === "string") : []),
     types: requestedTypes.length > 0 ? requestedTypes : QUESTION_TYPES,
+    avoid,
     fenceToken: newFenceToken(),
   };
 
@@ -1128,9 +1201,16 @@ export async function POST(request: Request) {
     });
   }
 
+  // Where the topic list starts for this generation. Random rather than fixed
+  // so a regenerate leads with different topics than the run before it —
+  // without it, whichever topics collect the remainder would collect it every
+  // time, and a request too small to reach every topic would reach the same
+  // ones every time.
+  const topicRotation = Math.floor(Math.random() * Math.max(context.topics.length, 1));
+
   // Every call this generation will make, planned against the request as a
   // whole so a stated per-type mix survives being split across sources.
-  const plans = planGeneration(count, jobs.length, countByType);
+  const plans = planGeneration(count, jobs.length, countByType, context.topics, topicRotation);
   const counts = plans.map((forJob) => forJob.reduce((sum, plan) => sum + plan.count, 0));
   const total = jobs.length;
 
@@ -1212,7 +1292,13 @@ export async function POST(request: Request) {
             stage: "verify",
           });
           const typeCounts = backfillTypeCounts(result.dropped);
-          const backfillPlans = planGeneration(result.dropped.length, jobs.length, typeCounts);
+          const backfillPlans = planGeneration(
+            result.dropped.length,
+            jobs.length,
+            typeCounts,
+            context.topics,
+            topicRotation,
+          );
           const backfilled: Question[] = [];
           let typeRoom = { ...typeCounts };
 

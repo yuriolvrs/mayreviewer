@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MIN_SET_SIZE, planGeneration } from "@/app/lib/generationPlan";
+import { MIN_SET_SIZE, dealTopics, planGeneration } from "@/app/lib/generationPlan";
 import { QUESTION_TYPES } from "@/app/lib/questions";
 import type { QuestionType } from "@/app/types";
 
@@ -86,5 +86,91 @@ describe("planGeneration", () => {
     expect(totalOf(plan, "scenario")).toBe(0);
     expect(totalOf(plan, "code")).toBe(0);
     expect(totalOf(plan, "timeline")).toBe(10);
+  });
+});
+
+describe("dealTopics", () => {
+  const topics = ["A", "B", "C", "D"];
+
+  it("splits the budget evenly when it divides", () => {
+    expect(dealTopics(topics, 8, 0)).toEqual([
+      { topic: "A", count: 2 },
+      { topic: "B", count: 2 },
+      { topic: "C", count: 2 },
+      { topic: "D", count: 2 },
+    ]);
+  });
+
+  it("hands the remainder to whichever topics the rotation starts on", () => {
+    expect(dealTopics(topics, 6, 0).filter((t) => t.count === 2).map((t) => t.topic)).toEqual(["A", "B"]);
+    expect(dealTopics(topics, 6, 2).filter((t) => t.count === 2).map((t) => t.topic)).toEqual(["C", "D"]);
+  });
+
+  // The reported problem: some topics were never asked about across several
+  // regenerations. A budget smaller than the topic list can't cover them all in
+  // one run, so the rotation has to move which ones it covers.
+  it("covers different topics per rotation when the budget can't reach them all", () => {
+    expect(dealTopics(topics, 2, 0).map((t) => t.topic)).toEqual(["A", "B"]);
+    expect(dealTopics(topics, 2, 2).map((t) => t.topic)).toEqual(["C", "D"]);
+  });
+
+  it("gives every topic a share whenever the budget is large enough", () => {
+    for (const rotation of [0, 1, 2, 3, 7]) {
+      const dealt = dealTopics(topics, 12, rotation);
+      expect(dealt.map((t) => t.topic).sort()).toEqual(topics);
+      expect(dealt.every((t) => t.count === 3)).toBe(true);
+    }
+  });
+
+  it("never emits a topic with a zero target", () => {
+    expect(dealTopics(topics, 1, 0)).toEqual([{ topic: "A", count: 1 }]);
+  });
+
+  it("returns nothing without topics or budget", () => {
+    expect(dealTopics([], 10, 0)).toEqual([]);
+    expect(dealTopics(topics, 0, 0)).toEqual([]);
+  });
+
+  it("takes a rotation past the end of the list, or before it", () => {
+    expect(dealTopics(topics, 4, 5)).toEqual(dealTopics(topics, 4, 1));
+    expect(dealTopics(topics, 4, -1)).toEqual(dealTopics(topics, 4, 3));
+  });
+});
+
+describe("planGeneration topics", () => {
+  const topics = ["Scheduling", "Memory", "Sync", "Structures"];
+
+  it("deals topics against each chunk's standalone budget only", () => {
+    // Set questions can't be spread over a topic list — a scheduling trace
+    // isn't answerable as a synchronisation question.
+    const plan = planGeneration(40, 1, mix({ identification: 10, scenario: 10, timeline: 10, code: 10 }), topics);
+    for (const chunk of chunks(plan)) {
+      const standalone = (chunk.typeCounts?.identification ?? 0) + (chunk.typeCounts?.scenario ?? 0);
+      const dealt = (chunk.topics ?? []).reduce((sum, t) => sum + t.count, 0);
+      expect(dealt).toBe(standalone);
+    }
+  });
+
+  it("gives every topic a share of a single-chunk request", () => {
+    const plan = planGeneration(30, 1, mix({ identification: 15, scenario: 15 }), topics);
+    expect(plan[0]).toHaveLength(1);
+    expect((plan[0][0].topics ?? []).map((t) => t.topic).sort()).toEqual([...topics].sort());
+  });
+
+  it("advances the rotation per chunk so two chunks don't lead with the same topic", () => {
+    const plan = planGeneration(80, 1, mix({ identification: 40, scenario: 40 }), topics);
+    const leads = chunks(plan).map((c) => c.topics?.[0]?.topic);
+    expect(leads).toHaveLength(2);
+    expect(new Set(leads).size).toBe(2);
+  });
+
+  it("carries topics on the no-mix path too", () => {
+    const plan = planGeneration(20, 1, undefined, topics);
+    expect((plan[0][0].topics ?? []).reduce((sum, t) => sum + t.count, 0)).toBe(20);
+  });
+
+  it("leaves topics empty when the reviewer named none", () => {
+    const plan = planGeneration(20, 1, mix({ identification: 20 }));
+    expect(chunks(plan).every((c) => c.topics?.length === 0)).toBe(true);
   });
 });

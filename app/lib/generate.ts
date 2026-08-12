@@ -14,6 +14,11 @@ export type GenerationProgress = {
   stage?: "verify";
 };
 export type GenerationFailure = { label: string; reason: string };
+// One already-tested fact. The answer is the part that matters: a regeneration
+// should keep covering the same topics, but land on a different fact within
+// them — a second question whose answer is again "best fit" is the repeat,
+// not a second question about memory allocation.
+export type AvoidedQuestion = { question: string; answer: string };
 export type VerificationSummary = { corrected: number; dropped: number };
 
 type StreamMessage =
@@ -38,6 +43,11 @@ export async function generateQuestions(
   types: QuestionType[],
   onProgress: (progress: GenerationProgress) => void,
   countByType: Record<QuestionType, number>,
+  // The facts the reviewer's current pool already tests, sent so the model can
+  // pick different ones. Generation replaces the pool wholesale, so without
+  // this a regenerate over unchanged material has nothing distinguishing it
+  // from the run that produced the pool being replaced.
+  avoid: AvoidedQuestion[],
   signal?: AbortSignal,
 ): Promise<{ questions: Question[]; failures: GenerationFailure[]; verified: VerificationSummary }> {
   const rawAttachments = await getAttachments(reviewer.id);
@@ -69,6 +79,7 @@ export async function generateQuestions(
       count,
       types,
       countByType,
+      avoid,
       attachments,
     }),
   });

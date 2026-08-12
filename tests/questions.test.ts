@@ -250,6 +250,42 @@ describe("dedupeQuestions", () => {
     ];
     expect(dedupeQuestions(input).map((q) => q.id)).toEqual(["a", "b", "d"]);
   });
+
+  // Observed in a real export: the same fact asked twice in one batch, differing
+  // only in how the question was framed.
+  it("drops a reframing of the same question", () => {
+    const input = [
+      question({
+        id: "a",
+        question:
+          "What is the maximum number of user-defined variables that can be stored in the symbol table segment of a process?",
+      }),
+      question({
+        id: "b",
+        question:
+          "In the context of the CSOPESY OS, what is the maximum number of variables that can be stored in the symbol table segment of a process?",
+      }),
+    ];
+    expect(dedupeQuestions(input).map((q) => q.id)).toEqual(["a"]);
+  });
+
+  // The counterpart risk: two questions on one topic with different answers are
+  // exactly what a regeneration is supposed to produce, so they have to survive.
+  it("keeps two questions about one topic that test different facts", () => {
+    const input = [
+      question({ id: "a", question: "Which allocation strategy picks the smallest block that fits?" }),
+      question({ id: "b", question: "Which allocation strategy picks the largest available block?" }),
+    ];
+    expect(dedupeQuestions(input)).toHaveLength(2);
+  });
+
+  it("keeps a short question that happens to share its few words", () => {
+    const input = [
+      question({ id: "a", question: "Define thrashing." }),
+      question({ id: "b", question: "Define paging." }),
+    ];
+    expect(dedupeQuestions(input)).toHaveLength(2);
+  });
 });
 
 describe("takeWithinTypeBudget", () => {

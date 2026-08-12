@@ -461,6 +461,12 @@ export default function QuestionsTab({
         QUESTION_TYPES.filter((t) => byType[t] > 0),
         setProgress,
         byType,
+        // The pool about to be replaced, as the list of facts already tested.
+        // Set questions are left out: "Blank (2): what belongs here?" says
+        // nothing about what the listing was, so it can only crowd the list.
+        reviewer.questions
+          .filter((q) => !q.groupId)
+          .map((q) => ({ question: q.question, answer: q.options[q.correctIndex] ?? "" })),
         controller.signal,
       );
       // A cancel that lands in the gap between the stream finishing and this

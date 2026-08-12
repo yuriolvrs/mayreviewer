@@ -252,18 +252,85 @@ export function sampleProportionally(pool: Question[], count: number): Question[
 // separate sources often overlap, so the same question can come back twice.
 // Matching on the question text alone (normalised) rather than the options,
 // since a duplicate asked with shuffled choices is still a duplicate.
+//
+// Matching on the exact text alone missed the common case, though: the same
+// fact asked twice with different framing ("What is the maximum number of
+// variables in the symbol table segment?" against "In the context of the
+// CSOPESY OS, what is the maximum number of variables that can be stored in
+// the symbol table segment of a process?") is two strings, so both survived.
+// So the content words are compared too — see `isNearDuplicate`.
 export function dedupeQuestions(questions: Question[]): Question[] {
   const seen = new Set<string>();
+  const seenTokens: Set<string>[] = [];
   return questions.filter((q) => {
-    const key = q.question.toLowerCase().replace(/\s+/g, " ").trim();
     // A set's questions are meaningless without their siblings, so they're
     // never dropped — "Blank (3): what belongs here?" legitimately recurs
     // across different code listings.
     if (q.groupId) return true;
+
+    const key = q.question.toLowerCase().replace(/\s+/g, " ").trim();
     if (seen.has(key)) return false;
+
+    const tokens = contentTokens(q.question);
+    if (seenTokens.some((prior) => isNearDuplicate(tokens, prior))) return false;
+
     seen.add(key);
+    seenTokens.push(tokens);
     return true;
   });
+}
+
+// Words that appear in question framing rather than in what the question is
+// about. Stripping them is what lets two differently-framed askings of one
+// fact line up — most of the difference between them is here.
+const FRAMING_WORDS = new Set([
+  "the", "and", "for", "with", "that", "this", "these", "those", "from", "into",
+  "which", "what", "when", "where", "who", "whom", "whose", "how", "why",
+  "following", "best", "term", "describes", "described", "describe", "definition",
+  "defines", "defined", "called", "context", "regarding", "concerning", "about",
+  "are", "was", "were", "been", "being", "has", "have", "had", "does", "did",
+  "can", "could", "would", "should", "will", "must", "may", "might",
+  "not", "its", "his", "her", "their", "your", "our",
+  "you", "one", "any", "all", "some", "each", "given", "there", "here",
+  "used", "uses", "use", "using", "occurs", "occur", "happens", "happen",
+  "primary", "main", "specific", "specifically", "particular", "correct",
+  "question", "questions", "answer", "option", "options", "above", "below",
+]);
+
+// Two questions are compared on their content words as sets, not as sequences —
+// word order carries the framing, not the subject.
+function contentTokens(text: string): Set<string> {
+  return new Set(
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((word) => word.length > 2 && !FRAMING_WORDS.has(word)),
+  );
+}
+
+// Overlap against the shorter of the two rather than Jaccard: one asking is
+// routinely a longer-winded version of the other, and Jaccard reads that extra
+// length as difference even when every content word of the shorter one is
+// present in the longer.
+//
+// The threshold is deliberately strict. It catches a rephrasing of one question
+// — not two questions that happen to share a topic, which is a judgement no
+// amount of word overlap can make, and dropping those would quietly shrink the
+// batch. Conceptual repeats are the prompt's job (the per-topic targets and the
+// already-asked list in the API route), not this function's.
+const NEAR_DUPLICATE_OVERLAP = 0.8;
+const MIN_COMPARABLE_TOKENS = 4;
+
+function isNearDuplicate(a: Set<string>, b: Set<string>): boolean {
+  const [smaller, larger] = a.size <= b.size ? [a, b] : [b, a];
+  // Below this, one shared word swings the ratio far enough to catch unrelated
+  // questions — a two-word question has nothing to compare.
+  if (smaller.size < MIN_COMPARABLE_TOKENS) return false;
+
+  let shared = 0;
+  for (const token of smaller) if (larger.has(token)) shared++;
+  return shared / smaller.size >= NEAR_DUPLICATE_OVERLAP;
 }
 
 // Per-type variant, used when the Reviewer asked for a specific mix. Each type

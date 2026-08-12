@@ -40,6 +40,7 @@ function reviewer(overrides: Partial<Reviewer> = {}): Reviewer {
     questions: [question("q1")],
     createdAt: "2026-08-01T00:00:00.000Z",
     updatedAt: "2026-08-01T00:00:00.000Z",
+    questionsGeneratedAt: "2026-08-01T00:00:00.000Z",
     ...overrides,
   };
 }
@@ -195,8 +196,8 @@ describe("quiz history", () => {
   });
 
   it("records attempts and reports them newest first", () => {
-    saveQuizAttempt("r1", asked, { q1: 1 }, []);
-    saveQuizAttempt("r1", asked, { q1: 0, q2: 0 }, []);
+    saveQuizAttempt(reviewer(), asked, { q1: 1 }, []);
+    saveQuizAttempt(reviewer(), asked, { q1: 0, q2: 0 }, []);
 
     const history = getQuizHistory("r1");
     expect(history).toHaveLength(2);
@@ -206,7 +207,7 @@ describe("quiz history", () => {
   });
 
   it("scores the attempt from the answers it stores", () => {
-    const attempt = saveQuizAttempt("r1", asked, { q1: 0, q2: 3 }, ["q2"]);
+    const attempt = saveQuizAttempt(reviewer(), asked, { q1: 0, q2: 3 }, ["q2"]);
 
     expect(attempt.score).toBe(1);
     expect(attempt.total).toBe(2);
@@ -214,7 +215,7 @@ describe("quiz history", () => {
   });
 
   it("keeps its own copy of the questions asked", () => {
-    saveQuizAttempt("r1", asked, { q1: 0 }, []);
+    saveQuizAttempt(reviewer(), asked, { q1: 0 }, []);
     // Editing the pool afterward must not rewrite what an old attempt asked.
     saveReviewer(reviewer({ questions: [{ ...question("q1"), question: "rewritten" }] }));
 
@@ -222,8 +223,8 @@ describe("quiz history", () => {
   });
 
   it("scopes history to one Reviewer", () => {
-    saveQuizAttempt("r1", asked, { q1: 0, q2: 0 }, []);
-    saveQuizAttempt("r2", asked, { q1: 1 }, []);
+    saveQuizAttempt(reviewer(), asked, { q1: 0, q2: 0 }, []);
+    saveQuizAttempt(reviewer({ id: "r2" }), asked, { q1: 1 }, []);
 
     expect(getQuizHistory("r1")).toHaveLength(1);
     expect(getQuizHistory("r1")[0].score).toBe(2);
@@ -255,8 +256,8 @@ describe("deleteReviewer", () => {
   it("removes the Reviewer and its attempts, leaving others alone", () => {
     saveReviewer(reviewer());
     saveReviewer(reviewer({ id: "r2" }));
-    saveQuizAttempt("r1", asked, { q1: 0 }, []);
-    saveQuizAttempt("r2", asked, { q2: 0 }, []);
+    saveQuizAttempt(reviewer(), asked, { q1: 0 }, []);
+    saveQuizAttempt(reviewer({ id: "r2" }), asked, { q2: 0 }, []);
 
     deleteReviewer("r1");
 

@@ -468,7 +468,10 @@ export default function QuestionsTab({
       if (cancelledRef.current) return;
       // Written on completion, not before, so a failed generation leaves the
       // existing questions intact.
-      updateReviewer(reviewer.id, { questions: result.questions });
+      updateReviewer(reviewer.id, {
+        questions: result.questions,
+        questionsGeneratedAt: new Date().toISOString(),
+      });
       onChanged();
       setAddedCount(result.questions.length);
       setFailures(result.failures);

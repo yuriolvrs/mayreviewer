@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import {
   QUESTION_TYPES,
   TYPE_LABELS,
@@ -40,6 +40,36 @@ function ChevronRightIcon() {
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+function RefreshIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+      <path
+        d="M8.5 5A3.5 3.5 0 0 1 2.4 7.1M1.5 5A3.5 3.5 0 0 1 7.6 2.9M7.6 2.9V1.2M7.6 2.9H5.9M2.4 7.1v1.7M2.4 7.1h1.7"
+        stroke="currentColor"
+        strokeWidth="1"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// Sits between two attempts in place of the normal row hairline, marking that
+// the pool was regenerated between them — so a score jump there reads as "new
+// questions" rather than "got better at the same ones."
+function NewQuestionsDivider() {
+  return (
+    <li className="flex items-center gap-3 py-3" aria-hidden="true">
+      <span className="h-px flex-1 bg-border" />
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-[12px] text-text-secondary">
+        <RefreshIcon />
+        New questions
+      </span>
+      <span className="h-px flex-1 bg-border" />
+    </li>
   );
 }
 
@@ -228,17 +258,28 @@ export default function QuizSetup({
         ) : (
           <ul className="mt-3 flex flex-col">
             {/* History is newest-first, so an attempt's predecessor is the row
-                below it — and the last row has none to compare against. */}
+                below it — and the last row has none to compare against. A
+                divider takes the place of a row's top hairline wherever the
+                pool was regenerated between it and its predecessor, and
+                breaks the delta comparison there too — a score change across
+                a regenerate isn't "better," it's a different set of questions. */}
             {history.map((attempt, index) => {
               const percent = Math.round((attempt.score / attempt.total) * 100);
               const previous = history[index + 1];
+              const isGroupStart =
+                index > 0 && attempt.questionSetGeneratedAt !== history[index - 1].questionSetGeneratedAt;
+              // A regenerate sits between this attempt and `previous`, so
+              // their scores aren't comparable — same check as isGroupStart,
+              // just facing the other direction in the list.
+              const comparable =
+                previous && attempt.questionSetGeneratedAt === previous.questionSetGeneratedAt;
               const summary = (
                 <>
                   <span className="text-text-secondary">{formatTakenAt(attempt.takenAt)}</span>
                   {/* Delta and score travel together on the right, so the
                       comparison reads against the number it qualifies. */}
                   <span className="ml-auto flex items-center gap-3">
-                    {previous && (
+                    {comparable && (
                       <Delta
                         change={percent - Math.round((previous.score / previous.total) * 100)}
                       />
@@ -257,32 +298,35 @@ export default function QuizSetup({
               // reopenable and non-reopenable rows.
               const reopenable = attempt.questions.length > 0;
               return (
-                <li key={attempt.id} className="border-t border-border last:border-b">
-                  <button
-                    type="button"
-                    disabled={!reopenable}
-                    onClick={() => onViewAttempt(attempt)}
-                    title={reopenable ? "View these results" : undefined}
-                    // No -mx-N to bleed past: unlike the auto-width buttons
-                    // elsewhere in the app, this row is already full-width, so
-                    // negative margin here only shrank the hover fill instead
-                    // of extending it — plain padding is the whole row.
-                    className={`flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left text-[15px] ${
-                      reopenable ? "group hover:bg-surface-alt" : ""
-                    }`}
-                  >
-                    {summary}
-                    {/* Slot stays a fixed w-4 whether or not the chevron
-                        renders, so the score column never shifts. */}
-                    <span
-                      className={`w-4 shrink-0 text-text-tertiary ${
-                        reopenable ? "group-hover:text-text-primary" : ""
+                <Fragment key={attempt.id}>
+                  {isGroupStart && <NewQuestionsDivider />}
+                  <li className={`${isGroupStart ? "" : "border-t border-border"} last:border-b`}>
+                    <button
+                      type="button"
+                      disabled={!reopenable}
+                      onClick={() => onViewAttempt(attempt)}
+                      title={reopenable ? "View these results" : undefined}
+                      // No -mx-N to bleed past: unlike the auto-width buttons
+                      // elsewhere in the app, this row is already full-width, so
+                      // negative margin here only shrank the hover fill instead
+                      // of extending it — plain padding is the whole row.
+                      className={`flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left text-[15px] ${
+                        reopenable ? "group hover:bg-surface-alt" : ""
                       }`}
                     >
-                      {reopenable && <ChevronRightIcon />}
-                    </span>
-                  </button>
-                </li>
+                      {summary}
+                      {/* Slot stays a fixed w-4 whether or not the chevron
+                          renders, so the score column never shifts. */}
+                      <span
+                        className={`w-4 shrink-0 text-text-tertiary ${
+                          reopenable ? "group-hover:text-text-primary" : ""
+                        }`}
+                      >
+                        {reopenable && <ChevronRightIcon />}
+                      </span>
+                    </button>
+                  </li>
+                </Fragment>
               );
             })}
           </ul>

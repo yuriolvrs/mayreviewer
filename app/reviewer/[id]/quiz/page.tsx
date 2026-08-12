@@ -77,7 +77,7 @@ export default function QuizPage() {
             window.scrollTo({ top: 0 });
           }}
           onSubmit={(answers, unsureIds) => {
-            saveQuizAttempt(reviewer.id, quizQuestions, answers, unsureIds);
+            saveQuizAttempt(reviewer, quizQuestions, answers, unsureIds);
             setHistory(getQuizHistory(reviewer.id));
             setSubmitted({ answers, unsureIds });
             setStage("results");

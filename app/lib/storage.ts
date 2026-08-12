@@ -6,6 +6,11 @@ import type { Question, QuizAttempt, Reviewer } from "@/app/types";
 const STORAGE_KEY = "mayreviewer-reviewers";
 const ATTEMPTS_KEY = "mayreviewer-quiz-attempts";
 
+// Shared by every attempt saved before `questionSetGeneratedAt` existed, so
+// they collapse into one legacy group instead of each looking like its own
+// set (real values are ISO timestamps, so this never collides with one).
+const LEGACY_QUESTION_SET = "legacy";
+
 function readJson<T>(key: string): T[] {
   if (typeof window === "undefined") return [];
   const raw = window.localStorage.getItem(key);
@@ -39,6 +44,7 @@ function normalize(reviewer: Reviewer): Reviewer {
     questionCount: sumCounts(questionCountByType),
     questions: reviewer.questions ?? [],
     updatedAt: reviewer.updatedAt ?? reviewer.createdAt,
+    questionsGeneratedAt: reviewer.questionsGeneratedAt ?? reviewer.createdAt,
   };
 }
 
@@ -101,6 +107,7 @@ function normalizeAttempt(attempt: QuizAttempt): QuizAttempt {
     questions: attempt.questions ?? [],
     answers: attempt.answers ?? {},
     unsureIds: attempt.unsureIds ?? [],
+    questionSetGeneratedAt: attempt.questionSetGeneratedAt ?? LEGACY_QUESTION_SET,
   };
 }
 
@@ -122,22 +129,25 @@ export function getAllQuizHistory(): QuizAttempt[] {
 }
 
 // Scored here rather than by the caller so the stored score can never drift
-// from the stored answers it's supposed to summarise.
+// from the stored answers it's supposed to summarise. Takes the whole
+// Reviewer, not just its id, so the attempt can snapshot which generated set
+// `questions` was sampled from.
 export function saveQuizAttempt(
-  reviewerId: string,
+  reviewer: Reviewer,
   questions: Question[],
   answers: Record<string, number>,
   unsureIds: string[],
 ): QuizAttempt {
   const attempt: QuizAttempt = {
     id: crypto.randomUUID(),
-    reviewerId,
+    reviewerId: reviewer.id,
     takenAt: new Date().toISOString(),
     score: questions.filter((q) => answers[q.id] === q.correctIndex).length,
     total: questions.length,
     questions,
     answers,
     unsureIds,
+    questionSetGeneratedAt: reviewer.questionsGeneratedAt,
   };
   window.localStorage.setItem(ATTEMPTS_KEY, JSON.stringify([...getAllAttempts(), attempt]));
   return attempt;

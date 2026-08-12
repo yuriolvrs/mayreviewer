@@ -93,6 +93,7 @@ export default function NewReviewerPage() {
       questions: [],
       createdAt: now,
       updatedAt: now,
+      questionsGeneratedAt: now,
     };
     saveReviewer(reviewer);
     // Straight to Questions — if sources were attached while filling this form,
@@ -134,6 +135,7 @@ export default function NewReviewerPage() {
         questions: importPending.questions,
         createdAt: now,
         updatedAt: now,
+        questionsGeneratedAt: now,
       };
       saveReviewer(reviewer);
 

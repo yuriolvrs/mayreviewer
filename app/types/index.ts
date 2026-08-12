@@ -47,6 +47,12 @@ export type QuizAttempt = {
   questions: Question[];
   answers: Record<string, number>;
   unsureIds: string[];
+  // Snapshot of the reviewer's `questionsGeneratedAt` when this attempt was
+  // taken. Two attempts sharing this value were taken against the same
+  // generated set; a change marks a regenerate in between. Attempts saved
+  // before this field existed share one legacy value instead of a real
+  // timestamp — see `normalizeAttempt` in storage.ts.
+  questionSetGeneratedAt: string;
 };
 
 export type Reviewer = {
@@ -68,4 +74,8 @@ export type Reviewer = {
   // Stamped by storage.ts on every save, not by callers — so it can't be
   // missed by a write path that forgets to set it.
   updatedAt: string;
+  // Stamped only when `questions` is wholesale-replaced by generation, not by
+  // manual add/edit/delete of individual questions. Lets attempts snapshot
+  // which generated set they were taken against.
+  questionsGeneratedAt: string;
 };

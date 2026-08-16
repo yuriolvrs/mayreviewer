@@ -69,7 +69,7 @@ export default function AboutPage() {
           <p>Nothing here is promised, but these are the likely directions:</p>
           <ul className="flex list-disc flex-col gap-1.5 pl-5">
             <li>Custom question types and reviewer formats beyond the current four.</li>
-            <li>Accounts, so reviewers aren't stuck in one browser. Sign in, and you can see your reviewers across devices.</li>
+            <li>Accounts, so reviewers aren&apos;t stuck in one browser. Sign in, and you can see your reviewers across devices.</li>
             <li>An actual database (likely Supabase) to back that, instead of everything living in IndexedDB.</li>
             <li>A page for browsing reviewers other people have made and installing one into your own account, 
                 with the option to keep the underlying source files private and only share the generated questions.</li>

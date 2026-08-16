@@ -11,6 +11,7 @@ import {
   scoreTone,
 } from "@/app/lib/questions";
 import StimulusBlock from "@/app/components/StimulusBlock";
+import StimulusQuote from "@/app/components/StimulusQuote";
 import type { QuestionGroup } from "@/app/lib/questions";
 import type { Question, QuestionType } from "@/app/types";
 import type { Answers } from "@/app/components/QuizTaking";
@@ -86,6 +87,9 @@ function ResultRow({
   return (
     <>
       <span className="font-mono text-[14px] font-bold text-text-primary">{number}.</span>
+      {/* A set's listing is shown once above by `GroupBlock`; a prose stimulus
+          on a standalone question has no block of its own, so it rides here. */}
+      {!inGroup && question.stimulus && <StimulusQuote stimulus={question.stimulus} />}
       <p
         className={`mt-2 text-[15px] leading-relaxed whitespace-pre-wrap text-text-primary ${
           // A set's listing lives in the shared block above, so only a
@@ -202,7 +206,9 @@ function ResultList({
   return (
     <div className="mt-3 flex flex-col">
       {groups.map((group) =>
-        group.stimulus ? (
+        // Same call as the quiz and edit screens: only a Timeline table or Code
+        // listing earns the collapsible problem block. Prose goes to the row.
+        group.stimulus && isPreformatted(group.questions[0].type) ? (
           <GroupBlock
             key={group.key}
             group={group}

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { groupQuestions, isPreformatted, optionLetter } from "@/app/lib/questions";
 import StimulusBlock from "@/app/components/StimulusBlock";
+import StimulusQuote from "@/app/components/StimulusQuote";
 import type { FeedbackMode, Question } from "@/app/types";
 
 export type Answers = Record<string, number>;
@@ -220,9 +221,17 @@ export default function QuizTaking({
         </details>
 
         <div className="flex flex-col">
-          {groups.map((group) => (
+          {groups.map((group) => {
+            // Only a Timeline table or a Code listing gets the shared problem
+            // block above the questions. A stimulus on any other type is prose
+            // and belongs with its question as a quote — same call the edit tab
+            // makes, so one value can't render two ways across screens.
+            const hasProblemBlock =
+              Boolean(group.stimulus) && isPreformatted(group.questions[0].type);
+
+            return (
             <section key={group.key} className="border-t border-border last:border-b">
-              {group.stimulus && (
+              {hasProblemBlock && (
                 <div id={`stimulus-${group.key}`} className="scroll-mt-6 pt-6">
                   <p className="font-mono text-[13px] tracking-wide text-text-tertiary uppercase">
                     {group.questions[0].type === "code" ? "Program" : "Problem"} · questions{" "}
@@ -235,7 +244,7 @@ export default function QuizTaking({
                     </h2>
                   )}
                   <StimulusBlock
-                    stimulus={group.stimulus}
+                    stimulus={group.stimulus!}
                     questionIds={group.questions.map((q) => q.id)}
                   />
                 </div>
@@ -253,12 +262,12 @@ export default function QuizTaking({
                   <div
                     key={question.id}
                     id={`question-${question.id}`}
-                    className={`scroll-mt-6 py-6 ${group.stimulus ? "border-t border-border" : ""}`}
+                    className={`scroll-mt-6 py-6 ${hasProblemBlock ? "border-t border-border" : ""}`}
                   >
                 <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
                   <span className="flex items-baseline gap-2 font-mono text-[14px] font-bold tracking-wide text-text-primary">
                     {numbering.get(question.id)}.
-                    {group.stimulus && (
+                    {hasProblemBlock && (
                       <a
                         href={`#stimulus-${group.key}`}
                         onClick={(e) => {
@@ -306,6 +315,10 @@ export default function QuizTaking({
                     </button>
                   </div>
                 </div>
+
+                {!hasProblemBlock && question.stimulus && (
+                  <StimulusQuote stimulus={question.stimulus} />
+                )}
 
                 <p
                   className={`mt-2 text-[16px] leading-relaxed whitespace-pre-wrap text-text-primary ${
@@ -412,7 +425,8 @@ export default function QuizTaking({
                 );
               })}
             </section>
-          ))}
+            );
+          })}
         </div>
 
         <div className="mt-8 flex justify-end">

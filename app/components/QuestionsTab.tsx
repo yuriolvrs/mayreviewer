@@ -18,6 +18,7 @@ import {
 } from "@/app/lib/generate";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
 import GenerationModal from "@/app/components/GenerationModal";
+import StimulusQuote from "@/app/components/StimulusQuote";
 import type { Question, QuestionSource, QuestionType, Reviewer } from "@/app/types";
 
 const TYPE_FILTERS: ("all" | QuestionType)[] = ["all", ...QUESTION_TYPES];
@@ -810,9 +811,7 @@ export default function QuestionsTab({
                             </pre>
                           </details>
                         ) : (
-                          <blockquote className="mt-2 border-l-2 border-accent pl-3 text-[15px] leading-relaxed whitespace-pre-wrap text-text-secondary italic">
-                            {question.stimulus}
-                          </blockquote>
+                          <StimulusQuote stimulus={question.stimulus} />
                         ))}
 
                       <p

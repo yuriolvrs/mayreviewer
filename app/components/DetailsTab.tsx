@@ -68,7 +68,12 @@ export default function DetailsTab({
     setError("");
   }
 
+  // Re-seeds the fields from storage whenever the parent hands down a changed
+  // Reviewer — a sibling tab's save, or a generation finishing. Syncing local
+  // form state to an external store is what this effect is for, so the setState
+  // is deliberate rather than the cascading-render case the rule targets.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setName(reviewer.reviewerName);
     setSubject(reviewer.subject);
     setTopics(reviewer.topics.length ? reviewer.topics : [""]);

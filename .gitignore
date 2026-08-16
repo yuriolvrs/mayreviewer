@@ -51,3 +51,9 @@ AGENTS.md
 
 # design handoff (reference only, not committed)
 /May Reviewer Design Spec/
+
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/.playwright/

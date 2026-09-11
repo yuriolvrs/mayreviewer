@@ -78,7 +78,7 @@ Before writing any code:
 
 **Check off work in the same change. Don't let checklists drift.**
 
-Two checklists are tracked: `docs/DevPhases-MayReviewer-MVP.md` and `docs/ExamStyles-Plan.md`.
+Two checklists are tracked: `docs/DevPhases-MayReviewer-MVP.md` and `docs/ExamFormats-Plan.md`.
 - Check off each `- [ ]` item as it's completed (`- [x]`).
 - Do this in the same change that completes the work, not as a separate cleanup pass.
 - If a phase's "Done when" criteria isn't yet met, leave its items unchecked even if code exists for them.

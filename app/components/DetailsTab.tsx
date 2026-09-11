@@ -2,27 +2,28 @@
 
 import { useEffect, useRef, useState } from "react";
 import { updateReviewer } from "@/app/lib/storage";
+import { defaultCounts, formatTypeKeys, getAllFormats, resolveFormat } from "@/app/lib/examFormats";
 import {
   MAX_QUESTION_COUNT,
   MIN_QUESTION_COUNT,
-  QUESTION_TYPES,
   sumCounts,
 } from "@/app/lib/questions";
 import QuestionCountControl from "@/app/components/QuestionCountControl";
 import SourceSections, { type SaveStatus } from "@/app/components/SourceSections";
-import type { QuestionType, Reviewer } from "@/app/types";
+import type { Reviewer } from "@/app/types";
 
 // Long enough that a burst of typing is one write, short enough that switching
 // away feels already-saved.
 const DEBOUNCE_MS = 1200;
 
-type SourceField = "notes" | "project";
+type SourceField = "notes" | "project" | "pastexam";
 
 function sameCountByType(
-  a: Record<QuestionType, number>,
-  b: Record<QuestionType, number>,
+  a: Record<string, number>,
+  b: Record<string, number>,
+  types: string[],
 ): boolean {
-  return QUESTION_TYPES.every((t) => a[t] === b[t]);
+  return types.every((t) => a[t] === b[t]);
 }
 
 export default function DetailsTab({
@@ -51,8 +52,10 @@ export default function DetailsTab({
   // Sources tab saved them this way before it was folded in here.
   const [notesStatus, setNotesStatus] = useState<SaveStatus>("idle");
   const [projectStatus, setProjectStatus] = useState<SaveStatus>("idle");
+  const [pastExamStatus, setPastExamStatus] = useState<SaveStatus>("idle");
   const notesRef = useRef(reviewer.notes);
   const projectRef = useRef(reviewer.projectMaterial);
+  const pastExamRef = useRef(reviewer.pastExamMaterial);
   const timers = useRef<Partial<Record<SourceField, ReturnType<typeof setTimeout>>>>({});
   const saveNowRef = useRef<() => void>(() => {});
   const onSavedRef = useRef(onSaved);
@@ -89,7 +92,8 @@ export default function DetailsTab({
   useEffect(() => {
     notesRef.current = reviewer.notes;
     projectRef.current = reviewer.projectMaterial;
-  }, [reviewer.id, reviewer.notes, reviewer.projectMaterial]);
+    pastExamRef.current = reviewer.pastExamMaterial;
+  }, [reviewer.id, reviewer.notes, reviewer.projectMaterial, reviewer.pastExamMaterial]);
 
   // `updateReviewer` re-reads before writing, so an autosave here can't revert
   // questions added by a generation that finished while the user was typing.
@@ -98,6 +102,7 @@ export default function DetailsTab({
       updateReviewer(reviewer.id, {
         notes: notesRef.current,
         projectMaterial: projectRef.current,
+        pastExamMaterial: pastExamRef.current,
       });
     };
     onSavedRef.current = onSaved;
@@ -109,9 +114,10 @@ export default function DetailsTab({
   useEffect(
     () => () => {
       const pending = timers.current;
-      const hadPending = Boolean(pending.notes || pending.project);
+      const hadPending = Boolean(pending.notes || pending.project || pending.pastexam);
       if (pending.notes) clearTimeout(pending.notes);
       if (pending.project) clearTimeout(pending.project);
+      if (pending.pastexam) clearTimeout(pending.pastexam);
       if (hadPending) {
         saveNowRef.current();
         onSavedRef.current();
@@ -126,16 +132,20 @@ export default function DetailsTab({
     saveNowRef.current();
     onSaved();
     if (field === "notes") setNotesStatus("saved");
-    else setProjectStatus("saved");
+    else if (field === "project") setProjectStatus("saved");
+    else setPastExamStatus("saved");
   }
 
   function handleSourceChange(field: SourceField, value: string, immediate?: boolean) {
     if (field === "notes") {
       notesRef.current = value;
       setNotesStatus("saving");
-    } else {
+    } else if (field === "project") {
       projectRef.current = value;
       setProjectStatus("saving");
+    } else {
+      pastExamRef.current = value;
+      setPastExamStatus("saving");
     }
 
     clearTimeout(timers.current[field]);
@@ -149,13 +159,30 @@ export default function DetailsTab({
   // Derived, never stored separately — the per-type fields are the setting.
   const questionCount = sumCounts(countByType);
 
+  // The reviewer's format decides which count fields exist. Counts typed for
+  // another format's types are meaningless after a switch, so changing format
+  // re-seeds from the new format's defaults (saved immediately, like the
+  // switch itself).
+  const format = resolveFormat(reviewer.examFormatId);
+  const typeKeys = formatTypeKeys(format);
+
+  function changeFormat(id: string) {
+    const next = resolveFormat(id);
+    updateReviewer(reviewer.id, {
+      examFormatId: next.id,
+      questionCountByType: defaultCounts(next),
+    });
+    setCountByType(defaultCounts(next));
+    onSaved();
+  }
+
   const dirty =
     name !== reviewer.reviewerName ||
     subject !== reviewer.subject ||
     topics.join("\n") !== (reviewer.topics.length ? reviewer.topics : [""]).join("\n") ||
     // Compared per type, not just by total, so re-splitting the same number of
     // questions across types still counts as a change worth saving.
-    !sameCountByType(countByType, reviewer.questionCountByType);
+    !sameCountByType(countByType, reviewer.questionCountByType, typeKeys);
 
   function updateTopic(index: number, value: string) {
     setTopics((prev) => prev.map((t, i) => (i === index ? value : t)));
@@ -301,20 +328,48 @@ export default function DetailsTab({
 
       <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
         <div>
+          <p className="text-[15px] font-medium text-text-primary">Exam format</p>
+          <p className="mt-1 text-[14px] text-text-secondary">
+            The question formats this reviewer generates.
+          </p>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          {/* Saved immediately rather than through the sticky bar: it never
+              conflicts with the staged name/subject/topics/counts edits. */}
+          <select
+            value={reviewer.examFormatId}
+            onChange={(e) => changeFormat(e.target.value)}
+            aria-label="Exam format"
+            className="h-11 rounded-lg border border-border bg-surface px-3 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+          >
+            {getAllFormats().map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
+        <div>
           <p className="text-[15px] font-medium text-text-primary">Question count</p>
           <p className="mt-1 text-[14px] text-text-secondary">How many questions to generate per type.</p>
         </div>
-        <QuestionCountControl value={countByType} onChange={setCountByType} />
+        <QuestionCountControl format={format} value={countByType} onChange={setCountByType} />
       </div>
 
       <SourceSections
         reviewerId={reviewer.id}
         notes={reviewer.notes}
         projectMaterial={reviewer.projectMaterial}
+        pastExamMaterial={reviewer.pastExamMaterial}
         onNotesChange={(text, immediate) => handleSourceChange("notes", text, immediate)}
         onProjectChange={(text, immediate) => handleSourceChange("project", text, immediate)}
+        onPastExamChange={(text, immediate) => handleSourceChange("pastexam", text, immediate)}
         notesStatus={notesStatus}
         projectStatus={projectStatus}
+        pastExamStatus={pastExamStatus}
       />
 
       <div className="flex flex-col gap-3 rounded-lg border border-error px-5 py-4 sm:flex-row sm:items-center sm:justify-between">

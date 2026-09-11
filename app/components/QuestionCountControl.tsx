@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { MAX_QUESTION_COUNT, QUESTION_TYPES, TYPE_LABELS, sumCounts } from "@/app/lib/questions";
-import type { QuestionType } from "@/app/types";
+import { MAX_QUESTION_COUNT, sumCounts } from "@/app/lib/questions";
+import { formatTypeKeys, typeLabelOf, type ExamFormat } from "@/app/lib/examFormats";
 
 // Counts are held as text, not numbers, so a field can sit empty while it's
 // being retyped instead of snapping back the moment it's cleared — an empty
@@ -14,45 +14,44 @@ function toCount(text: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function toNumbers(counts: Record<QuestionType, string>): Record<QuestionType, number> {
-  return Object.fromEntries(QUESTION_TYPES.map((t) => [t, toCount(counts[t])])) as Record<
-    QuestionType,
-    number
-  >;
+function toNumbers(counts: Record<string, string>, types: string[]): Record<string, number> {
+  return Object.fromEntries(types.map((t) => [t, toCount(counts[t])]));
 }
 
-function toText(counts: Record<QuestionType, number>): Record<QuestionType, string> {
-  return Object.fromEntries(QUESTION_TYPES.map((t) => [t, String(counts[t] ?? 0)])) as Record<
-    QuestionType,
-    string
-  >;
+function toText(counts: Record<string, number>, types: string[]): Record<string, string> {
+  return Object.fromEntries(types.map((t) => [t, String(counts[t] ?? 0)]));
 }
 
 export default function QuestionCountControl({
+  // The reviewer's format decides which fields exist, in what order, and
+  // under what labels — not the global type list.
+  format,
   value,
   onChange,
 }: {
-  value: Record<QuestionType, number>;
-  onChange: (byType: Record<QuestionType, number>) => void;
+  format: ExamFormat;
+  value: Record<string, number>;
+  onChange: (byType: Record<string, number>) => void;
 }) {
-  const [text, setText] = useState<Record<QuestionType, string>>(() => toText(value));
+  const types = formatTypeKeys(format);
+  const [text, setText] = useState<Record<string, string>>(() => toText(value, types));
 
   // What we last sent up. Anything else moving `value` came from outside (a
   // different reviewer loaded, a save refreshing props), and only then should
   // the fields be re-seeded — otherwise clearing one would immediately refill
   // it with the 0 we just reported.
   const [lastReported, setLastReported] = useState(value);
-  if (!QUESTION_TYPES.every((t) => value[t] === lastReported[t])) {
+  if (!types.every((t) => value[t] === lastReported[t])) {
     setLastReported(value);
-    setText(toText(value));
+    setText(toText(value, types));
   }
 
-  const total = sumCounts(toNumbers(text));
+  const total = sumCounts(toNumbers(text, types));
 
-  function updateType(type: QuestionType, raw: string) {
+  function updateType(type: string, raw: string) {
     const next = { ...text, [type]: raw };
     setText(next);
-    const byType = toNumbers(next);
+    const byType = toNumbers(next, types);
     setLastReported(byType);
     onChange(byType);
   }
@@ -60,16 +59,16 @@ export default function QuestionCountControl({
   return (
     <div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {QUESTION_TYPES.map((type) => (
+        {types.map((type) => (
           <label key={type} className="flex flex-col gap-1.5">
-            <span className="text-[14px] text-text-secondary">{TYPE_LABELS[type]}</span>
+            <span className="text-[14px] text-text-secondary">{typeLabelOf(format, type)}</span>
             <input
               type="number"
               min={0}
               max={MAX_QUESTION_COUNT}
               value={text[type]}
               onChange={(e) => updateType(type, e.target.value)}
-              aria-label={`${TYPE_LABELS[type]} questions to generate`}
+              aria-label={`${typeLabelOf(format, type)} questions to generate`}
               className="h-11 w-full rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
             />
           </label>

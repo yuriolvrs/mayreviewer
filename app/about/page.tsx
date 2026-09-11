@@ -55,12 +55,20 @@ export default function AboutPage() {
             <li>No accounts, no multi-user, no collaboration. Sharing happens through Import/Export.</li>
             <li>
               Uploads accept <span className="font-mono">.pdf</span>,{" "}
-              <span className="font-mono">.docx</span>, <span className="font-mono">.txt</span>, and{" "}
-              <span className="font-mono">.cpp</span>. Up to 10 files per field, 15 MB each and 40
-              MB in total.
+              <span className="font-mono">.jpg</span>, <span className="font-mono">.png</span>,{" "}
+              <span className="font-mono">.webp</span>, <span className="font-mono">.docx</span>,{" "}
+              <span className="font-mono">.txt</span>, and <span className="font-mono">.cpp</span>.
+              Up to 10 files per field, 15 MB each and 40 MB in total. HEIC photos
+              aren&apos;t supported — convert them to JPEG first.
             </li>
             <li>
               Generation is rate limited to 8 runs every 10 minutes to keep model costs in check.
+              Past-exam type inference is limited separately at the same rate.
+            </li>
+            <li>
+              A past exam can be attached to a reviewer or kept on a format. The AI drafts
+              question types from it, but every draft needs your review before it becomes part
+              of a format — and generated questions still need checking before you study them.
             </li>
           </ul>
         </Section>

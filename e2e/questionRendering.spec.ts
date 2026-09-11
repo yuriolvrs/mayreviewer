@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import path from "path";
 import {
   CODE_LISTING,
   CORRECT_OPTION,
@@ -190,6 +191,62 @@ test.describe("Delete warning", () => {
     await expect(body).toContainText("8 questions");
     await expect(body).toContainText("uploaded files");
     await expect(body).not.toContainText("has quiz history");
+  });
+});
+
+test.describe("Exam formats", () => {
+  test("the new-reviewer form offers the built-in format, preselected", async ({ page }) => {
+    await page.goto("/reviewer/new");
+    await expect(page.getByRole("radio", { name: /CSOPESY Final/ })).toBeChecked();
+    await expect(page.getByText("Modified True/False").first()).toBeVisible();
+  });
+
+  test("the library lists the built-in with its type mix and a working entry link", async ({
+    page,
+  }) => {
+    await page.goto("/formats");
+    await expect(page.getByRole("heading", { name: "Exam formats" })).toBeVisible();
+    await expect(page.getByText("Modified True/False").first()).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /New reviewer with this format/ }).first(),
+    ).toHaveAttribute("href", /\/reviewer\/new\?format=csopesy-final/);
+  });
+
+  test("the builder offers past-exam inference", async ({ page }) => {
+    await page.goto("/formats/new");
+    await expect(page.getByText("Learn from a past exam")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Infer question types" })).toBeVisible();
+  });
+
+  test("the builder creates a custom format that the picker then offers", async ({ page }) => {
+    await page.goto("/formats/new");
+    await page.getByPlaceholder(/Math 101/).fill("E2E Format");
+    await page.getByRole("button", { name: "+ Add question type" }).click();
+    await page.getByPlaceholder(/Formula recall/).fill("Recall");
+    await page.getByRole("button", { name: "Create format" }).click();
+
+    await expect(page).toHaveURL(/\/formats$/);
+    await expect(page.getByText("E2E Format")).toBeVisible();
+
+    await page.goto("/reviewer/new");
+    await expect(page.getByRole("radio", { name: /E2E Format/ })).toBeVisible();
+  });
+
+  test("a past-exam photo uploads through the real browser flow", async ({ page }) => {
+    // Drives the actual file input (accept list, IndexedDB write, row
+    // render) — the same path a phone photo of an exam takes, minus the
+    // model call on the far end. Dual filter pinpoints the Past exam row:
+    // ancestors match the text too, so .last() takes the innermost one.
+    await page.goto(`/reviewer/${REVIEWER_ID}`);
+    const row = page
+      .locator("div")
+      .filter({ hasText: "A sample exam" })
+      .filter({ has: page.locator('input[type="file"]') })
+      .last();
+    await row.locator('input[type="file"]').setInputFiles(path.join(__dirname, "fixtures", "facts.png"));
+    await expect(row.getByText("facts.png")).toBeVisible();
+    await expect(row.getByText("IMG")).toBeVisible();
+    await expect(row.getByText("sent as-is")).toBeVisible();
   });
 });
 

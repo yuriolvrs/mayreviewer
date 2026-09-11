@@ -12,6 +12,7 @@ import {
   updateReviewer,
 } from "@/app/lib/storage";
 import type { Question, Reviewer } from "@/app/types";
+import { CSOPESY_FINAL } from "@/app/lib/examFormats";
 
 const REVIEWERS_KEY = "mayreviewer-reviewers";
 const ATTEMPTS_KEY = "mayreviewer-quiz-attempts";
@@ -35,6 +36,8 @@ function reviewer(overrides: Partial<Reviewer> = {}): Reviewer {
     topics: ["Paging"],
     notes: "notes",
     projectMaterial: "",
+    pastExamMaterial: "",
+    examFormatId: CSOPESY_FINAL.id,
     questionCount: 10,
     questionCountByType: { identification: 3, scenario: 2, timeline: 2, code: 2, "modified-tf": 1 },
     questions: [question("q1")],
@@ -87,6 +90,7 @@ describe("getReviewers", () => {
     expect(migrated.questions).toEqual([]);
     expect(migrated.notes).toBe("");
     expect(migrated.projectMaterial).toBe("");
+    expect(migrated.pastExamMaterial).toBe("");
     expect(migrated.updatedAt).toBe("2026-08-01T00:00:00.000Z");
   });
 
@@ -170,6 +174,15 @@ describe("getReviewers", () => {
       "modified-tf": 10,
     });
     expect(migrated.questionCount).toBe(50);
+  });
+
+  it("assigns pre-format Reviewers to the built-in they were generated under", () => {
+    localStorage.setItem(
+      REVIEWERS_KEY,
+      JSON.stringify([{ id: "old", reviewerName: "Legacy", createdAt: "2026-08-01T00:00:00.000Z" }]),
+    );
+
+    expect(getReviewers()[0].examFormatId).toBe(CSOPESY_FINAL.id);
   });
 });
 
@@ -281,6 +294,20 @@ describe("quiz history", () => {
     expect(attempt.questions).toEqual([]);
     expect(attempt.answers).toEqual({});
     expect(attempt.unsureIds).toEqual([]);
+  });
+
+  it("backfills the format snapshot from the attempt's reviewer", () => {
+    saveReviewer(reviewer());
+    localStorage.setItem(
+      ATTEMPTS_KEY,
+      JSON.stringify([
+        { id: "a1", reviewerId: "r1", takenAt: "2026-08-01T00:00:00.000Z", score: 1, total: 4 },
+      ]),
+    );
+
+    const [attempt] = getQuizHistory("r1");
+    expect(attempt.examFormatId).toBe(CSOPESY_FINAL.id);
+    expect(attempt.examFormatName).toBe(CSOPESY_FINAL.name);
   });
 
   it("survives a corrupt attempts key", () => {

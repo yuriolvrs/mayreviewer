@@ -1,18 +1,32 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 
-// PDFs stay as PDFs (Gemini has native PDF vision — text, diagrams, charts,
-// images) instead of being flattened to extracted text. Kept in IndexedDB,
-// not localStorage: raw PDF bytes are far bigger than localStorage's ~5-10MB
-// quota allows for, especially with many files per Reviewer. Deliberately
-// NOT part of the `Reviewer` type/export-import — attachments are local-only
-// and never leave the browser via Export/Import JSON.
+// PDFs and images stay as-is (native vision on both providers — text,
+// diagrams, charts, photos) instead of being flattened to extracted text.
+// Kept in IndexedDB, not localStorage: raw file bytes are far bigger than
+// localStorage's ~5-10MB quota allows for, especially with many files per
+// Reviewer. Deliberately NOT part of the `Reviewer` type/export-import —
+// attachments are local-only and never leave the browser via Export/Import
+// JSON.
 
-export type AttachmentField = "notes" | "project";
+export type AttachmentField = "notes" | "project" | "pastexam";
 
 export type Attachment = {
   id: string;
   reviewerId: string;
   field: AttachmentField;
+  name: string;
+  mimeType: string;
+  data: ArrayBuffer;
+  addedAt: string;
+};
+
+// A format's own sample past exam, stored as files beside the text kept on
+// the format record. Separate store from reviewer attachments: keyed by
+// format id, no field (past-exam files always generate with the "pastexam"
+// source), same local-only rule — never part of Export/Import.
+export type FormatAttachment = {
+  id: string;
+  formatId: string;
   name: string;
   mimeType: string;
   data: ArrayBuffer;
@@ -25,6 +39,11 @@ interface AttachmentsDB extends DBSchema {
     value: Attachment;
     indexes: { "by-reviewer": string };
   };
+  "format-attachments": {
+    key: string;
+    value: FormatAttachment;
+    indexes: { "by-format": string };
+  };
 }
 
 // Lazily opened — `indexedDB` doesn't exist during SSR, and this module gets
@@ -33,10 +52,18 @@ let dbPromise: Promise<IDBPDatabase<AttachmentsDB>> | undefined;
 
 function getDb(): Promise<IDBPDatabase<AttachmentsDB>> {
   if (!dbPromise) {
-    dbPromise = openDB<AttachmentsDB>("mayreviewer-attachments", 1, {
+    // Version 2 adds the format-attachments store; the v1 reviewer store is
+    // left exactly as it was, so existing attachments survive the upgrade.
+    dbPromise = openDB<AttachmentsDB>("mayreviewer-attachments", 2, {
       upgrade(db) {
-        const store = db.createObjectStore("attachments", { keyPath: "id" });
-        store.createIndex("by-reviewer", "reviewerId");
+        if (!db.objectStoreNames.contains("attachments")) {
+          const store = db.createObjectStore("attachments", { keyPath: "id" });
+          store.createIndex("by-reviewer", "reviewerId");
+        }
+        if (!db.objectStoreNames.contains("format-attachments")) {
+          const formats = db.createObjectStore("format-attachments", { keyPath: "id" });
+          formats.createIndex("by-format", "formatId");
+        }
       },
     });
   }
@@ -81,6 +108,40 @@ export async function deleteAttachmentsForReviewer(reviewerId: string): Promise<
   const tx = db.transaction("attachments", "readwrite");
   const index = tx.store.index("by-reviewer");
   for await (const cursor of index.iterate(reviewerId)) {
+    cursor.delete();
+  }
+  await tx.done;
+}
+
+export async function getFormatAttachments(formatId: string): Promise<FormatAttachment[]> {
+  const db = await getDb();
+  return db.getAllFromIndex("format-attachments", "by-format", formatId);
+}
+
+export async function addFormatAttachment(formatId: string, file: File): Promise<FormatAttachment> {
+  const db = await getDb();
+  const attachment: FormatAttachment = {
+    id: crypto.randomUUID(),
+    formatId,
+    name: file.name,
+    mimeType: file.type || "application/pdf",
+    data: await file.arrayBuffer(),
+    addedAt: new Date().toISOString(),
+  };
+  await db.put("format-attachments", attachment);
+  return attachment;
+}
+
+export async function removeFormatAttachment(id: string): Promise<void> {
+  const db = await getDb();
+  await db.delete("format-attachments", id);
+}
+
+export async function deleteFormatAttachments(formatId: string): Promise<void> {
+  const db = await getDb();
+  const tx = db.transaction("format-attachments", "readwrite");
+  const index = tx.store.index("by-format");
+  for await (const cursor of index.iterate(formatId)) {
     cursor.delete();
   }
   await tx.done;

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { groupQuestions, isPreformatted, optionLetter } from "@/app/lib/questions";
+import { isMonoKind, stimulusKindOf, type ExamFormat } from "@/app/lib/examFormats";
 import StimulusBlock from "@/app/components/StimulusBlock";
 import StimulusQuote from "@/app/components/StimulusQuote";
 import type { FeedbackMode, Question } from "@/app/types";
@@ -10,11 +11,15 @@ export type Answers = Record<string, number>;
 
 export default function QuizTaking({
   questions,
+  format,
   feedbackMode,
   onSubmit,
   onCancel,
 }: {
   questions: Question[];
+  // The format the attempt is taken under: problem-block and option-mono
+  // rules read stimulus kinds from it rather than matching type names.
+  format: ExamFormat;
   feedbackMode: FeedbackMode;
   onSubmit: (answers: Answers, unsureIds: string[]) => void;
   onCancel: () => void;
@@ -222,19 +227,24 @@ export default function QuizTaking({
 
         <div className="flex flex-col">
           {groups.map((group) => {
-            // Only a Timeline table or a Code listing gets the shared problem
-            // block above the questions. A stimulus on any other type is prose
-            // and belongs with its question as a quote — same call the edit tab
-            // makes, so one value can't render two ways across screens.
+            // Only a mono-kind stimulus (table, code, formula) gets the shared
+            // problem block above the questions. A stimulus on any other type
+            // is prose and belongs with its question as a quote — same call
+            // the edit tab makes, so one value can't render two ways across
+            // screens.
             const hasProblemBlock =
-              Boolean(group.stimulus) && isPreformatted(group.questions[0].type);
+              Boolean(group.stimulus) &&
+              isMonoKind(stimulusKindOf(format, group.questions[0].type));
+            // Code-literal options stay monospace: the legacy standalone rule
+            // plus any question under a code problem block.
+            const groupKind = stimulusKindOf(format, group.questions[0].type);
 
             return (
             <section key={group.key} className="border-t border-border last:border-b">
               {hasProblemBlock && (
                 <div id={`stimulus-${group.key}`} className="scroll-mt-6 pt-6">
                   <p className="font-mono text-[13px] tracking-wide text-text-tertiary uppercase">
-                    {group.questions[0].type === "code" ? "Program" : "Problem"} · questions{" "}
+                    {groupKind === "code" ? "Program" : "Problem"} · questions{" "}
                     {numbering.get(group.questions[0].id)}–
                     {numbering.get(group.questions[group.questions.length - 1].id)}
                   </p>
@@ -372,7 +382,10 @@ export default function QuizTaking({
                         />
                         <span
                           className={`text-text-primary ${
-                            question.type === "code" ? "font-mono text-[14px]" : "text-[15px]"
+                            groupKind === "code" &&
+                            (hasProblemBlock || question.type === "code")
+                              ? "font-mono text-[14px]"
+                              : "text-[15px]"
                           }`}
                         >
                           <span className="font-mono text-[13px] text-text-tertiary">

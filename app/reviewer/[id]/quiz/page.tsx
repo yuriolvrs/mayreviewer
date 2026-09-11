@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getQuizHistory, getReviewer, saveQuizAttempt } from "@/app/lib/storage";
+import { resolveFormat } from "@/app/lib/examFormats";
 import { shuffleOptions } from "@/app/lib/questions";
 import type { FeedbackMode, Question, QuizAttempt, Reviewer } from "@/app/types";
 import QuizTaking, { type Answers } from "@/app/components/QuizTaking";
@@ -31,6 +32,10 @@ export default function QuizPage() {
   // Set only while reopening an attempt from the history list; the results
   // screen uses it to label which attempt is on screen.
   const [reviewedAt, setReviewedAt] = useState<string | null>(null);
+  // Which format the current taking/results screens render under. Fresh
+  // attempts use the reviewer's; reopened ones use the attempt's own snapshot,
+  // so a format edited since still reopens truthfully.
+  const [formatId, setFormatId] = useState<string | null>(null);
 
   useEffect(() => {
     // localStorage is a browser-only external store; one-off read on mount is intentional.
@@ -46,6 +51,7 @@ export default function QuizPage() {
       setQuizQuestions(attempt.questions);
       setSubmitted({ answers: attempt.answers, unsureIds: attempt.unsureIds });
       setReviewedAt(attempt.takenAt);
+      setFormatId(attempt.examFormatId);
       setStage("results");
     }
   }, [id, attemptId]);
@@ -64,6 +70,7 @@ export default function QuizPage() {
   }
 
   const total = reviewer.questions.length;
+  const format = resolveFormat(formatId ?? reviewer.examFormatId);
 
   if (stage === "taking") {
     return (
@@ -71,6 +78,7 @@ export default function QuizPage() {
         <h1 className="text-[26px] font-semibold text-text-primary">{reviewer.reviewerName}</h1>
         <QuizTaking
           questions={quizQuestions}
+          format={format}
           feedbackMode={feedbackMode}
           onCancel={() => {
             setStage("setup");
@@ -94,6 +102,7 @@ export default function QuizPage() {
         <QuizResults
           reviewerId={reviewer.id}
           reviewerName={reviewer.reviewerName}
+          format={format}
           questions={quizQuestions}
           answers={submitted.answers}
           unsureIds={submitted.unsureIds}
@@ -151,6 +160,7 @@ export default function QuizPage() {
           onFeedbackModeChange={setFeedbackMode}
           onStart={(questions) => {
             setQuizQuestions(questions.map(shuffleOptions));
+            setFormatId(reviewer.examFormatId);
             setStage("taking");
             window.scrollTo({ top: 0 });
           }}
@@ -160,6 +170,7 @@ export default function QuizPage() {
             setQuizQuestions(attempt.questions);
             setSubmitted({ answers: attempt.answers, unsureIds: attempt.unsureIds });
             setReviewedAt(attempt.takenAt);
+            setFormatId(attempt.examFormatId);
             setStage("results");
             window.scrollTo({ top: 0 });
           }}

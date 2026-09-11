@@ -11,7 +11,7 @@ export const QUESTION_TYPES: QuestionType[] = [
   "code",
   "modified-tf",
 ];
-export const QUESTION_SOURCES: QuestionSource[] = ["notes", "project", "manual"];
+export const QUESTION_SOURCES: QuestionSource[] = ["notes", "project", "manual", "pastexam"];
 
 // How many questions a Reviewer asks for per generation. Lives here because
 // the API route clamps against it and two forms validate against it — it was
@@ -23,28 +23,25 @@ export const MIN_QUESTION_COUNT = 1;
 export const MAX_QUESTION_COUNT = 200;
 export const DEFAULT_QUESTION_COUNT = 10;
 
-// Splits a total evenly across question types, handing any remainder to the
-// outermost types first (then working inward) so it doesn't always land on the
-// same one — e.g. 50 -> 13, 12, 12, 13, not 13, 13, 12, 12. Used to seed the
-// per-type counts for reviewers saved before the breakdown existed.
-export function splitCountEvenly(total: number): Record<QuestionType, number> {
-  const n = QUESTION_TYPES.length;
+// Splits a total evenly across the given type keys, handing any remainder to
+// the outermost keys first (then working inward) so it doesn't always land on
+// the same one — e.g. 50 -> 13, 12, 12, 13, not 13, 13, 12, 12. Used to seed
+// the per-type counts for reviewers saved before the breakdown existed.
+export function splitCountEvenly(total: number, keys: string[] = QUESTION_TYPES): Record<string, number> {
+  const n = keys.length;
   const safe = Number.isFinite(total) && total > 0 ? Math.floor(total) : 0;
   const base = Math.floor(safe / n);
   let remainder = safe - base * n;
 
-  const counts = Object.fromEntries(QUESTION_TYPES.map((t) => [t, base])) as Record<
-    QuestionType,
-    number
-  >;
+  const counts = Object.fromEntries(keys.map((t) => [t, base])) as Record<string, number>;
 
   let lo = 0;
   let hi = n - 1;
   while (remainder > 0 && lo <= hi) {
-    counts[QUESTION_TYPES[lo]]++;
+    counts[keys[lo]]++;
     remainder--;
     if (hi !== lo && remainder > 0) {
-      counts[QUESTION_TYPES[hi]]++;
+      counts[keys[hi]]++;
       remainder--;
     }
     lo++;
@@ -53,8 +50,8 @@ export function splitCountEvenly(total: number): Record<QuestionType, number> {
   return counts;
 }
 
-export function sumCounts(byType: Record<QuestionType, number>): number {
-  return QUESTION_TYPES.reduce((sum, t) => sum + (byType[t] || 0), 0);
+export function sumCounts(byType: Record<string, number>): number {
+  return Object.values(byType).reduce((sum, n) => sum + (n || 0), 0);
 }
 
 export const TYPE_LABELS: Record<QuestionType, string> = {
@@ -69,11 +66,15 @@ export const SOURCE_LABELS: Record<QuestionSource, string> = {
   notes: "Notes",
   project: "Project",
   manual: "Manual",
+  pastexam: "Past exam",
 };
 
-// Timeline tables and code snippets live inside the question string as plain
-// text — they only stay readable in a monospace face with whitespace kept.
-export function isPreformatted(type: QuestionType): boolean {
+// Legacy standalone rule: pre-set-era Timeline/Code questions carry their
+// table or listing inline in the question text, and only stay readable in a
+// monospace face. Everything set-shaped or custom renders through the
+// format-aware stimulus rules in examFormats.ts instead — this stays frozen
+// for the old questions.
+export function isPreformatted(type: string): boolean {
   return type === "timeline" || type === "code";
 }
 
@@ -153,12 +154,13 @@ export function isValidQuestionFields(value: unknown): value is Omit<Question, "
     isOptionalString(q.explanation) &&
     isOptionalString(q.whyOthersWrong) &&
     typeof q.type === "string" &&
-    QUESTION_TYPES.includes(q.type as QuestionType) &&
+    q.type.length > 0 &&
     typeof q.question === "string" &&
     Array.isArray(q.options) &&
-    // Generated questions are always 4 options (the model's response schema
-    // pins that), but hand-written ones can drop to 2 — so the floor is 2, not
-    // an exact count, or importing a manual question would silently drop it.
+  // Generated questions usually have 4 options (the built-in prompt blocks
+  // ask for 4), but the schema allows 2–4 and a hand-written or hand-edited
+  // one may have as few as 2 — rejecting those would silently drop them on
+  // import.
     q.options.length >= 2 &&
     q.options.every((o) => typeof o === "string") &&
     typeof q.correctIndex === "number" &&
@@ -206,7 +208,7 @@ export function sampleProportionally(pool: Question[], count: number): Question[
   if (count >= pool.length) return pool;
 
   const order = new Map(pool.map((q, i) => [q.id, i]));
-  const byType = new Map<QuestionType, Question[]>();
+  const byType = new Map<string, Question[]>();
   for (const question of pool) {
     const bucket = byType.get(question.type) ?? [];
     bucket.push(question);
@@ -214,7 +216,7 @@ export function sampleProportionally(pool: Question[], count: number): Question[
   }
 
   const types = [...byType.keys()];
-  const quota = new Map<QuestionType, number>(
+  const quota = new Map<string, number>(
     types.map((type) => [
       type,
       Math.floor((byType.get(type)!.length / pool.length) * count),
@@ -346,8 +348,8 @@ function isNearDuplicate(a: Set<string>, b: Set<string>): boolean {
 // short when its sets don't divide neatly into its budget.
 export function takeWithinTypeBudget(
   questions: Question[],
-  budget: Record<QuestionType, number>,
-): { kept: Question[]; remaining: Record<QuestionType, number> } {
+  budget: Record<string, number>,
+): { kept: Question[]; remaining: Record<string, number> } {
   const remaining = { ...budget };
   const kept: Question[] = [];
   const groups = groupQuestions(questions);
@@ -356,7 +358,7 @@ export function takeWithinTypeBudget(
   // overshoots its type's budget by one question would otherwise take the type
   // to zero, which is how a Reviewer asking for 10 Timeline questions could end
   // up with none of them.
-  const empty = new Set(QUESTION_TYPES.filter((t) => (budget[t] ?? 0) > 0));
+  const empty = new Set(Object.keys(budget).filter((t) => (budget[t] ?? 0) > 0));
 
   for (const group of groups) {
     const type = group.questions[0].type;

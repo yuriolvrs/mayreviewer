@@ -1,4 +1,3 @@
-import { QUESTION_TYPES } from "@/app/lib/questions";
 import type { QuestionType } from "@/app/types";
 
 // Turns one generation request into the exact prompts it will be sent as.
@@ -8,7 +7,6 @@ import type { QuestionType } from "@/app/types";
 // Timeline and Code arrive as whole problem sets, so their counts can't be
 // divided arbitrarily the way a standalone question's can.
 export const SET_TYPES: QuestionType[] = ["timeline", "code"];
-const STANDALONE_TYPES = QUESTION_TYPES.filter((t) => !SET_TYPES.includes(t));
 
 export const MIN_SET_SIZE = 5;
 export const MAX_SET_SIZE = 10;
@@ -19,7 +17,6 @@ export const MAX_SET_SIZE = 10;
 // several sequential calls and concatenated, which is what makes the
 // Reviewer's count a real target instead of a number Gemini quietly ignores.
 const MAX_QUESTIONS_PER_CALL = 40;
-
 // One topic and how many of a chunk's questions should be about it.
 export type TopicTarget = { topic: string; count: number };
 
@@ -28,7 +25,7 @@ export type TopicTarget = { topic: string; count: number };
 // targets the prompt states verbatim, not shares to be rescaled again.
 export type ChunkPlan = {
   count: number;
-  typeCounts?: Record<QuestionType, number>;
+  typeCounts?: Record<string, number>;
   // Per-topic targets for this chunk. Empty when the Reviewer named no topics.
   topics?: TopicTarget[];
 };
@@ -49,8 +46,8 @@ export function chunkCounts(count: number): number[] {
   return Array.from({ length: chunks }, (_, i) => base + (i < remainder ? 1 : 0));
 }
 
-function zeroCounts(): Record<QuestionType, number> {
-  return Object.fromEntries(QUESTION_TYPES.map((t) => [t, 0])) as Record<QuestionType, number>;
+function zeroCounts(keys: string[]): Record<string, number> {
+  return Object.fromEntries(keys.map((t) => [t, 0]));
 }
 
 // Deals one chunk's budget across the Reviewer's topics, so the prompt can
@@ -92,9 +89,12 @@ export function dealTopics(topics: string[], budget: number, rotation: number): 
 export function planGeneration(
   total: number,
   sourceCount: number,
-  byType?: Record<QuestionType, number>,
+  byType?: Record<string, number>,
   topics: string[] = [],
   rotation = 0,
+  // Which of the requested keys arrive as whole problem sets. Defaults to the
+  // built-in pair; the generate route passes the reviewer's format split.
+  setTypes: string[] = [...SET_TYPES],
 ): ChunkPlan[][] {
   const shape = distributeCount(total, sourceCount).map(chunkCounts);
   let chunkIndex = 0;
@@ -105,15 +105,17 @@ export function planGeneration(
     );
   }
 
-  const slots = shape.flat().map((room) => ({ room, counts: zeroCounts() }));
+  const keys = Object.keys(byType);
+  const standaloneKeys = keys.filter((t) => !setTypes.includes(t));
+  const slots = shape.flat().map((room) => ({ room, counts: zeroCounts(keys) }));
   const need = { ...byType };
 
   // Set types are placed first and in the largest lump that will fit, so a
   // type's whole target lands in as few prompts as possible — a prompt asking
   // for 10 timeline questions gets one or two real sets, where four prompts
   // asking for 2-3 each get none.
-  for (const type of SET_TYPES) {
-    while (need[type] > 0) {
+  for (const type of setTypes) {
+    while ((need[type] ?? 0) > 0) {
       const slot = slots.reduce((best, s) => (s.room > best.room ? s : best));
       if (slot.room === 0) break;
       const lump = Math.min(need[type], slot.room);
@@ -128,7 +130,7 @@ export function planGeneration(
   // rather than making one chunk all Identification.
   for (const slot of slots) {
     while (slot.room > 0) {
-      const type = STANDALONE_TYPES.filter((t) => need[t] > 0).sort((a, b) => need[b] - need[a])[0];
+      const type = standaloneKeys.filter((t) => need[t] > 0).sort((a, b) => need[b] - need[a])[0];
       if (!type) break;
       slot.counts[type]++;
       need[type]--;
@@ -147,9 +149,9 @@ export function planGeneration(
       // Code set's topic is fixed by what it is — a scheduling trace can't be
       // asked about Process Synchronization — so spreading a set's questions
       // over the topic list would just be an instruction it can't follow.
-      const standalone = STANDALONE_TYPES.reduce((sum, t) => sum + typeCounts[t], 0);
+      const standalone = standaloneKeys.reduce((sum, t) => sum + (typeCounts[t] ?? 0), 0);
       return {
-        count: QUESTION_TYPES.reduce((sum, t) => sum + typeCounts[t], 0),
+        count: Object.values(typeCounts).reduce((sum, n) => sum + n, 0),
         typeCounts,
         topics: dealTopics(topics, standalone, rotation + chunkIndex++),
       };

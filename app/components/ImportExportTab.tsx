@@ -5,7 +5,13 @@ import { zipSync, strToU8 } from "fflate";
 import { updateReviewer } from "@/app/lib/storage";
 import { getAttachments, addAttachment } from "@/app/lib/attachments";
 import { parseReviewerFile, type AttachmentManifestEntry, type ParsedAttachment } from "@/app/lib/reviewerFile";
-import type { Question, QuestionType, Reviewer } from "@/app/types";
+import {
+  getBuiltinFormats,
+  resolveFormat,
+  saveCustomFormat,
+  type ExamFormat,
+} from "@/app/lib/examFormats";
+import type { Question, Reviewer } from "@/app/types";
 
 type ExportedReviewer = {
   reviewerName: string;
@@ -13,11 +19,15 @@ type ExportedReviewer = {
   topics: string[];
   notes: string;
   projectMaterial: string;
+  pastExamMaterial: string;
   questionCount: number;
-  questionCountByType?: Record<QuestionType, number>;
+  questionCountByType?: Record<string, number>;
   questions: Question[];
   createdAt: string;
   attachments?: AttachmentManifestEntry[];
+  // The reviewer's format, so custom types survive the round trip instead of
+  // arriving as unknown keys. PDF attachments stay local-only, as before.
+  format: ExamFormat;
 };
 
 // A zip entry's path can't contain the file's own name verbatim if that name
@@ -39,6 +49,10 @@ type PendingImport = {
   topics: string[];
   newTopics: string[];
   questionCount: number;
+  // The file's embedded format, if it carries one. Merging never switches
+  // this reviewer's own format — but a custom format is saved to the library
+  // so its types stay renderable instead of degrading to raw keys.
+  format?: ExamFormat;
 };
 
 export default function ImportExportTab({
@@ -72,13 +86,14 @@ export default function ImportExportTab({
       topics: reviewer.topics,
       notes: reviewer.notes,
       projectMaterial: reviewer.projectMaterial,
+      pastExamMaterial: reviewer.pastExamMaterial,
       questionCount: reviewer.questionCount,
       questionCountByType: reviewer.questionCountByType,
       questions: reviewer.questions,
       createdAt: reviewer.createdAt,
+      format: resolveFormat(reviewer.examFormatId),
     };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    download(blob, `${reviewer.reviewerName || "reviewer"}.json`);
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });    download(blob, `${reviewer.reviewerName || "reviewer"}.json`);
   }
 
   async function handleExportWithMaterials() {
@@ -99,10 +114,12 @@ export default function ImportExportTab({
         topics: reviewer.topics,
         notes: reviewer.notes,
         projectMaterial: reviewer.projectMaterial,
+        pastExamMaterial: reviewer.pastExamMaterial,
         questionCount: reviewer.questionCount,
         questionCountByType: reviewer.questionCountByType,
         questions: reviewer.questions,
         createdAt: reviewer.createdAt,
+        format: resolveFormat(reviewer.examFormatId),
         attachments: manifest,
       };
 
@@ -132,7 +149,7 @@ export default function ImportExportTab({
       setMessage({ text: result.error, isError: true });
       return;
     }
-    const { fileName, isArchive, questions, topics, attachments, questionCount } = result.data;
+    const { fileName, isArchive, questions, topics, attachments, questionCount, format } = result.data;
 
     const existingIds = new Set(reviewer.questions.map((q) => q.id));
     const newQuestions = questions.filter((q) => !existingIds.has(q.id));
@@ -156,11 +173,23 @@ export default function ImportExportTab({
       topics,
       newTopics,
       questionCount,
+      format,
     });
+  }
+
+  // An embedded custom format is saved to the library on merge so the
+  // imported questions keep their labels and stay generatable. Built-in ids
+  // are never written — the shipped definition always wins.
+  function upsertEmbeddedFormat(format: ExamFormat | undefined): boolean {
+    if (!format) return false;
+    if (getBuiltinFormats().some((f) => f.id === format.id)) return false;
+    saveCustomFormat(format);
+    return true;
   }
 
   async function confirmMerge() {
     if (!pending) return;
+    const savedFormat = upsertEmbeddedFormat(pending.format);
     updateReviewer(reviewer.id, {
       questions: [...reviewer.questions, ...pending.newQuestions],
       topics: [...reviewer.topics, ...pending.newTopics],
@@ -193,6 +222,9 @@ export default function ImportExportTab({
           ? `${pending.newAttachments.length} file${pending.newAttachments.length === 1 ? "" : "s"}`
           : "no new files",
       );
+    }
+    if (savedFormat && pending.format) {
+      parts.push(`saved its "${pending.format.name}" format`);
     }
     setMessage({ text: `Imported ${parts.join(" and ")}.`, isError: false });
   }
@@ -285,6 +317,17 @@ export default function ImportExportTab({
                     <dt className="text-text-secondary">Topics in file</dt>
                     <dd className="text-text-primary">
                       {pending.topics.length} ({pending.newTopics.length} new)
+                    </dd>
+                  </div>
+                )}
+                {pending.format && (
+                  <div className="flex gap-2">
+                    <dt className="text-text-secondary">Format in file</dt>
+                    <dd className="text-text-primary">
+                      {pending.format.name}{" "}
+                      <span className="text-text-tertiary">
+                        (saved to your library on merge — this reviewer keeps its own format)
+                      </span>
                     </dd>
                   </div>
                 )}

@@ -1,5 +1,5 @@
 import { del } from "@vercel/blob";
-import { GoogleGenAI, createPartFromUri, createUserContent, FileState, type ContentListUnion } from "@google/genai";
+import { GoogleGenAI, createPartFromUri, createUserContent, type ContentListUnion } from "@google/genai";
 import { Mistral } from "@mistralai/mistralai";
 import type { ContentChunk } from "@mistralai/mistralai/models/components";
 import {
@@ -28,15 +28,16 @@ import {
   fence,
   newFenceToken,
 } from "@/app/lib/promptSafety";
+import { sanitizeFormatDef, setKeys, standaloneKeys, formatTypeKeys, CSOPESY_FINAL } from "@/app/lib/examFormats";
+import type { AnswerFormat, ExamFormat, StimulusKind, TypeShape } from "@/app/lib/examFormats";
+import type { Question, QuestionSource } from "@/app/types";
 import {
-  ALLOWED_ATTACHMENT_MIME_TYPES,
-  MAX_ATTACHMENTS,
-  MAX_ATTACHMENT_BYTES,
-  MAX_TOTAL_ATTACHMENT_BYTES,
-  MAX_FILENAME_CHARS,
-  isAllowedAttachmentUrl,
-} from "@/app/lib/attachmentLimits";
-import type { Question, QuestionSource, QuestionType } from "@/app/types";
+  activateFiles,
+  parseAttachments,
+  withRetry,
+  type IncomingAttachment,
+  type ParsedAttachment,
+} from "../lib/attachments";
 
 // Server-side only — GEMINI_API_KEY must never reach the client.
 export const runtime = "nodejs";
@@ -68,8 +69,6 @@ const MISTRAL_MODEL = "mistral-small-latest";
 // timeout/failure on one source no longer takes the rest down with it.
 const SOURCE_CONCURRENCY = 3;
 const MAX_TEXT_CHARS = 60_000;
-const FILE_PROCESSING_TIMEOUT_MS = 45_000;
-const FILE_POLL_INTERVAL_MS = 1_000;
 
 // One generation fans out into up to `attachments.length + 1` Gemini calls on a
 // free-tier key, so the cost of an unauthenticated caller looping this endpoint
@@ -84,7 +83,6 @@ const checkRateLimit = createRateLimiter(RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
 // server-side below — but an unbounded body is still a cheap memory-
 // exhaustion vector, so it stays capped.
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
-const ATTACHMENT_FETCH_TIMEOUT_MS = 30_000;
 
 // The already-asked list repeats in every chunk's prompt, so it's capped at a
 // size that stays cheap there rather than at the pool's own ceiling of 200.
@@ -97,59 +95,70 @@ const MAX_AVOID_CHARS = 200;
 // returns two lists rather than one flat array.
 const MC_FIELDS = {
   question: { type: "string" },
-  options: { type: "array", items: { type: "string" }, minItems: 4, maxItems: 4 },
+  // 2 to 4, not exactly 4: most types ask for 4 options, but True/False asks
+  // for 2. The validator, quiz renderer, shuffler, and verifier all handle
+  // any count in this range — the verifier's option letters run A-D.
+  options: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 4 },
   correctIndex: { type: "integer" },
   explanation: { type: "string" },
   whyOthersWrong: { type: "string" },
 } as const;
 
-const RESPONSE_SCHEMA = {
-  type: "object",
-  properties: {
-    questions: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          type: { type: "string", enum: ["identification", "scenario", "modified-tf"] },
-          ...MC_FIELDS,
-          source: { type: "string", enum: ["notes", "project"] },
+// Built per request from the reviewer's format: which types may appear
+// standalone and which arrive as sets. For the built-in format these are the
+// same lists the hardcoded schema always carried; a future format with
+// different members reshapes the schema without touching this code.
+function buildResponseSchema(standalone: string[], sets: string[]) {
+  return {
+    type: "object",
+    properties: {
+      questions: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            type: { type: "string", enum: standalone },
+            ...MC_FIELDS,
+            source: { type: "string", enum: ["notes", "project", "pastexam"] },
+          },
+          required: [
+            "type",
+            "question",
+            "options",
+            "correctIndex",
+            "explanation",
+            "whyOthersWrong",
+            "source",
+          ],
         },
-        required: [
-          "type",
-          "question",
-          "options",
-          "correctIndex",
-          "explanation",
-          "whyOthersWrong",
-          "source",
-        ],
       },
-    },
-    sets: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          type: { type: "string", enum: ["timeline", "code"] },
-          title: { type: "string" },
-          stimulus: { type: "string" },
-          source: { type: "string", enum: ["notes", "project"] },
-          questions: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: MC_FIELDS,
-              required: ["question", "options", "correctIndex", "explanation", "whyOthersWrong"],
+      sets: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            type: { type: "string", enum: sets },
+            title: { type: "string" },
+            stimulus: { type: "string" },
+            source: { type: "string", enum: ["notes", "project", "pastexam"] },
+            questions: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: MC_FIELDS,
+                required: ["question", "options", "correctIndex", "explanation", "whyOthersWrong"],
+              },
             },
           },
+          required: ["type", "title", "stimulus", "source", "questions"],
         },
-        required: ["type", "title", "stimulus", "source", "questions"],
       },
     },
-  },
-  required: ["questions", "sets"],
-} as const;
+    required: ["questions", "sets"],
+  } as const;
+}
+
+type ResponseSchema = ReturnType<typeof buildResponseSchema>;
 
 // Without a stated mix, a set still costs at least MIN_SET_SIZE of the chunk's
 // budget, so a chunk with too small a budget generates standalone questions
@@ -180,6 +189,110 @@ function setShape(n: number): { sets: number; size: string } {
 // The Reviewer's Subject and Topics are surfaced in the UI as things that steer
 // generation, so they have to actually reach the prompt. Subject also replaces
 // the hardcoded course name when one is set.
+type ResolvedDef = {
+  key: string;
+  label: string;
+  format: AnswerFormat;
+  shape: TypeShape;
+  stimulus: StimulusKind;
+  guidance: string;
+  examples: string[];
+};
+
+function exampleBlock(def: ResolvedDef, fenceToken: string): string {
+  if (def.examples.length === 0) return "";
+  return `\nShape each question like these examples — format reference only. Write new questions from the source material; do not copy these, and do not test the facts they test:\n${fence("EXAMPLES", fenceToken, def.examples.map((e, i) => `[example ${i + 1}]\n${e}`).join("\n"))}`;
+}
+
+// The tuned instruction for Modified True/False, reused two ways: verbatim
+// for the built-in key, and behind any custom type whose answer format is
+// "modified-tf" (with its own label as the heading).
+function modifiedTfBody(target: string): string {
+  return `Present 4 or 5 numbered statements about the material, one statement per line, then ask which combination of them is true, with 4 MC options. Decide the truth value of EACH statement from the source material first, then write the options so exactly one matches the true pattern — phrase options as combinations ("Statements 1 and 3 are true", "All statements are true", "None of the statements are true"). Every statement must be evaluable from the material on its own; never write one whose truth depends on another statement.${target}`;
+}
+
+function trueFalseBody(target: string): string {
+  return `Present each item as one declarative statement about the material, with exactly 2 options: "True" and "False". Mark the correct one. Vary which side is correct across items — never make them all True.${target}`;
+}
+
+// One standalone description per requested standalone type, in the format's
+// own order. The five built-in keys keep their tuned prose verbatim; anything
+// else is compiled from its own label, guidance, and examples.
+function standaloneDescription(
+  def: ResolvedDef,
+  target: string,
+  fenceToken: string,
+): string {
+  const builtin: Record<string, string> = {
+    identification: `IDENTIFICATION: Describe a term/concept, give 4 MC options, one correct.${target}`,
+    scenario: `SCENARIO: Describe a situation, ask which concept/component it illustrates, 4 MC options.${target}`,
+    "modified-tf": `MODIFIED TRUE/FALSE: ${modifiedTfBody(target)}`,
+  };
+  if (builtin[def.key]) return builtin[def.key];
+  if (def.format === "modified-tf") return `${def.label.toUpperCase()}: ${modifiedTfBody(target)}`;
+  if (def.format === "true-false")
+    return `${def.label.toUpperCase()}: ${trueFalseBody(target)}${exampleBlock(def, fenceToken)}`;
+  const guidance = def.guidance.trim() || "Ask about the material in a way that fits this format.";
+  // A standalone type can still carry per-question material (a sentence, a
+  // worked stem): the stimulus field says what to include, since there is no
+  // shared problem block for it to live in.
+  const stimulusNoun =
+    def.stimulus === "prose"
+      ? "passage"
+      : def.stimulus === "table"
+        ? "table"
+        : def.stimulus === "code"
+          ? "code listing"
+          : def.stimulus === "formula"
+            ? "worked stem"
+            : "";
+  const stimulusNote =
+    stimulusNoun !== "" ? ` Include a short ${stimulusNoun} in each question for it to refer to.` : "";
+  return `${def.label.toUpperCase()}: ${guidance}${stimulusNote} Present each question with 4 multiple-choice options and mark exactly one correct. Wrong options should be plausible neighboring concepts, not nonsense.${target}${exampleBlock(def, fenceToken)}`;
+}
+
+function stimulusLayoutLine(kind: StimulusKind): string {
+  switch (kind) {
+    case "table":
+      return "a plain-text table, space-padded so the columns line up in a monospace font, one row per line";
+    case "code":
+      return 'one complete code listing in the language of the source material, one statement per line, with blanks inline as ___(1)___, ___(2)___, … numbered in reading order';
+    case "formula":
+      return "a worked stem with its formulas, one step per line";
+    default:
+      return "a short passage the questions refer to, laid out over multiple lines";
+  }
+}
+
+// One set description per requested set type. Timeline and Code keep their
+// tuned prose; anything else is compiled the same way: one shared problem,
+// then questions about that problem alone.
+function setDescription(
+  def: ResolvedDef,
+  size: string,
+  target: string,
+  fenceToken: string,
+): string {
+  // How the set's questions attach to its problem. Code, prose, and formula
+  // problems carry numbered blanks with exactly one question per blank;
+  // tables are traced instead — questions index its rows and must compute
+  // across them rather than read a single cell.
+  const attachment =
+    def.stimulus === "table"
+      ? `"questions": ${size} questions that can only be answered by using the table — indexing its rows, comparing across them, or computing from them. Never ask for a value readable from a single cell.`
+      : `"questions": exactly one question per blank and NO OTHERS — the count must equal the number of blanks, in order, each phrased like "Blank (3): what belongs here?" with 4 multiple-choice options. Never ask about anything outside a blank.`;
+  const blankRule =
+    def.stimulus === "code"
+      ? "\n  Keep at least 3 lines of intact, readable code between consecutive blanks, even if that means writing a longer function than the minimal one — a reader scanning the listing should still tell what the program does without resolving a single blank. Every blank must be derivable from the listing itself. Never blank out a config setting or tunable."
+      : def.stimulus === "table"
+        ? ""
+        : "\n  Put blanks inline as ___(1)___, ___(2)___, … numbered in reading order. Each blank must be inferable from the surrounding problem.";
+  return `${def.label.toUpperCase()} set (type "${def.key}") — one shared problem:
+  "title": a short name for the problem.
+  "stimulus": the problem as ${stimulusLayoutLine(def.stimulus)}. Nothing else — no questions in the stimulus.${blankRule}
+  ${attachment} Do not restate the problem.${target}${exampleBlock(def, fenceToken)}`;
+}
+
 function questionHeader(
   count: number,
   subject: string,
@@ -188,12 +301,15 @@ function questionHeader(
   // the model, which meant the material's most salient topics were asked about
   // every time and the rest never were.
   topicTargets: TopicTarget[],
-  types: QuestionType[],
+  format: ExamFormat,
+  types: string[],
   // This chunk's own per-type targets — already dealt out by `planGeneration`
   // against the whole request, so they're stated to the model as-is.
-  typeCounts?: Record<QuestionType, number>,
+  typeCounts?: Record<string, number>,
+  fenceToken = "",
 ): string {
-  const want = (type: QuestionType): number | undefined => typeCounts?.[type];
+  const defs = format.types.map((t) => ({ ...t, guidance: t.guidance ?? "", examples: t.examples ?? [] }));
+  const want = (key: string): number | undefined => typeCounts?.[key];
   const course = subject.trim() || "Intro to Operating Systems";
   const focus =
     topicTargets.length > 0
@@ -207,40 +323,29 @@ genuinely doesn't cover one of these topics, give its share to the others rather
 outside the material for it.`
       : "";
 
-  // The two standalone types live in "questions", the two set types in "sets" —
+  // The standalone types live in "questions", the set types in "sets" —
   // restricting either list means telling the model to return it empty. A
   // per-type target of 0 drops that type as surely as leaving it out of `types`.
-  const wants = (type: QuestionType): boolean => types.includes(type) && want(type) !== 0;
-  const wantsIdentification = wants("identification");
-  const wantsScenario = wants("scenario");
-  const wantsModifiedTf = wants("modified-tf");
-  const wantsTimeline = wants("timeline");
-  const wantsCode = wants("code");
+  const wants = (key: string): boolean => types.includes(key) && want(key) !== 0;
 
   // Stated per type only when the reviewer asked for a specific mix; otherwise
   // the model is left to balance the batch itself, as before.
-  const target = (type: QuestionType): string => {
-    const n = want(type);
+  const target = (key: string): string => {
+    const n = want(key);
     return n === undefined ? "" : ` Generate exactly ${n} of these.`;
   };
 
-  const standaloneDescriptions = [
-    wantsIdentification
-      ? `IDENTIFICATION: Describe a term/concept, give 4 MC options, one correct.${target("identification")}`
-      : "",
-    wantsScenario
-      ? `SCENARIO: Describe a situation, ask which concept/component it illustrates, 4 MC options.${target("scenario")}`
-      : "",
-    wantsModifiedTf
-      ? `MODIFIED TRUE/FALSE: Present 4 or 5 numbered statements about the material, one statement per line, then ask which combination of them is true, with 4 MC options. Decide the truth value of EACH statement from the source material first, then write the options so exactly one matches the true pattern — phrase options as combinations ("Statements 1 and 3 are true", "All statements are true", "None of the statements are true"). Every statement must be evaluable from the material on its own; never write one whose truth depends on another statement.${target("modified-tf")}`
-      : "",
-  ].filter(Boolean);
+  const standaloneDescriptions = defs
+    .filter((d) => d.shape === "standalone" && wants(d.key))
+    .map((d) => standaloneDescription(d, target(d.key), fenceToken));
 
   const standaloneBlock =
     standaloneDescriptions.length === 0
       ? `Return an empty "questions" array — this batch is problem sets only.`
       : `Return standalone questions in "questions"${
-          standaloneDescriptions.length > 1 && !typeCounts ? " — a mix of these two types" : ""
+          standaloneDescriptions.length > 1 && !typeCounts
+            ? ` — a mix of these ${standaloneDescriptions.length} types`
+            : ""
         }:
 
 ${standaloneDescriptions.map((d, i) => `${i + 1}. ${d}`).join("\n")}`;
@@ -251,19 +356,29 @@ ${standaloneDescriptions.map((d, i) => `${i + 1}. ${d}`).join("\n")}`;
   const { maxSets, maxSetSize } = typeCounts ? { maxSets: 0, maxSetSize: 0 } : setBudget(count);
 
   // How many questions one set of this type holds, and how many such sets.
-  const shape = (type: QuestionType) => {
-    const n = want(type);
+  const shape = (key: string) => {
+    const n = want(key);
     return n === undefined ? undefined : setShape(n);
   };
-  const setSize = (type: QuestionType): string =>
-    shape(type)?.size ?? `${MIN_SET_SIZE}-${maxSetSize}`;
+  const setSize = (key: string): string =>
+    shape(key)?.size ?? `${MIN_SET_SIZE}-${maxSetSize}`;
 
-  const setTarget = (type: QuestionType): string => {
-    const s = shape(type);
+  const setTarget = (key: string): string => {
+    const s = shape(key);
     return s === undefined
       ? ""
       : `
-  Return exactly ${s.sets} ${type} set${s.sets > 1 ? "s" : ""} — ${want(type)} questions in total across ${s.sets > 1 ? "them" : "it"}.`;
+  Return exactly ${s.sets} ${key} set${s.sets > 1 ? "s" : ""} — ${want(key)} questions in total across ${s.sets > 1 ? "them" : "it"}.`;
+  };
+
+  // Same count demand as above, phrased for a compiled type whose key is an
+  // opaque slug — the label carries the meaning, never the key.
+  const setTargetFor = (def: ResolvedDef): string => {
+    const s = shape(def.key);
+    return s === undefined
+      ? ""
+      : `
+  Return exactly ${s.sets} set${s.sets > 1 ? "s" : ""} of this type — ${want(def.key)} questions in total.`;
   };
 
   const timelineBlock = `TIMELINE set (type "timeline") — CPU scheduling or demand paging:
@@ -317,8 +432,17 @@ ${standaloneDescriptions.map((d, i) => `${i + 1}. ${d}`).join("\n")}`;
     4 code-literal options. Never ask about anything outside a blank. Do not restate
     the listing.${setTarget("code")}`;
 
-  const setDescriptions = [wantsTimeline ? timelineBlock : "", wantsCode ? codeBlock : ""]
-    .filter(Boolean)
+  const builtinSet = (key: string): string | undefined => {
+    if (key === "timeline") return timelineBlock;
+    if (key === "code") return codeBlock;
+    return undefined;
+  };
+
+  // The tuned Timeline/Code problems stay verbatim; any other set type is
+  // compiled from its own definition the same way standalone types are.
+  const setDescriptions = defs
+    .filter((d) => d.shape === "set" && wants(d.key))
+    .map((d) => builtinSet(d.key) ?? setDescription(d, setSize(d.key), setTargetFor(d), fenceToken))
     .join("\n\n");
 
   // With a stated mix the sets are strongly pressed for, since their questions
@@ -367,8 +491,7 @@ ${setsBlock}${focus}
 Stay inside the source material. Every question must be answerable from the topics,
 algorithms, code, and terminology the material actually covers. A topic that is standard
 for this course but absent from the material is off limits — this outranks the counts
-above, so return fewer questions rather than reaching outside it. Never write a question
-about semaphores; they are not on this exam.
+above, so return fewer questions rather than reaching outside it.${format.id === CSOPESY_FINAL.id ? " Never write a question about semaphores; they are not on this exam." : ""}
 
 Before finalizing a question with a computed answer (an average, a total, a time), do the
 computation, confirm the result exactly matches one of the four options, and only then write
@@ -389,111 +512,17 @@ Say what it actually is or what it would take for it to be the answer — don't 
 the correct one is correct.`;
 }
 
-type IncomingAttachment = {
-  name: string;
-  mimeType: string;
-  url: string;
-  field: QuestionSource;
-};
-
-// Same shape after validation and fetching, with the bytes already in hand —
-// fetching in the request handler means a malformed entry or an oversized/
-// non-PDF blob is rejected before any Gemini call is made, rather than
-// failing partway through a stream. `blobUrl` is kept so the caller can
-// delete it from Blob storage once it's no longer needed.
-type ParsedAttachment = {
-  name: string;
-  mimeType: string;
-  data: Uint8Array<ArrayBuffer>;
-  field: QuestionSource;
-  blobUrl: string;
-};
-
-async function fetchAttachment(url: string, name: string): Promise<{ data: Uint8Array<ArrayBuffer> } | { error: string }> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), ATTACHMENT_FETCH_TIMEOUT_MS);
-  try {
-    const response = await fetch(url, { signal: controller.signal });
-    if (!response.ok) return { error: `Couldn't fetch "${clampToLine(name, 60)}" (${response.status}).` };
-
-    const buffer = await response.arrayBuffer();
-    if (buffer.byteLength === 0) return { error: `"${clampToLine(name, 60)}" is empty.` };
-    if (buffer.byteLength > MAX_ATTACHMENT_BYTES) {
-      return { error: `"${clampToLine(name, 60)}" is larger than ${MAX_ATTACHMENT_BYTES / 1024 / 1024}MB.` };
-    }
-
-    const data = new Uint8Array(buffer);
-    // The declared mimeType is just a claim by the caller; check the bytes too
-    // so the allowlist below can't be walked past with an arbitrary payload.
-    if (Buffer.from(data.subarray(0, 5)).toString("latin1") !== "%PDF-") {
-      return { error: `"${clampToLine(name, 60)}" isn't a PDF.` };
-    }
-    return { data };
-  } catch (err) {
-    const timedOut = err instanceof Error && err.name === "AbortError";
-    return { error: timedOut ? `Fetching "${clampToLine(name, 60)}" timed out.` : `Couldn't fetch "${clampToLine(name, 60)}".` };
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function parseAttachments(raw: unknown): Promise<{ attachments: ParsedAttachment[] } | { error: string }> {
-  if (raw === undefined) return { attachments: [] };
-  if (!Array.isArray(raw)) return { error: "`attachments` must be an array." };
-  if (raw.length > MAX_ATTACHMENTS) {
-    return { error: `Too many files — ${MAX_ATTACHMENTS} at most per generation.` };
-  }
-
-  const attachments: ParsedAttachment[] = [];
-  let totalBytes = 0;
-
-  for (const entry of raw) {
-    if (typeof entry !== "object" || entry === null) return { error: "Malformed attachment." };
-    const { name, mimeType, url, field } = entry as Record<string, unknown>;
-
-    if (typeof name !== "string" || typeof mimeType !== "string" || typeof url !== "string") {
-      return { error: "Malformed attachment." };
-    }
-    if (field !== "notes" && field !== "project") {
-      return { error: "Attachment has an unrecognised field." };
-    }
-    if (!ALLOWED_ATTACHMENT_MIME_TYPES.includes(mimeType)) {
-      return { error: `Unsupported file type "${clampToLine(mimeType, 60)}" — PDFs only.` };
-    }
-    // Only ever fetch our own Blob store's URLs — otherwise this is a
-    // server-side fetch of an attacker-supplied URL (SSRF).
-    if (!isAllowedAttachmentUrl(url)) {
-      return { error: "Attachment has an invalid file URL." };
-    }
-
-    const fetched = await fetchAttachment(url, name);
-    if ("error" in fetched) return { error: fetched.error };
-
-    totalBytes += fetched.data.byteLength;
-    if (totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) {
-      return { error: `Files total more than ${MAX_TOTAL_ATTACHMENT_BYTES / 1024 / 1024}MB — remove some and try again.` };
-    }
-
-    // The name is echoed back to the client as a progress label and sent to
-    // Gemini as a displayName; neither is a prompt slot, but an unbounded
-    // filename has no legitimate use.
-    attachments.push({
-      name: clampToLine(name, MAX_FILENAME_CHARS) || "Untitled file",
-      mimeType,
-      data: fetched.data,
-      field,
-      blobUrl: url,
-    });
-  }
-
-  return { attachments };
-}
-
 type GenerateRequestBody = {
+  // The reviewer's format definition. The server cannot read browser
+  // localStorage (home of custom formats), so the client sends the
+  // definition itself; it is validated and normalized before anything is
+  // compiled from it, and anything malformed falls back to the built-in.
+  format?: unknown;
   subject?: string;
   topics?: string[];
   notes?: string;
   projectMaterial?: string;
+  pastExamMaterial?: string;
   count?: number;
   types?: string[];
   countByType?: Record<string, number>;
@@ -504,7 +533,14 @@ type GenerateRequestBody = {
 type PromptContext = {
   subject: string;
   topics: string[];
-  types: QuestionType[];
+  types: string[];
+  // The reviewer's format, sanitized from the request: the prompt compiler
+  // reads type labels, guidance, and examples from it.
+  format: ExamFormat;
+  // The format's own split: standalone types land in the "questions" array,
+  // set types in "sets" — both in the schema and when flattening it back.
+  schema: ResponseSchema;
+  setTypes: string[];
   // The facts the Reviewer's existing pool already tests, sent so a
   // regeneration over unchanged material lands on different ones.
   avoid: { question: string; answer: string }[];
@@ -537,36 +573,16 @@ function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}\n[...truncated, too long to send whole]` : text;
 }
 
-// Free-tier Gemini calls occasionally fail with a transient error (rate
-// limiting or a dropped connection) even for a single small request — worth
-// retrying before giving up on that source. Rate-limit errors get a longer
-// backoff since they need real time to clear, not just a network retry.
-async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
-  const attempts = [0, 1500, 6000];
-  let lastErr: unknown;
-  for (let i = 0; i < attempts.length; i++) {
-    if (attempts[i] > 0) await new Promise((resolve) => setTimeout(resolve, attempts[i]));
-    try {
-      return await fn();
-    } catch (err) {
-      lastErr = err;
-      const message = err instanceof Error ? err.message : String(err);
-      if (!/503|429|UNAVAILABLE|RESOURCE_EXHAUSTED|deadline/i.test(message)) throw err;
-    }
-  }
-  throw lastErr;
-}
-
 // Flattens each returned set into plain questions that carry the set's problem
 // and a shared `groupId`. They stay adjacent in the output array, which is what
 // the quiz and edit screens key off to render the problem once per set.
-function flattenSets(sets: unknown): Omit<Question, "id">[] {
+function flattenSets(sets: unknown, setTypes: string[]): Omit<Question, "id">[] {
   if (!Array.isArray(sets)) return [];
 
   return sets.flatMap((raw) => {
     if (typeof raw !== "object" || raw === null) return [];
     const set = raw as Record<string, unknown>;
-    if (set.type !== "timeline" && set.type !== "code") return [];
+    if (typeof set.type !== "string" || !setTypes.includes(set.type)) return [];
     if (typeof set.title !== "string" || typeof set.stimulus !== "string") return [];
     if (!Array.isArray(set.questions)) return [];
 
@@ -589,10 +605,11 @@ function flattenSets(sets: unknown): Omit<Question, "id">[] {
 }
 
 // Shared between both providers: their raw JSON text differs only in how it
-// was produced, not in shape, since both are constrained to RESPONSE_SCHEMA.
+// was produced, not in shape, since both are constrained to the format's
+// response schema.
 function parseQuestionResponse(
   text: string | undefined,
-  types: QuestionType[],
+  context: PromptContext,
   providerLabel: string,
 ): SourceResult {
   if (!text) return { error: `${providerLabel} returned an empty response.` };
@@ -608,11 +625,12 @@ function parseQuestionResponse(
   }
 
   const { questions: standalone, sets } = parsed as { questions?: unknown; sets?: unknown };
+  const types = context.types;
   const questions = [
-    ...flattenSets(sets),
+    ...flattenSets(sets, context.setTypes),
     ...(Array.isArray(standalone) ? standalone : []).filter(isValidQuestionFields),
   ]
-    // The response schema still permits all four types, so a model that
+    // The response schema still permits every type, so a model that
     // ignores the prompt's restriction gets filtered out here.
     .filter((q) => types.includes(q.type))
     .map((q) => ({ id: crypto.randomUUID(), ...q }));
@@ -624,7 +642,7 @@ function parseQuestionResponse(
 async function callGemini(
   ai: GoogleGenAI,
   contents: ContentListUnion,
-  types: QuestionType[],
+  context: PromptContext,
 ): Promise<SourceResult> {
   try {
     const response = await withRetry(() =>
@@ -634,11 +652,11 @@ async function callGemini(
         config: {
           systemInstruction: SYSTEM_INSTRUCTION,
           responseMimeType: "application/json",
-          responseSchema: RESPONSE_SCHEMA,
+          responseSchema: context.schema,
         },
       }),
     );
-    return parseQuestionResponse(response.text, types, "Gemini");
+    return parseQuestionResponse(response.text, context, "Gemini");
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Generation request failed." };
   }
@@ -651,7 +669,7 @@ async function callGemini(
 async function callMistral(
   mistral: Mistral,
   content: string | ContentChunk[],
-  types: QuestionType[],
+  context: PromptContext,
 ): Promise<SourceResult> {
   try {
     const response = await withRetry(() =>
@@ -663,7 +681,7 @@ async function callMistral(
         ],
         responseFormat: {
           type: "json_schema",
-          jsonSchema: { name: "practice_questions", schemaDefinition: RESPONSE_SCHEMA },
+          jsonSchema: { name: "practice_questions", schemaDefinition: context.schema },
         },
       }),
     );
@@ -672,7 +690,7 @@ async function callMistral(
     const text = typeof message === "string" ? message : Array.isArray(message)
       ? message.map((chunk) => ("text" in chunk ? chunk.text : "")).join("")
       : undefined;
-    return parseQuestionResponse(text, types, "Mistral");
+    return parseQuestionResponse(text, context, "Mistral");
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Fallback generation request failed." };
   }
@@ -848,12 +866,12 @@ async function verifyQuestions(
   };
 }
 
-// Only standalone types (Identification/Scenario) can ever be dropped by
-// verification, so a backfill request only ever asks for those — never
-// Timeline/Code, which don't have the material budget a single small request
-// would need to build a whole traceable problem.
-function backfillTypeCounts(dropped: Question[]): Record<QuestionType, number> {
-  const counts = Object.fromEntries(QUESTION_TYPES.map((t) => [t, 0])) as Record<QuestionType, number>;
+// Only standalone types can ever be dropped by verification, so a backfill
+// request only ever asks for those — never set types, which don't have the
+// material budget a single small request would need to build a whole
+// traceable problem.
+function backfillTypeCounts(dropped: Question[]): Record<string, number> {
+  const counts: Record<string, number> = {};
   for (const q of dropped) counts[q.type] = (counts[q.type] ?? 0) + 1;
   return counts;
 }
@@ -932,8 +950,10 @@ ${fence(
       plan.count,
       context.subject,
       plan.topics ?? [],
+      context.format,
       context.types,
       plan.typeCounts,
+      context.fenceToken,
     );
     let result = await runPrimary(header, batch);
     if (!("questions" in result) && runFallback) result = await runFallback(header, batch);
@@ -954,41 +974,15 @@ async function processAttachmentSource(
   plans: ChunkPlan[],
   context: PromptContext,
 ): Promise<SourceResult> {
-  let file;
-  try {
-    const blob = new Blob([attachment.data], { type: attachment.mimeType });
-    file = await withRetry(() =>
-      ai.files.upload({ file: blob, config: { mimeType: attachment.mimeType, displayName: attachment.name } }),
-    );
-  } catch (err) {
-    return { error: `Upload to Gemini failed: ${err instanceof Error ? err.message : String(err)}` };
-  }
-
-  const deadline = Date.now() + FILE_PROCESSING_TIMEOUT_MS;
-  try {
-    while (file.state === FileState.PROCESSING) {
-      if (Date.now() > deadline || !file.name) {
-        return { error: `Gemini took too long to process this file (>${FILE_PROCESSING_TIMEOUT_MS / 1000}s).` };
-      }
-      await new Promise((resolve) => setTimeout(resolve, FILE_POLL_INTERVAL_MS));
-      file = await ai.files.get({ name: file.name });
-    }
-  } catch (err) {
-    return { error: `Checking file status failed: ${err instanceof Error ? err.message : String(err)}` };
-  }
-
-  if (file.state === FileState.FAILED) {
-    return { error: "Gemini rejected this file (couldn't process it as a valid PDF)." };
-  }
-  if (file.state !== FileState.ACTIVE || !file.uri || !file.mimeType) {
-    return { error: `Gemini left this file in an unexpected state (${file.state ?? "unknown"}).` };
-  }
+  const activated = await activateFiles(ai, [attachment]);
+  if ("error" in activated) return { error: activated.error };
+  const { uri, mimeType } = activated.files[0];
 
   // The attached file's contents can't be fenced — Gemini reads it as its own
   // part — so the framing has to say so explicitly. Containment for a PDF that
   // carries injected instructions is the response schema plus the per-question
   // validation in `callGemini`/`callMistral`, not this sentence.
-  const filePart = createPartFromUri(file.uri, file.mimeType);
+  const filePart = createPartFromUri(uri, mimeType);
   const attachmentPrompt = (header: string, batch: string) =>
     `${header}
 
@@ -1001,7 +995,7 @@ Base questions on the attached file (it may contain diagrams, charts, or images 
     plans,
     context,
     (header, batch) =>
-      callGemini(ai, createUserContent([filePart, attachmentPrompt(header, batch)]), context.types),
+      callGemini(ai, createUserContent([filePart, attachmentPrompt(header, batch)]), context),
     mistral
       ? async (header, batch) => {
           if (!mistralFileId) {
@@ -1021,7 +1015,7 @@ Base questions on the attached file (it may contain diagrams, charts, or images 
             { type: "file", fileId: mistralFileId },
             { type: "text", text: attachmentPrompt(header, batch) },
           ];
-          return callMistral(mistral, content, context.types);
+          return callMistral(mistral, content, context);
         }
       : undefined,
   );
@@ -1037,13 +1031,19 @@ async function processTextSource(
   mistral: Mistral | undefined,
   notes: string,
   projectMaterial: string,
+  pastExamMaterial: string,
+  pastExamName: string,
   plans: ChunkPlan[],
   context: PromptContext,
 ): Promise<SourceResult> {
+  const pastExamBlock =
+    pastExamMaterial.trim() || pastExamName
+      ? `\n\nIf the PAST EXAM block is not "(none)", reference that exam's format and facts in some questions, marking their source "pastexam".\n${fence("PAST_EXAM", context.fenceToken, [pastExamName ? `From: ${pastExamName}` : "", truncate(pastExamMaterial, MAX_TEXT_CHARS) || "(no pasted text — files and format record only)"].filter(Boolean).join("\n"))}`
+      : "";
   const materialBlock = `${fence("NOTES", context.fenceToken, truncate(notes, MAX_TEXT_CHARS) || "(none)")}
 
 If the PROJECT MATERIAL block is not "(none)", reference that project in some questions.
-${fence("PROJECT_MATERIAL", context.fenceToken, truncate(projectMaterial, MAX_TEXT_CHARS) || "(none)")}`;
+${fence("PROJECT_MATERIAL", context.fenceToken, truncate(projectMaterial, MAX_TEXT_CHARS) || "(none)")}${pastExamBlock}`;
 
   const textPrompt = (header: string, batch: string) =>
     `${header}
@@ -1054,8 +1054,8 @@ ${materialBlock}`;
   return generateChunked(
     plans,
     context,
-    (header, batch) => callGemini(ai, createUserContent([textPrompt(header, batch)]), context.types),
-    mistral ? (header, batch) => callMistral(mistral, textPrompt(header, batch), context.types) : undefined,
+    (header, batch) => callGemini(ai, createUserContent([textPrompt(header, batch)]), context),
+    mistral ? (header, batch) => callMistral(mistral, textPrompt(header, batch), context) : undefined,
   );
 }
 
@@ -1109,6 +1109,7 @@ export async function POST(request: Request) {
 
   const notes = typeof body.notes === "string" ? body.notes : "";
   const projectMaterial = typeof body.projectMaterial === "string" ? body.projectMaterial : "";
+  const pastExamMaterial = typeof body.pastExamMaterial === "string" ? body.pastExamMaterial : "";
 
   const parsed = await parseAttachments(body.attachments);
   if ("error" in parsed) return Response.json({ error: parsed.error }, { status: 400 });
@@ -1126,35 +1127,48 @@ export async function POST(request: Request) {
     ? Math.min(Math.max(body.count as number, MIN_QUESTION_COUNT), MAX_QUESTION_COUNT)
     : DEFAULT_QUESTION_COUNT;
 
-  if (!notes.trim() && !projectMaterial.trim() && attachments.length === 0) {
+  if (!notes.trim() && !projectMaterial.trim() && !pastExamMaterial.trim() && attachments.length === 0) {
     return Response.json(
-      { error: "Add some notes, project material, or files before generating." },
+      { error: "Add some notes, project material, a past exam, or files before generating." },
       { status: 400 },
     );
   }
 
-  // An unrecognised or empty list falls back to all four types rather than
-  // erroring — a request that asks for nothing would just burn an API call.
-  const requestedTypes = (Array.isArray(body.types) ? body.types : []).filter((t): t is QuestionType =>
-    QUESTION_TYPES.includes(t as QuestionType),
+  // The format owns the type universe for this run: a requested type outside
+  // the format is dropped rather than generated — a stale breakdown after a
+  // format switch must not smuggle an unwanted type back in. An unrecognised
+  // or empty list falls back to the format's own types rather than erroring.
+  const format = sanitizeFormatDef(body.format) ?? CSOPESY_FINAL;
+  // Past-exam text comes from two places: the reviewer's own field and the
+  // format's kept sample exam. Combined into one fenced block — both are
+  // "past exam" content by the source taxonomy.
+  const pastExamText = [pastExamMaterial, format.pastExam?.text ?? ""]
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .join("\n\n");
+  const pastExamName = format.pastExam && pastExamText ? format.pastExam.fileName : "";
+  const formatKeys = formatTypeKeys(format);
+  const requestedTypes = (Array.isArray(body.types) ? body.types : []).filter(
+    (t): t is string => typeof t === "string" && formatKeys.includes(t),
   );
 
   // Only honoured when it agrees with `count` — the client derives the total
   // from the breakdown, so a mismatch means one of the two is stale and
-  // guessing which to trust would silently generate the wrong batch.
+  // guessing which to trust would silently generate the wrong batch. Keys are
+  // the format's own (custom formats use opaque slugs).
   const rawByType = body.countByType;
   const parsedByType =
     typeof rawByType === "object" && rawByType !== null
       ? (Object.fromEntries(
-          QUESTION_TYPES.map((t) => [
+          formatKeys.map((t) => [
             t,
-            Number.isInteger(rawByType[t]) && rawByType[t] >= 0 ? rawByType[t] : 0,
+            Number.isInteger(rawByType[t]) && (rawByType[t] as number) >= 0 ? rawByType[t] : 0,
           ]),
-        ) as Record<QuestionType, number>)
+        ) as Record<string, number>)
       : undefined;
   const countByType =
     parsedByType &&
-    QUESTION_TYPES.reduce((sum, t) => sum + parsedByType[t], 0) === count &&
+    formatKeys.reduce((sum, t) => sum + parsedByType[t], 0) === count &&
     count > 0
       ? parsedByType
       : undefined;
@@ -1187,7 +1201,10 @@ export async function POST(request: Request) {
     // to single capped lines rather than passed through as typed.
     subject: clampToLine(typeof body.subject === "string" ? body.subject : "", MAX_SUBJECT_CHARS),
     topics: clampTopics(Array.isArray(body.topics) ? body.topics.filter((t) => typeof t === "string") : []),
-    types: requestedTypes.length > 0 ? requestedTypes : QUESTION_TYPES,
+    types: requestedTypes.length > 0 ? requestedTypes : formatKeys,
+    format,
+    schema: buildResponseSchema(standaloneKeys(format), setKeys(format)),
+    setTypes: setKeys(format),
     avoid,
     fenceToken: newFenceToken(),
   };
@@ -1198,10 +1215,11 @@ export async function POST(request: Request) {
       run: (plans: ChunkPlan[]) => processAttachmentSource(ai, mistral, attachment, plans, context),
     }),
   );
-  if (notes.trim() || projectMaterial.trim()) {
+  if (notes.trim() || projectMaterial.trim() || pastExamText || pastExamName) {
     jobs.push({
       label: "Pasted notes/material",
-      run: (plans: ChunkPlan[]) => processTextSource(ai, mistral, notes, projectMaterial, plans, context),
+      run: (plans: ChunkPlan[]) =>
+        processTextSource(ai, mistral, notes, projectMaterial, pastExamText, pastExamName, plans, context),
     });
   }
 
@@ -1213,8 +1231,9 @@ export async function POST(request: Request) {
   const topicRotation = Math.floor(Math.random() * Math.max(context.topics.length, 1));
 
   // Every call this generation will make, planned against the request as a
-  // whole so a stated per-type mix survives being split across sources.
-  const plans = planGeneration(count, jobs.length, countByType, context.topics, topicRotation);
+  // whole so a stated per-type mix survives being split across sources. Set
+  // placement follows the format's own set types, not a hardcoded pair.
+  const plans = planGeneration(count, jobs.length, countByType, context.topics, topicRotation, context.setTypes);
   const counts = plans.map((forJob) => forJob.reduce((sum, plan) => sum + plan.count, 0));
   const total = jobs.length;
 
@@ -1302,6 +1321,7 @@ export async function POST(request: Request) {
             typeCounts,
             context.topics,
             topicRotation,
+            context.setTypes,
           );
           const backfilled: Question[] = [];
           let typeRoom = { ...typeCounts };

@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { extractTextFromFile } from "@/app/lib/extractText";
 import {
+  ACCEPTED_UPLOAD_EXTENSIONS,
+  HEIC_GUIDANCE,
+  isHeicFile,
+} from "@/app/lib/attachmentLimits";
+import {
   addAttachment,
   getAttachments,
   removeAttachment,
@@ -30,11 +35,13 @@ function FileTypeBadge({ name }: { name: string }) {
   const { label, className } =
     ext === "pdf"
       ? { label: "PDF", className: "bg-error-subtle text-error" }
-      : ext === "docx" || ext === "doc"
-        ? { label: "DOC", className: "bg-accent-subtle text-accent" }
-        : ext === "cpp"
-          ? { label: "CPP", className: "bg-accent-subtle text-accent" }
-          : { label: "TXT", className: "bg-surface-alt text-text-secondary" };
+      : ["jpg", "jpeg", "png", "webp"].includes(ext)
+        ? { label: "IMG", className: "bg-info-subtle text-info" }
+        : ext === "docx" || ext === "doc"
+          ? { label: "DOC", className: "bg-accent-subtle text-accent" }
+          : ext === "cpp"
+            ? { label: "CPP", className: "bg-accent-subtle text-accent" }
+            : { label: "TXT", className: "bg-surface-alt text-text-secondary" };
 
   return (
     <span
@@ -70,11 +77,17 @@ export function compose(pasted: string, files: UploadedTextFile[]): string {
   return [pasted, filesToText(files)].filter((part) => part.trim().length > 0).join("\n\n");
 }
 
-function isPdf(file: File): boolean {
-  return file.name.toLowerCase().endsWith(".pdf") || file.type === "application/pdf";
+// PDFs and images travel to the model as-is (native vision) and live in
+// IndexedDB rather than the saved text; everything else is extracted to text.
+function isStoredFile(file: File): boolean {
+  const lower = file.name.toLowerCase();
+  return (
+    lower.endsWith(".pdf") ||
+    [".jpg", ".jpeg", ".png", ".webp"].some((ext) => lower.endsWith(ext)) ||
+    file.type === "application/pdf" ||
+    file.type.startsWith("image/")
+  );
 }
-
-const ACCEPTED = ".pdf,.docx,.txt,.cpp";
 
 export default function ContentField({
   initialText,
@@ -96,8 +109,9 @@ export default function ContentField({
   const [mode, setMode] = useState<"upload" | "paste">(initialText ? "paste" : "upload");
   const [pasteText, setPasteText] = useState(initialText);
   const [textFiles, setTextFiles] = useState<UploadedTextFile[]>([]);
-  const [pdfAttachments, setPdfAttachments] = useState<Attachment[]>([]);
+  const [fileAttachments, setFileAttachments] = useState<Attachment[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const [fileError, setFileError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const isFirstRender = useRef(true);
   const textFilesRef = useRef(textFiles);
@@ -114,25 +128,26 @@ export default function ContentField({
     onChange(compose(pasted, files), immediate);
   }
 
-  // Both sources are already fully in memory (IndexedDB bytes for PDFs, the
-  // original File for DOCX/TXT), so rows can link straight to a blob URL —
-  // no file-serving endpoint needed. Revoked when the list changes/unmounts.
-  const pdfUrls = useMemo(
+  // Both sources are already fully in memory (IndexedDB bytes for stored
+  // files, the original File for DOCX/TXT), so rows can link straight to a
+  // blob URL — no file-serving endpoint needed. Revoked when the list
+  // changes/unmounts.
+  const fileUrls = useMemo(
     () =>
       Object.fromEntries(
-        pdfAttachments.map((a) => [
+        fileAttachments.map((a) => [
           a.id,
           URL.createObjectURL(new Blob([a.data], { type: a.mimeType })),
         ]),
       ),
-    [pdfAttachments],
+    [fileAttachments],
   );
 
   useEffect(
     () => () => {
-      Object.values(pdfUrls).forEach(URL.revokeObjectURL);
+      Object.values(fileUrls).forEach(URL.revokeObjectURL);
     },
-    [pdfUrls],
+    [fileUrls],
   );
 
   const textUrls = useMemo(
@@ -147,15 +162,15 @@ export default function ContentField({
     [textUrls],
   );
 
-  // PDFs live in IndexedDB, not in the saved text — ping the parent anyway so
-  // the save indicator reflects that attachments changed. The value re-sent
-  // here is the unchanged composed text, never a bare file-text string.
+  // Stored files live in IndexedDB, not in the saved text — ping the parent
+  // anyway so the save indicator reflects that attachments changed. The value
+  // re-sent here is the unchanged composed text, never a bare file-text string.
   function notifyAttachmentChange() {
     emit(pasteTextRef.current, textFilesRef.current, true);
   }
 
   useEffect(() => {
-    getAttachments(reviewerId, field).then(setPdfAttachments);
+    getAttachments(reviewerId, field).then(setFileAttachments);
   }, [reviewerId, field]);
 
   // textFiles only change in response to a user action (add/remove/extraction
@@ -171,14 +186,19 @@ export default function ContentField({
   }, [textFiles]);
 
   async function addFiles(incoming: File[]) {
-    const pdfs = incoming.filter(isPdf);
-    const others = incoming.filter((f) => !isPdf(f));
+    const heic = incoming.filter((f) => isHeicFile(f.name, f.type));
+    const rest = incoming.filter((f) => !isHeicFile(f.name, f.type));
+    // HEIC is rejected with guidance rather than silently dropped — iPhone
+    // photos default to it and the picker can't filter it reliably.
+    setFileError(heic.length > 0 ? HEIC_GUIDANCE : "");
+    const stored = rest.filter(isStoredFile);
+    const others = rest.filter((f) => !isStoredFile(f));
 
-    for (const file of pdfs) {
+    for (const file of stored) {
       const attachment = await addAttachment(reviewerId, field, file);
-      setPdfAttachments((prev) => [...prev, attachment]);
+      setFileAttachments((prev) => [...prev, attachment]);
     }
-    if (pdfs.length) notifyAttachmentChange();
+    if (stored.length) notifyAttachmentChange();
 
     const entries: UploadedTextFile[] = others.map((f) => ({
       id: crypto.randomUUID(),
@@ -213,9 +233,9 @@ export default function ContentField({
     setTextFiles((prev) => prev.filter((f) => f.id !== id));
   }
 
-  async function removePdfAttachment(id: string) {
+  async function removeFileAttachment(id: string) {
     await removeAttachment(id);
-    setPdfAttachments((prev) => prev.filter((a) => a.id !== id));
+    setFileAttachments((prev) => prev.filter((a) => a.id !== id));
     notifyAttachmentChange();
   }
 
@@ -277,12 +297,15 @@ export default function ContentField({
               dragOver ? "border-accent bg-accent-subtle" : "border-border"
             }`}
           >
-            <p>Drop PDF, DOCX, TXT, or CPP files here, or click to browse.</p>
-            
+            <p>Drop PDF, image, DOCX, TXT, or CPP files here, or click to browse.</p>
+            {fileError && (
+              <p className="mx-auto mt-2 max-w-md text-[14px] text-error">{fileError}</p>
+            )}
+
             <input
               ref={inputRef}
               type="file"
-              accept={ACCEPTED}
+              accept={ACCEPTED_UPLOAD_EXTENSIONS}
               multiple
               className="hidden"
               onChange={(e) => {
@@ -292,14 +315,14 @@ export default function ContentField({
             />
           </div>
 
-          {(pdfAttachments.length > 0 || textFiles.length > 0) && (
+          {(fileAttachments.length > 0 || textFiles.length > 0) && (
             <ul className="divide-y divide-border">
-              {pdfAttachments.map((a) => (
+              {fileAttachments.map((a) => (
                 <li key={a.id} className="flex items-center justify-between gap-3 py-2.5">
                   <div className="flex min-w-0 items-center gap-2.5">
                     <FileTypeBadge name={a.name} />
                     <a
-                      href={pdfUrls[a.id]}
+                      href={fileUrls[a.id]}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="break-words text-[15px] text-text-primary hover:text-accent hover:underline"
@@ -311,7 +334,7 @@ export default function ContentField({
                     <span className="text-[14px] text-text-tertiary">sent as-is</span>
                     <button
                       type="button"
-                      onClick={() => removePdfAttachment(a.id)}
+                      onClick={() => removeFileAttachment(a.id)}
                       className="text-[15px] text-text-secondary hover:text-error"
                     >
                       Remove

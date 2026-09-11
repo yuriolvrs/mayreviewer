@@ -2,14 +2,13 @@
 
 import { Fragment, useState } from "react";
 import {
-  QUESTION_TYPES,
-  TYPE_LABELS,
   formatTakenAt,
-  isPreformatted,
   sampleProportionally,
   scoreTone,
 } from "@/app/lib/questions";
-import type { FeedbackMode, Question, QuestionType, QuizAttempt, Reviewer } from "@/app/types";
+import { isMonoKind, resolveFormat, formatTypeKeys, stimulusKindOf, typeLabelOf } from "@/app/lib/examFormats";
+import type { ExamFormat } from "@/app/lib/examFormats";
+import type { FeedbackMode, Question, QuizAttempt, Reviewer } from "@/app/types";
 
 const FEEDBACK_OPTIONS: { value: FeedbackMode; label: string; hint: string }[] = [
   {
@@ -93,11 +92,15 @@ function Delta({ change }: { change: number }) {
   );
 }
 
-function estimatedMinutes(pool: Question[], count: number): number {
+function estimatedMinutes(format: ExamFormat, pool: Question[], count: number): number {
   if (pool.length === 0 || count === 0) return 0;
   const averageSeconds =
     pool.reduce(
-      (sum, q) => sum + (isPreformatted(q.type) ? SECONDS_PER_PREFORMATTED_QUESTION : SECONDS_PER_QUESTION),
+      (sum, q) =>
+        sum +
+        (isMonoKind(stimulusKindOf(format, q.type))
+          ? SECONDS_PER_PREFORMATTED_QUESTION
+          : SECONDS_PER_QUESTION),
       0,
     ) / pool.length;
   return Math.max(1, Math.round((averageSeconds * count) / 60));
@@ -119,10 +122,10 @@ export default function QuizSetup({
   onViewAttempt: (attempt: QuizAttempt) => void;
 }) {
   // Empty means "all" — the chip row shows that as the All types chip.
-  const [scopeTypes, setScopeTypes] = useState<QuestionType[]>([]);
+  const [scopeTypes, setScopeTypes] = useState<string[]>([]);
   const [countInput, setCountInput] = useState(String(reviewer.questions.length));
 
-  function poolFor(types: QuestionType[]): Question[] {
+  function poolFor(types: string[]): Question[] {
     return types.length === 0
       ? reviewer.questions
       : reviewer.questions.filter((q) => types.includes(q.type));
@@ -136,12 +139,12 @@ export default function QuizSetup({
 
   // Changing scope resets the count to the new scope's full size, so the field
   // never sits on a number the new pool can't satisfy.
-  function applyScope(types: QuestionType[]) {
+  function applyScope(types: string[]) {
     setScopeTypes(types);
     setCountInput(String(poolFor(types).length));
   }
 
-  function toggleType(type: QuestionType) {
+  function toggleType(type: string) {
     const next = scopeTypes.includes(type)
       ? scopeTypes.filter((t) => t !== type)
       : [...scopeTypes, type];
@@ -149,8 +152,13 @@ export default function QuizSetup({
     applyScope(next);
   }
 
-  const typesPresent = QUESTION_TYPES.filter((t) => reviewer.questions.some((q) => q.type === t));
-  const minutes = estimatedMinutes(pool, count);
+  // Scope chips follow the reviewer's format order, showing only types the
+  // pool actually contains.
+  const format = resolveFormat(reviewer.examFormatId);
+  const typesPresent = formatTypeKeys(format).filter((t) =>
+    reviewer.questions.some((q) => q.type === t),
+  );
+  const minutes = estimatedMinutes(format, pool, count);
 
   return (
     <>
@@ -179,7 +187,7 @@ export default function QuizSetup({
                   : "border border-border-strong text-text-secondary hover:text-text-primary"
               }`}
             >
-              {TYPE_LABELS[type]}
+              {typeLabelOf(format, type)}
             </button>
           ))}
         </div>

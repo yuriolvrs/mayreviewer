@@ -1,4 +1,5 @@
-import { DEFAULT_QUESTION_COUNT, QUESTION_TYPES, splitCountEvenly, sumCounts } from "@/app/lib/questions";
+import { DEFAULT_QUESTION_COUNT, splitCountEvenly, sumCounts } from "@/app/lib/questions";
+import { CSOPESY_FINAL, formatTypeKeys, resolveFormat } from "@/app/lib/examFormats";
 import type { Question, QuizAttempt, Reviewer } from "@/app/types";
 
 // The ONLY file that touches localStorage. Swapping to Supabase later means
@@ -31,16 +32,15 @@ function normalize(reviewer: Reviewer): Reviewer {
   // derived from it here so no read path can see the two disagree. Reviewers
   // saved before the breakdown existed get one split evenly from their total.
   //
-  // The breakdown also gains keys over time ("modified-tf" arrived after the
-  // other four). A stored breakdown missing any current key is re-split fresh
-  // from the stored total rather than patched — the total is preserved and
-  // every type is treated equally, instead of handing the new type a zero its
-  // owner never asked for.
+  // Completeness is judged against the reviewer's own format, not the
+  // global type list: a custom format's keys are the only ones that matter
+  // here. An incomplete breakdown is re-split fresh from the stored total.
+  const formatKeys = formatTypeKeys(resolveFormat(reviewer.examFormatId));
   const storedByType = reviewer.questionCountByType;
   const questionCountByType =
-    storedByType && QUESTION_TYPES.every((t) => Number.isInteger(storedByType[t]))
+    storedByType && formatKeys.every((t) => Number.isInteger(storedByType[t]))
       ? storedByType
-      : splitCountEvenly(reviewer.questionCount ?? DEFAULT_QUESTION_COUNT);
+      : splitCountEvenly(reviewer.questionCount ?? DEFAULT_QUESTION_COUNT, formatKeys);
 
   return {
     ...reviewer,
@@ -48,6 +48,10 @@ function normalize(reviewer: Reviewer): Reviewer {
     topics: reviewer.topics ?? [],
     notes: reviewer.notes ?? "",
     projectMaterial: reviewer.projectMaterial ?? "",
+    pastExamMaterial: reviewer.pastExamMaterial ?? "",
+    // Reviewers saved before formats existed belong to the built-in they were
+    // generated under — their questions, counts, and history are untouched.
+    examFormatId: reviewer.examFormatId ?? CSOPESY_FINAL.id,
     questionCountByType,
     questionCount: sumCounts(questionCountByType),
     questions: reviewer.questions ?? [],
@@ -108,14 +112,33 @@ function getAllAttempts(): QuizAttempt[] {
   // hasn't regenerated since this field shipped shows no divider at all —
   // regenerates that happened before this field existed aren't detectable
   // and don't get one either; only a regenerate from here on does.
-  const generatedAtByReviewer = new Map(getReviewers().map((r) => [r.id, r.questionsGeneratedAt]));
-  return readJson<QuizAttempt>(ATTEMPTS_KEY).map((a) => normalizeAttempt(a, generatedAtByReviewer));
+  const reviewers = getReviewers();
+  const generatedAtByReviewer = new Map(reviewers.map((r) => [r.id, r.questionsGeneratedAt]));
+  const formatByReviewer = new Map(
+    reviewers.map((r) => {
+      const format = resolveFormat(r.examFormatId);
+      return [r.id, { id: format.id, name: format.name }] as const;
+    }),
+  );
+  return readJson<QuizAttempt>(ATTEMPTS_KEY).map((a) =>
+    normalizeAttempt(a, generatedAtByReviewer, formatByReviewer),
+  );
 }
 
 // Attempts recorded before the results screen became reopenable kept only the
 // score. They stay in history — the score is still true — but with nothing to
 // reopen, which is what an empty `questions` means to the history list.
-function normalizeAttempt(attempt: QuizAttempt, generatedAtByReviewer: Map<string, string>): QuizAttempt {
+function normalizeAttempt(
+  attempt: QuizAttempt,
+  generatedAtByReviewer: Map<string, string>,
+  formatByReviewer: Map<string, { id: string; name: string }>,
+): QuizAttempt {
+  // The format snapshot backfills from the attempt's own reviewer, like the
+  // set timestamp above; an orphaned attempt falls back to the built-in.
+  const format = formatByReviewer.get(attempt.reviewerId) ?? {
+    id: CSOPESY_FINAL.id,
+    name: CSOPESY_FINAL.name,
+  };
   return {
     ...attempt,
     questions: attempt.questions ?? [],
@@ -125,6 +148,8 @@ function normalizeAttempt(attempt: QuizAttempt, generatedAtByReviewer: Map<strin
     // Reviewer was deleted — there's no set to match it to.
     questionSetGeneratedAt:
       attempt.questionSetGeneratedAt ?? generatedAtByReviewer.get(attempt.reviewerId) ?? LEGACY_QUESTION_SET,
+    examFormatId: attempt.examFormatId ?? format.id,
+    examFormatName: attempt.examFormatName ?? format.name,
   };
 }
 
@@ -155,6 +180,7 @@ export function saveQuizAttempt(
   answers: Record<string, number>,
   unsureIds: string[],
 ): QuizAttempt {
+  const format = resolveFormat(reviewer.examFormatId);
   const attempt: QuizAttempt = {
     id: crypto.randomUUID(),
     reviewerId: reviewer.id,
@@ -165,6 +191,8 @@ export function saveQuizAttempt(
     answers,
     unsureIds,
     questionSetGeneratedAt: reviewer.questionsGeneratedAt,
+    examFormatId: format.id,
+    examFormatName: format.name,
   };
   window.localStorage.setItem(ATTEMPTS_KEY, JSON.stringify([...getAllAttempts(), attempt]));
   return attempt;

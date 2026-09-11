@@ -20,6 +20,7 @@ export default function Navbar() {
   }, []);
 
   const reviewersActive = pathname === "/" || pathname.startsWith("/reviewer");
+  const formatsActive = pathname.startsWith("/formats");
   const historyActive = pathname.startsWith("/history");
 
   return (
@@ -43,6 +44,16 @@ export default function Navbar() {
           }`}
         >
           Reviewers
+        </Link>
+        <Link
+          href="/formats"
+          className={`text-[14px] md:text-[15px] ${
+            formatsActive
+              ? "font-semibold text-text-primary"
+              : "text-text-secondary hover:text-text-primary"
+          }`}
+        >
+          Formats
         </Link>
         <Link
           href="/history"

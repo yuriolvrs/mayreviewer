@@ -16,7 +16,7 @@ const spaceMono = Space_Mono({
 
 export const metadata: Metadata = {
   title: "May Reviewer",
-  description: "Turn your notes into a practice exam that matches your professor's question style.",
+  description: "Turn your notes into a practice exam that matches your professor's question format.",
 };
 
 export const viewport: Viewport = {

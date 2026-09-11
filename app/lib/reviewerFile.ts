@@ -3,11 +3,12 @@ import {
   DEFAULT_QUESTION_COUNT,
   MAX_QUESTION_COUNT,
   MIN_QUESTION_COUNT,
-  QUESTION_TYPES,
   isQuestion,
 } from "@/app/lib/questions";
 import type { AttachmentField } from "@/app/lib/attachments";
-import type { Question, QuestionType } from "@/app/types";
+import { isValidFormatDef } from "@/app/lib/examFormats";
+import type { ExamFormat } from "@/app/lib/examFormats";
+import type { Question } from "@/app/types";
 
 export type AttachmentManifestEntry = {
   id: string;
@@ -39,10 +40,15 @@ export type ParsedReviewerFile = {
   topics: string[];
   notes: string;
   projectMaterial: string;
+  pastExamMaterial: string;
   questionCount: number;
-  questionCountByType?: Record<QuestionType, number>;
+  questionCountByType?: Record<string, number>;
   questions: Question[];
   attachments: ParsedAttachment[];
+  // The format the reviewer was on, so its custom types travel with the
+  // export instead of arriving as unknown keys. Validated structurally;
+  // anything malformed is left out rather than failing the whole file.
+  format?: ExamFormat;
 };
 
 // Reads and shape-checks a .json or .zip Reviewer export. Shared by the
@@ -99,24 +105,27 @@ export async function parseReviewerFile(
 
   // Only kept when it agrees with the total it's supposed to break down —
   // an inconsistent pair in a hand-edited file would otherwise steer
-  // generation toward a mix the file never actually claimed.
+  // generation toward a mix the file never actually claimed. Keys are the
+  // file's own (custom formats use opaque slugs), not the global type list —
+  // a mismatch against the reviewer's format is resolved by normalize() on
+  // read, which re-splits from the total.
   const byTypeRaw = obj.questionCountByType;
   const byType =
     typeof byTypeRaw === "object" && byTypeRaw !== null
       ? (byTypeRaw as Record<string, unknown>)
       : undefined;
+  const entries = byType ? Object.entries(byType) : [];
   const questionCountByType =
     byType &&
-    QUESTION_TYPES.every((t) => Number.isInteger(byType[t]) && (byType[t] as number) >= 0) &&
-    QUESTION_TYPES.reduce((sum, t) => sum + (byType[t] as number), 0) === questionCount
-      ? (Object.fromEntries(QUESTION_TYPES.map((t) => [t, byType[t] as number])) as Record<
-          QuestionType,
-          number
-        >)
+    entries.length > 0 &&
+    entries.every(
+      ([key, n]) => key.length > 0 && Number.isInteger(n) && (n as number) >= 0,
+    ) &&
+    entries.reduce((sum, [, n]) => sum + (n as number), 0) === questionCount
+      ? (Object.fromEntries(entries) as Record<string, number>)
       : undefined;
 
-  let attachments: ParsedAttachment[] = [];
-  if (zipEntries) {
+  let attachments: ParsedAttachment[] = [];  if (zipEntries) {
     const manifestRaw = obj.attachments;
     const manifest = Array.isArray(manifestRaw) ? manifestRaw.filter(isAttachmentManifestEntry) : [];
     const entries = zipEntries;
@@ -135,10 +144,12 @@ export async function parseReviewerFile(
       topics: Array.isArray(obj.topics) ? obj.topics.filter((t): t is string => typeof t === "string") : [],
       notes: typeof obj.notes === "string" ? obj.notes : "",
       projectMaterial: typeof obj.projectMaterial === "string" ? obj.projectMaterial : "",
+      pastExamMaterial: typeof obj.pastExamMaterial === "string" ? obj.pastExamMaterial : "",
       questionCount,
       questionCountByType,
       questions,
       attachments,
+      ...(isValidFormatDef(obj.format) ? { format: obj.format } : {}),
     },
   };
 }

@@ -56,20 +56,26 @@ export default function SourceSections({
   reviewerId,
   notes,
   projectMaterial,
+  pastExamMaterial,
   onNotesChange,
   onProjectChange,
+  onPastExamChange,
   notesStatus = "idle",
   projectStatus = "idle",
+  pastExamStatus = "idle",
 }: {
   reviewerId: string;
   // The initial text only — ContentField owns the textarea from mount, so
   // these are read once per `reviewerId` rather than on every render.
   notes: string;
   projectMaterial: string;
+  pastExamMaterial: string;
   onNotesChange: (text: string, immediate?: boolean) => void;
   onProjectChange: (text: string, immediate?: boolean) => void;
+  onPastExamChange: (text: string, immediate?: boolean) => void;
   notesStatus?: SaveStatus;
   projectStatus?: SaveStatus;
+  pastExamStatus?: SaveStatus;
 }) {
   return (
     <>
@@ -94,6 +100,17 @@ export default function SourceSections({
         onChange={onProjectChange}
         placeholder="Paste specs, code, or other project material here..."
         surfaceClassName="bg-surface-alt"
+      />
+      <SourceRow
+        title="Past exam"
+        description="A sample exam. Teaches format and supplies facts."
+        status={pastExamStatus}
+        reviewerId={reviewerId}
+        field="pastexam"
+        initialText={pastExamMaterial}
+        onChange={onPastExamChange}
+        placeholder="Paste a past exam here, or upload it as PDF or photos..."
+        surfaceClassName="bg-surface"
       />
     </>
   );

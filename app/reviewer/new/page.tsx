@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { saveReviewer } from "@/app/lib/storage";
 import {
   MAX_QUESTION_COUNT,
@@ -11,6 +11,7 @@ import {
   sumCounts,
 } from "@/app/lib/questions";
 import { addAttachment } from "@/app/lib/attachments";
+import { CSOPESY_FINAL, defaultCounts, getAllFormats, getBuiltinFormats, resolveFormat, saveCustomFormat } from "@/app/lib/examFormats";
 import { parseReviewerFile, type ParsedReviewerFile } from "@/app/lib/reviewerFile";
 import QuestionCountControl from "@/app/components/QuestionCountControl";
 import SourceSections from "@/app/components/SourceSections";
@@ -25,11 +26,29 @@ export default function NewReviewerPage() {
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
   const [topics, setTopics] = useState<string[]>([""]);
-  const [countByType, setCountByType] = useState<Record<QuestionType, number>>(() =>
+  const [countByType, setCountByType] = useState<Record<string, number>>(() =>
     splitCountEvenly(DEFAULT_NEW_QUESTION_COUNT),
   );
+  // The only formats that exist so far are built-ins; custom formats arrive
+  // with the builder. Every built-in shares the same type keys, so switching
+  // formats never invalidates the counts above.
+  const [examFormatId, setExamFormatId] = useState<string>(CSOPESY_FINAL.id);
+  const format = resolveFormat(examFormatId);
+
+  // Deep link from the formats library ("Use this format"). Read on mount
+  // rather than via useSearchParams, which would force a Suspense boundary
+  // on this otherwise static page.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("format");
+    if (id && getAllFormats().some((f) => f.id === id)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setExamFormatId(id);
+      setCountByType(defaultCounts(resolveFormat(id)));
+    }
+  }, []);
   const [notes, setNotes] = useState("");
   const [projectMaterial, setProjectMaterial] = useState("");
+  const [pastExamMaterial, setPastExamMaterial] = useState("");
   const [error, setError] = useState("");
   const [nameError, setNameError] = useState(false);
 
@@ -88,6 +107,8 @@ export default function NewReviewerPage() {
       topics: topics.map((t) => t.trim()).filter(Boolean),
       notes,
       projectMaterial,
+      pastExamMaterial,
+      examFormatId: format.id,
       questionCount,
       questionCountByType: countByType,
       questions: [],
@@ -121,6 +142,14 @@ export default function NewReviewerPage() {
     if (!importPending) return;
     setImporting(true);
     try {
+      // A custom format embedded in the file joins the library (built-in ids
+      // never overwrite the shipped definitions), and the new reviewer takes
+      // the file's format when it carries a valid one.
+      const embedded = importPending.format;
+      const useFormatId =
+        embedded && !getBuiltinFormats().some((f) => f.id === embedded.id)
+          ? (saveCustomFormat(embedded), embedded.id)
+          : CSOPESY_FINAL.id;
       const now = new Date().toISOString();
       const reviewer: Reviewer = {
         id: crypto.randomUUID(),
@@ -129,6 +158,12 @@ export default function NewReviewerPage() {
         topics: importPending.topics,
         notes: importPending.notes,
         projectMaterial: importPending.projectMaterial,
+        // Imported files predate reviewer-level past exams — normalize()
+        // defaults the field on read.
+        pastExamMaterial: importPending.pastExamMaterial,
+        // Imported files predate formats — they belong to the built-in they
+        // were generated under. (normalize() would default this anyway.)
+        examFormatId: useFormatId,
         questionCount: importPending.questionCount,
         questionCountByType:
           importPending.questionCountByType ?? splitCountEvenly(importPending.questionCount),
@@ -363,18 +398,67 @@ export default function NewReviewerPage() {
 
         <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
           <div>
+            <p className="text-[15px] font-medium text-text-primary">Exam format</p>
+            <p className="mt-1 text-[14px] text-text-secondary">
+              The question formats this reviewer generates.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3">
+            {getAllFormats().map((f) => (
+              <label
+                key={f.id}
+                className={`cursor-pointer rounded-lg border p-4 ${
+                  f.id === format.id
+                    ? "border-accent bg-accent-subtle"
+                    : "border-border hover:border-border-strong"
+                }`}
+              >
+                <span className="flex items-center gap-2.5">
+                  <input
+                    type="radio"
+                    name="exam-format"
+                    checked={f.id === format.id}
+                    onChange={() => {
+                      // Counts typed for another format's types are meaningless
+                      // after a switch — re-seed from the new format's mix.
+                      setExamFormatId(f.id);
+                      setCountByType(defaultCounts(resolveFormat(f.id)));
+                    }}
+                    className="h-4 w-4 shrink-0 accent-accent"
+                  />
+                  <span className="text-[15px] font-semibold text-text-primary">{f.name}</span>
+                </span>
+                <span className="mt-1 block pl-[26px] text-[14px] text-text-secondary">
+                  {f.description}
+                </span>
+                <span className="mt-1.5 block pl-[26px] text-[13px] text-text-tertiary">
+                  {f.types.map((t) => t.label).join(" · ")}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
+          <div>
             <p className="text-[15px] font-medium text-text-primary">Question count</p>
             <p className="mt-1 text-[14px] text-text-secondary">How many questions to generate per type.</p>
           </div>
-          <QuestionCountControl value={countByType} onChange={setCountByType} />
+          <QuestionCountControl
+            format={format}
+            value={countByType}
+            onChange={setCountByType}
+          />
         </div>
 
         <SourceSections
           reviewerId={draftId}
           notes={notes}
           projectMaterial={projectMaterial}
+          pastExamMaterial={pastExamMaterial}
           onNotesChange={setNotes}
           onProjectChange={setProjectMaterial}
+          onPastExamChange={setPastExamMaterial}
         />
 
         {error && <p className="pb-2 text-[15px] text-error">{error}</p>}

@@ -1,6 +1,7 @@
 import { upload } from "@vercel/blob/client";
-import { getAttachments } from "@/app/lib/attachments";
-import type { Question, QuestionType, Reviewer } from "@/app/types";
+import { getAttachments, getFormatAttachments } from "@/app/lib/attachments";
+import { resolveFormat } from "@/app/lib/examFormats";
+import type { Question, Reviewer } from "@/app/types";
 
 // The client half of a generation run: uploads the reviewer's attachments to
 // Blob storage, opens the streaming /api/generate request, and reports source
@@ -40,9 +41,9 @@ type StreamMessage =
 export async function generateQuestions(
   reviewer: Reviewer,
   count: number,
-  types: QuestionType[],
+  types: string[],
   onProgress: (progress: GenerationProgress) => void,
-  countByType: Record<QuestionType, number>,
+  countByType: Record<string, number>,
   // The facts the reviewer's current pool already tests, sent so the model can
   // pick different ones. Generation replaces the pool wholesale, so without
   // this a regenerate over unchanged material has nothing distinguishing it
@@ -50,20 +51,35 @@ export async function generateQuestions(
   avoid: AvoidedQuestion[],
   signal?: AbortSignal,
 ): Promise<{ questions: Question[]; failures: GenerationFailure[]; verified: VerificationSummary }> {
-  const rawAttachments = await getAttachments(reviewer.id);
   // Uploaded straight to Blob storage from the browser — Vercel Functions cap
   // request bodies at 4.5MB, far below what a PDF set can reach, so the
   // generate request carries a blob URL per file instead of its bytes.
-  const attachments = await Promise.all(
-    rawAttachments.map(async (a) => {
-      const blob = await upload(
-        `attachments/${reviewer.id}/${a.id}-${a.name}`,
-        new Blob([a.data], { type: a.mimeType }),
-        { access: "public", handleUploadUrl: "/api/blob-upload" },
-      );
-      return { name: a.name, mimeType: a.mimeType, url: blob.url, field: a.field };
-    }),
-  );
+  async function relay(
+    files: { id: string; name: string; mimeType: string; data: ArrayBuffer; field?: string }[],
+    owner: string,
+    fieldOverride?: string,
+  ) {
+    return Promise.all(
+      files.map(async (a) => {
+        const blob = await upload(
+          `attachments/${owner}/${a.id}-${a.name}`,
+          new Blob([a.data], { type: a.mimeType }),
+          { access: "public", handleUploadUrl: "/api/blob-upload" },
+        );
+        return { name: a.name, mimeType: a.mimeType, url: blob.url, field: fieldOverride ?? a.field };
+      }),
+    );
+  }
+
+  const rawAttachments = await getAttachments(reviewer.id);
+  // The format's own sample exam travels the same relay: past-exam files
+  // generate with the "pastexam" source, like reviewer-level ones.
+  const format = resolveFormat(reviewer.examFormatId);
+  const rawFormatAttachments = await getFormatAttachments(format.id);
+  const attachments = [
+    ...(await relay(rawAttachments, reviewer.id)),
+    ...(await relay(rawFormatAttachments, format.id, "pastexam")),
+  ];
 
   // Aborting also errors the response body stream, so the read loop below
   // unwinds on cancel rather than sitting on a half-read NDJSON stream.
@@ -76,6 +92,11 @@ export async function generateQuestions(
       topics: reviewer.topics,
       notes: reviewer.notes,
       projectMaterial: reviewer.projectMaterial,
+      pastExamMaterial: reviewer.pastExamMaterial,
+      // The full definition travels because the server cannot read browser
+      // localStorage, home of custom formats. The route validates it and
+      // falls back to the built-in for anything malformed.
+      format: resolveFormat(reviewer.examFormatId),
       count,
       types,
       countByType,

@@ -1,7 +1,22 @@
-export type QuestionType = "identification" | "scenario" | "timeline" | "code" | "modified-tf";
+// The five built-in type keys. Custom formats (Chapter 3) use their own
+// opaque string keys — behavior comes from the format's type definitions,
+// never from matching these literals, so nothing below switches on them.
+export type BuiltinQuestionType =
+  | "identification"
+  | "scenario"
+  | "timeline"
+  | "code"
+  | "modified-tf";
+
+// Kept as the name the codebase imports: for built-in-only code it still
+// reads as "one of the known types". The widened carriers (Question.type,
+// counts, scopes) use plain string.
+export type QuestionType = BuiltinQuestionType;
 // "manual" marks a question written by hand in the Edit Questions tab, as
-// opposed to one generated from uploaded notes/project material.
-export type QuestionSource = "notes" | "project" | "manual";
+// opposed to one generated from uploaded notes/project material. "pastexam"
+// marks one generated from a past exam (reviewer-level attachment or the
+// format's own sample exam) — provenance the UI filters on.
+export type QuestionSource = "notes" | "project" | "manual" | "pastexam";
 
 // Timeline and Code questions come in sets: one traced problem (a scheduling
 // table, a code listing with numbered blanks) with several questions hanging
@@ -12,7 +27,10 @@ export type QuestionSource = "notes" | "project" | "manual";
 // leave all three fields undefined.
 export type Question = {
   id: string;
-  type: QuestionType;
+  // Opaque key into the reviewer's format type list (a built-in literal or a
+  // custom slug). What it renders and generates as comes from that
+  // definition, not from this string's value.
+  type: string;
   question: string;
   options: string[];
   correctIndex: number;
@@ -53,6 +71,12 @@ export type QuizAttempt = {
   // before this field existed share one legacy value instead of a real
   // timestamp — see `normalizeAttempt` in storage.ts.
   questionSetGeneratedAt: string;
+  // Snapshot of the format the reviewer was on: renames and edits after the
+  // attempt must not rewrite what the history list says it was taken under.
+  // Backfilled from the reviewer's current format for older attempts, same as
+  // above.
+  examFormatId: string;
+  examFormatName: string;
 };
 
 export type Reviewer = {
@@ -62,13 +86,22 @@ export type Reviewer = {
   topics: string[];
   notes: string;
   projectMaterial: string;
+  // The reviewer's own sample past exam (text side; files live in the
+  // attachments store under field "pastexam"). Reference material for
+  // generation, alongside notes and project material.
+  pastExamMaterial: string;
+  // Which exam format this reviewer generates under. Reviewers saved before
+  // formats existed read back as the built-in CSOPESY Final (see `normalize`
+  // in storage.ts), so nothing about them changes.
+  examFormatId: string;
   // The total, kept as a mirror of `questionCountByType`'s sum — it's what the
   // rest of the app reads when it just needs "how many". `storage.ts` derives
   // it on read so the two can't drift.
   questionCount: number;
-  // How many questions of each type to generate. The editable setting;
-  // reviewers saved before it existed get one seeded from their total.
-  questionCountByType: Record<QuestionType, number>;
+  // How many questions of each type to generate, keyed by the format's type
+  // keys. The editable setting; reviewers saved before it existed get one
+  // seeded from their total.
+  questionCountByType: Record<string, number>;
   questions: Question[];
   createdAt: string;
   // Stamped by storage.ts on every save, not by callers — so it can't be

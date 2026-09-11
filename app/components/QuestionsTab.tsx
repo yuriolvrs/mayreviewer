@@ -4,12 +4,18 @@ import { useRef, useState } from "react";
 import { updateReviewer } from "@/app/lib/storage";
 import {
   QUESTION_SOURCES,
-  QUESTION_TYPES,
   SOURCE_LABELS,
-  TYPE_LABELS,
   isPreformatted,
   optionLetter,
 } from "@/app/lib/questions";
+import {
+  isMonoKind,
+  resolveFormat,
+  formatTypeKeys,
+  stimulusKindOf,
+  typeLabelOf,
+  type ExamFormat,
+} from "@/app/lib/examFormats";
 import {
   generateQuestions,
   type GenerationFailure,
@@ -19,9 +25,8 @@ import {
 import ConfirmDialog from "@/app/components/ConfirmDialog";
 import GenerationModal from "@/app/components/GenerationModal";
 import StimulusQuote from "@/app/components/StimulusQuote";
-import type { Question, QuestionSource, QuestionType, Reviewer } from "@/app/types";
+import type { Question, QuestionSource, Reviewer } from "@/app/types";
 
-const TYPE_FILTERS: ("all" | QuestionType)[] = ["all", ...QUESTION_TYPES];
 const SOURCE_FILTERS: ("all" | QuestionSource)[] = ["all", ...QUESTION_SOURCES];
 
 type Sort = "newest" | "oldest" | "type" | "number";
@@ -114,12 +119,17 @@ function QuestionEditor({
   draft,
   setDraft,
   number,
+  types,
+  format,
   onSave,
   onCancel,
 }: {
   draft: Question;
   setDraft: (q: Question) => void;
   number: number | undefined;
+  // The reviewer's format decides which types the dropdown offers.
+  types: string[];
+  format: ExamFormat;
   onSave: () => void;
   onCancel: () => void;
 }) {
@@ -163,13 +173,13 @@ function QuestionEditor({
           <span className="relative inline-flex shrink-0 items-center rounded px-1 text-text-secondary hover:bg-surface-alt">
             <select
               value={draft.type}
-              onChange={(e) => setDraft({ ...draft, type: e.target.value as QuestionType })}
+              onChange={(e) => setDraft({ ...draft, type: e.target.value })}
               aria-label="Question type"
               className="cursor-pointer appearance-none border-0 bg-transparent p-0 pr-4 font-mono text-[13px] tracking-wide text-inherit uppercase outline-none hover:underline focus:underline"
             >
-              {QUESTION_TYPES.map((t) => (
+              {types.map((t) => (
                 <option key={t} value={t} className="normal-case">
-                  {TYPE_LABELS[t]}
+                  {typeLabelOf(format, t)}
                 </option>
               ))}
             </select>
@@ -327,7 +337,12 @@ export default function QuestionsTab({
 }) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<Sort>("number");
-  const [typeFilter, setTypeFilter] = useState<"all" | QuestionType>("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | string>("all");
+  // Filters, sort order, and the add-form type list follow the reviewer's
+  // format rather than the global type list.
+  const format = resolveFormat(reviewer.examFormatId);
+  const typeKeys = formatTypeKeys(format);
+  const typeFilters: ("all" | string)[] = ["all", ...typeKeys];
   const [sourceFilter, setSourceFilter] = useState<"all" | QuestionSource>("all");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Question | null>(null);
@@ -368,7 +383,7 @@ export default function QuestionsTab({
       ? [...filtered].reverse()
       : sort === "type"
         ? [...filtered].sort(
-            (a, b) => QUESTION_TYPES.indexOf(a.type) - QUESTION_TYPES.indexOf(b.type),
+            (a, b) => typeKeys.indexOf(a.type) - typeKeys.indexOf(b.type),
           )
         : sort === "number"
           ? [...filtered].sort(
@@ -459,7 +474,7 @@ export default function QuestionsTab({
       const result = await generateQuestions(
         reviewer,
         reviewer.questionCount,
-        QUESTION_TYPES.filter((t) => byType[t] > 0),
+        typeKeys.filter((t) => byType[t] > 0),
         setProgress,
         byType,
         // The pool about to be replaced, as the list of facts already tested.
@@ -604,7 +619,7 @@ export default function QuestionsTab({
       <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-alt px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[14px] text-text-secondary">Type</span>
-          {TYPE_FILTERS.map((t) => (
+          {typeFilters.map((t) => (
             <button
               key={t}
               onClick={() => setTypeFilter(t)}
@@ -614,7 +629,7 @@ export default function QuestionsTab({
                   : "border border-border-strong text-text-secondary hover:text-text-primary"
               }`}
             >
-              {t === "all" ? "All" : TYPE_LABELS[t]}
+              {t === "all" ? "All" : typeLabelOf(format, t)}
             </button>
           ))}
         </div>
@@ -648,6 +663,8 @@ export default function QuestionsTab({
             draft={draft}
             setDraft={setDraft}
             number={undefined}
+            types={typeKeys}
+            format={format}
             onSave={saveEdit}
             onCancel={cancelEdit}
           />
@@ -744,6 +761,8 @@ export default function QuestionsTab({
                       draft={draft}
                       setDraft={setDraft}
                       number={number}
+                      types={typeKeys}
+                      format={format}
                       onSave={saveEdit}
                       onCancel={cancelEdit}
                     />
@@ -753,7 +772,7 @@ export default function QuestionsTab({
                         <span className="shrink-0 font-mono text-[13px] tracking-wide uppercase">
                           <span className="font-semibold text-text-secondary">Question {number}</span>{" "}
                           <span className="font-normal text-text-tertiary">
-                            · {TYPE_LABELS[question.type]} · {SOURCE_LABELS[question.source]}
+                            · {typeLabelOf(format, question.type)} · {SOURCE_LABELS[question.source]}
                           </span>
                         </span>
 
@@ -801,7 +820,10 @@ export default function QuestionsTab({
                       </div>
 
                       {question.stimulus &&
-                        (isPreformatted(question.type) ? (
+                        // A mono-kind stimulus (table, code, formula) opens as
+                        // a preformatted block; prose rides as a quote. Matches
+                        // the quiz and results screens branch for branch.
+                        (isMonoKind(stimulusKindOf(format, question.type)) ? (
                           <details className="mt-2">
                             <summary className="cursor-pointer text-[14px] text-text-secondary hover:text-text-primary">
                               {question.groupTitle || "Show the problem"}

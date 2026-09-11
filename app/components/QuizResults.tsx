@@ -3,17 +3,22 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import {
-  QUESTION_TYPES,
-  TYPE_LABELS,
   groupQuestions,
   isPreformatted,
   optionLetter,
   scoreTone,
 } from "@/app/lib/questions";
+import {
+  formatTypeKeys,
+  isMonoKind,
+  stimulusKindOf,
+  typeLabelOf,
+  type ExamFormat,
+} from "@/app/lib/examFormats";
 import StimulusBlock from "@/app/components/StimulusBlock";
 import StimulusQuote from "@/app/components/StimulusQuote";
 import type { QuestionGroup } from "@/app/lib/questions";
-import type { Question, QuestionType } from "@/app/types";
+import type { Question } from "@/app/types";
 import type { Answers } from "@/app/components/QuizTaking";
 
 function Chevron({ open }: { open: boolean }) {
@@ -193,11 +198,13 @@ function ResultList({
   numbering,
   answers,
   outcome,
+  format,
 }: {
   questions: Question[];
   numbering: Map<string, number>;
   answers: Answers;
   outcome: string;
+  format: ExamFormat;
 }) {
   // Filtering preserves order, so questions from one set stay contiguous and
   // still collapse into a single group here.
@@ -206,9 +213,9 @@ function ResultList({
   return (
     <div className="mt-3 flex flex-col">
       {groups.map((group) =>
-        // Same call as the quiz and edit screens: only a Timeline table or Code
-        // listing earns the collapsible problem block. Prose goes to the row.
-        group.stimulus && isPreformatted(group.questions[0].type) ? (
+        // Same call as the quiz and edit screens: only a mono-kind stimulus
+        // earns the collapsible problem block. Prose goes to the row.
+        group.stimulus && isMonoKind(stimulusKindOf(format, group.questions[0].type)) ? (
           <GroupBlock
             key={group.key}
             group={group}
@@ -234,6 +241,7 @@ function ResultList({
 export default function QuizResults({
   reviewerId,
   reviewerName,
+  format,
   questions,
   answers,
   unsureIds,
@@ -243,6 +251,9 @@ export default function QuizResults({
 }: {
   reviewerId: string;
   reviewerName: string;
+  // The format the attempt was taken under: breakdown cards and missed-type
+  // filters read order and labels from it.
+  format: ExamFormat;
   questions: Question[];
   answers: Answers;
   unsureIds: string[];
@@ -252,7 +263,7 @@ export default function QuizResults({
   onRetake: () => void;
   onBack?: () => void;
 }) {
-  const [missedType, setMissedType] = useState<"all" | QuestionType>("all");
+  const [missedType, setMissedType] = useState<"all" | string>("all");
 
   const numbering = new Map(questions.map((q, i) => [q.id, i + 1]));
   const missed = questions.filter((q) => answers[q.id] !== q.correctIndex);
@@ -263,8 +274,8 @@ export default function QuizResults({
 
   // Which types actually appeared, so a quiz scoped to one type doesn't show
   // three empty cards — or a filter row with nothing to filter.
-  const typesPresent = QUESTION_TYPES.filter((t) => questions.some((q) => q.type === t));
-  const missedTypes = QUESTION_TYPES.filter((t) => missed.some((q) => q.type === t));
+  const typesPresent = formatTypeKeys(format).filter((t) => questions.some((q) => q.type === t));
+  const missedTypes = formatTypeKeys(format).filter((t) => missed.some((q) => q.type === t));
   const visibleMissed =
     missedType === "all" ? missed : missed.filter((q) => q.type === missedType);
 
@@ -308,7 +319,7 @@ export default function QuizResults({
               className="min-w-[124px] rounded-lg border border-border bg-surface-alt px-3.5 py-2.5"
             >
               <p className="font-mono text-[12px] tracking-wide text-text-tertiary uppercase">
-                {TYPE_LABELS[type]}
+                {typeLabelOf(format, type)}
               </p>
               <p className="mt-1 text-[19px] font-semibold text-text-primary">
                 {right}
@@ -348,7 +359,7 @@ export default function QuizResults({
                         : "border border-border-strong text-text-secondary hover:text-text-primary"
                     }`}
                   >
-                    {t === "all" ? "All" : TYPE_LABELS[t]}
+                    {t === "all" ? "All" : typeLabelOf(format, t)}
                   </button>
                 ))}
                 <span className="ml-auto text-[14px] text-text-tertiary">
@@ -361,6 +372,7 @@ export default function QuizResults({
               numbering={numbering}
               answers={answers}
               outcome="incorrect"
+              format={format}
             />
           </>
         )}
@@ -377,6 +389,7 @@ export default function QuizResults({
             numbering={numbering}
             answers={answers}
             outcome="correct"
+            format={format}
           />
         )}
       </CollapsibleSection>
@@ -396,6 +409,7 @@ export default function QuizResults({
             numbering={numbering}
             answers={answers}
             outcome="flagged"
+            format={format}
           />
         )}
       </CollapsibleSection>

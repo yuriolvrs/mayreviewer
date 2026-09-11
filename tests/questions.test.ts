@@ -38,9 +38,9 @@ describe("isValidQuestionFields", () => {
     ).toBe(true);
   });
 
-  // Generated questions always have 4 options (the response schema pins that),
-  // but a hand-written or hand-edited one may have as few as 2 — rejecting
-  // those would silently drop them on import.
+  // Generated questions usually have 4 options, but a hand-written or
+  // hand-edited one may have as few as 2 — rejecting those would silently
+  // drop them on import.
   it("accepts option counts other than 4", () => {
     expect(isValidQuestionFields(question({ options: ["A", "B"], correctIndex: 1 }))).toBe(true);
     expect(
@@ -67,12 +67,18 @@ describe("isValidQuestionFields", () => {
     ).toBe(true);
   });
 
-  // These are exactly the shapes that reached the question pool before the
-  // importer and the API route shared one validator.
+  // Type keys are opaque strings validated for shape here; membership in a
+  // format is enforced by the caller (generation filters by requested types,
+  // imports validate against the embedded format).
+  it("accepts any non-empty type key", () => {
+    expect(
+      isValidQuestionFields(question({ type: "vocab-7f3a" })),
+    ).toBe(true);
+  });
   it.each([
     ["null", null],
     ["a non-object", "nope"],
-    ["an unknown type", question({ type: "essay" as Question["type"] })],
+    ["an empty type", question({ type: "" })],
     ["an unknown source", question({ source: "web" as Question["source"] })],
     ["fewer than 2 options", question({ options: ["A"], correctIndex: 0 })],
     ["no options at all", question({ options: [] })],

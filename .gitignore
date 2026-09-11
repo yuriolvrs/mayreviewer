@@ -41,15 +41,6 @@ yarn-error.log*
 next-env.d.ts
 notes/
 
-# project docs
-AppFlow-MayReviewer-MVP.md
-DevPhases-MayReviewer-MVP.md
-PRD-MayReviewer-MVP.md
-TechDesign-MayReviewer-MVP.md
-docs/ExamStyles-Plan.md
-CLAUDE.md
-AGENTS.md
-
 # design handoff (reference only, not committed)
 /May Reviewer Design Spec/
 

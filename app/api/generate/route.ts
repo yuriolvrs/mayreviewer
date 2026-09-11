@@ -111,7 +111,7 @@ const RESPONSE_SCHEMA = {
       items: {
         type: "object",
         properties: {
-          type: { type: "string", enum: ["identification", "scenario"] },
+          type: { type: "string", enum: ["identification", "scenario", "modified-tf"] },
           ...MC_FIELDS,
           source: { type: "string", enum: ["notes", "project"] },
         },
@@ -213,6 +213,7 @@ outside the material for it.`
   const wants = (type: QuestionType): boolean => types.includes(type) && want(type) !== 0;
   const wantsIdentification = wants("identification");
   const wantsScenario = wants("scenario");
+  const wantsModifiedTf = wants("modified-tf");
   const wantsTimeline = wants("timeline");
   const wantsCode = wants("code");
 
@@ -229,6 +230,9 @@ outside the material for it.`
       : "",
     wantsScenario
       ? `SCENARIO: Describe a situation, ask which concept/component it illustrates, 4 MC options.${target("scenario")}`
+      : "",
+    wantsModifiedTf
+      ? `MODIFIED TRUE/FALSE: Present 4 or 5 numbered statements about the material, one statement per line, then ask which combination of them is true, with 4 MC options. Decide the truth value of EACH statement from the source material first, then write the options so exactly one matches the true pattern — phrase options as combinations ("Statements 1 and 3 are true", "All statements are true", "None of the statements are true"). Every statement must be evaluable from the material on its own; never write one whose truth depends on another statement.${target("modified-tf")}`
       : "",
   ].filter(Boolean);
 

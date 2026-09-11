@@ -75,7 +75,7 @@ export default function QuestionCountControl({
           </label>
         ))}
       </div>
-      <p className="mt-3 text-[14px] text-text-secondary">
+      <p className="mt-3 text-[14px] font-semibold text-text-primary">
         Total: {total} question{total === 1 ? "" : "s"}
       </p>
     </div>

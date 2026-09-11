@@ -45,8 +45,8 @@ export default function AboutPage() {
         <Section title="Known limitations">
           <ul className="flex list-disc flex-col gap-1.5 pl-5">
             <li>
-              Only one reviewer format exists: four fixed question types (Identification, Scenario,
-              Timeline, Code) tailored to a specific exam format. It&apos;s not general-purpose yet.
+              Only one reviewer format exists: five fixed question types (Identification, Scenario,
+              Timeline, Code, Modified True/False) tailored to a specific exam format. It&apos;s not general-purpose yet.
             </li>
             <li>
               Question quality depends entirely on the material you upload. Thin or unfocused source
@@ -68,7 +68,7 @@ export default function AboutPage() {
         <Section title="What's next">
           <p>Nothing here is promised, but these are the likely directions:</p>
           <ul className="flex list-disc flex-col gap-1.5 pl-5">
-            <li>Custom question types and reviewer formats beyond the current four.</li>
+            <li>Custom question types and reviewer formats beyond the current five.</li>
             <li>Accounts, so reviewers aren&apos;t stuck in one browser. Sign in, and you can see your reviewers across devices.</li>
             <li>An actual database (likely Supabase) to back that, instead of everything living in IndexedDB.</li>
             <li>A page for browsing reviewers other people have made and installing one into your own account, 

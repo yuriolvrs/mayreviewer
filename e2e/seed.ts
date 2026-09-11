@@ -3,7 +3,8 @@ import type { Question, Reviewer } from "@/app/types";
 
 // One Reviewer covering every shape the render paths branch on, so a single
 // seeded fixture exercises all of them:
-//   - standalone Identification and Scenario (prose)
+//   - standalone Identification, Scenario, and Modified True/False (prose;
+//     Modified True/False carries numbered statements with preserved breaks)
 //   - a Scenario carrying a prose stimulus (the shape that used to render as a
 //     monospace problem block in the quiz but a blockquote in the edit tab)
 //   - a Timeline set over a table and a Code set over a listing with blanks
@@ -41,6 +42,11 @@ Which process runs at t=5?`;
 
 export const SCENARIO_STIMULUS =
   "The system uses cooperative multitasking with no preemption timer.";
+
+export const MTF_STATEMENTS = `1. Deadlock requires all four Coffman conditions at the same time.
+2. Preempting a resource can never help recover from a deadlock.
+3. The Banker's algorithm grants a request only if the resulting state is safe.
+4. A single-instance system can still deadlock.`;
 
 // Every question shares one option set so specs can answer by text rather than
 // by position — which is the only way to answer deterministically once
@@ -88,6 +94,11 @@ export const SEEDED_QUESTIONS: Question[] = [
     stimulus: CODE_LISTING,
   }),
   question("q-legacy-tl", "timeline", LEGACY_TIMELINE),
+  question(
+    "q-mtf",
+    "modified-tf",
+    `Which combination of statements about deadlock is true?\n\n${MTF_STATEMENTS}`,
+  ),
 ];
 
 export function seededReviewer(): Reviewer {
@@ -100,7 +111,7 @@ export function seededReviewer(): Reviewer {
     notes: "seeded by the e2e fixture",
     projectMaterial: "",
     questionCount: SEEDED_QUESTIONS.length,
-    questionCountByType: { identification: 1, scenario: 1, timeline: 3, code: 2 },
+    questionCountByType: { identification: 1, scenario: 1, timeline: 3, code: 2, "modified-tf": 1 },
     questions: SEEDED_QUESTIONS,
     createdAt: now,
     updatedAt: now,

@@ -454,7 +454,7 @@ export default function QuestionsTab({
     try {
       // The per-type counts are the request: a 0 means "none of these", so the
       // type list is narrowed to match rather than letting the server fall
-      // back to all four.
+      // back to all five.
       const byType = reviewer.questionCountByType;
       const result = await generateQuestions(
         reviewer,

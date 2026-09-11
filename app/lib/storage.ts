@@ -1,4 +1,4 @@
-import { DEFAULT_QUESTION_COUNT, splitCountEvenly, sumCounts } from "@/app/lib/questions";
+import { DEFAULT_QUESTION_COUNT, QUESTION_TYPES, splitCountEvenly, sumCounts } from "@/app/lib/questions";
 import type { Question, QuizAttempt, Reviewer } from "@/app/types";
 
 // The ONLY file that touches localStorage. Swapping to Supabase later means
@@ -30,9 +30,17 @@ function normalize(reviewer: Reviewer): Reviewer {
   // The per-type breakdown is the setting the user edits; the flat total is
   // derived from it here so no read path can see the two disagree. Reviewers
   // saved before the breakdown existed get one split evenly from their total.
+  //
+  // The breakdown also gains keys over time ("modified-tf" arrived after the
+  // other four). A stored breakdown missing any current key is re-split fresh
+  // from the stored total rather than patched — the total is preserved and
+  // every type is treated equally, instead of handing the new type a zero its
+  // owner never asked for.
+  const storedByType = reviewer.questionCountByType;
   const questionCountByType =
-    reviewer.questionCountByType ??
-    splitCountEvenly(reviewer.questionCount ?? DEFAULT_QUESTION_COUNT);
+    storedByType && QUESTION_TYPES.every((t) => Number.isInteger(storedByType[t]))
+      ? storedByType
+      : splitCountEvenly(reviewer.questionCount ?? DEFAULT_QUESTION_COUNT);
 
   return {
     ...reviewer,

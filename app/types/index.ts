@@ -1,4 +1,4 @@
-export type QuestionType = "identification" | "scenario" | "timeline" | "code";
+export type QuestionType = "identification" | "scenario" | "timeline" | "code" | "modified-tf";
 // "manual" marks a question written by hand in the Edit Questions tab, as
 // opposed to one generated from uploaded notes/project material.
 export type QuestionSource = "notes" | "project" | "manual";

@@ -36,7 +36,7 @@ function reviewer(overrides: Partial<Reviewer> = {}): Reviewer {
     notes: "notes",
     projectMaterial: "",
     questionCount: 10,
-    questionCountByType: { identification: 3, scenario: 2, timeline: 2, code: 3 },
+    questionCountByType: { identification: 3, scenario: 2, timeline: 2, code: 2, "modified-tf": 1 },
     questions: [question("q1")],
     createdAt: "2026-08-01T00:00:00.000Z",
     updatedAt: "2026-08-01T00:00:00.000Z",
@@ -78,10 +78,11 @@ describe("getReviewers", () => {
     expect(migrated.topics).toEqual([]);
     expect(migrated.questionCount).toBe(10);
     expect(migrated.questionCountByType).toEqual({
-      identification: 3,
+      identification: 2,
       scenario: 2,
       timeline: 2,
-      code: 3,
+      code: 2,
+      "modified-tf": 2,
     });
     expect(migrated.questions).toEqual([]);
     expect(migrated.notes).toBe("");
@@ -93,10 +94,45 @@ describe("getReviewers", () => {
     saveReviewer(
       reviewer({
         questionCount: 25,
-        questionCountByType: { identification: 7, scenario: 6, timeline: 6, code: 6 },
+        questionCountByType: { identification: 7, scenario: 6, timeline: 6, code: 5, "modified-tf": 1 },
       }),
     );
     expect(getReviewers()[0].questionCount).toBe(25);
+    expect(getReviewers()[0].questionCountByType).toEqual({
+      identification: 7,
+      scenario: 6,
+      timeline: 6,
+      code: 5,
+      "modified-tf": 1,
+    });
+  });
+
+  // "modified-tf" arrived after the other four keys. A stored breakdown from
+  // before then is re-split fresh from its total rather than patched, so the
+  // new type enters on equal footing instead of at a zero nobody asked for.
+  it("re-splits a pre-MTF breakdown evenly across all five types", () => {
+    localStorage.setItem(
+      REVIEWERS_KEY,
+      JSON.stringify([
+        {
+          id: "old",
+          reviewerName: "Legacy",
+          questionCount: 25,
+          questionCountByType: { identification: 7, scenario: 6, timeline: 6, code: 6 },
+          createdAt: "2026-08-01T00:00:00.000Z",
+        },
+      ]),
+    );
+
+    const [migrated] = getReviewers();
+    expect(migrated.questionCountByType).toEqual({
+      identification: 5,
+      scenario: 5,
+      timeline: 5,
+      code: 5,
+      "modified-tf": 5,
+    });
+    expect(migrated.questionCount).toBe(25);
   });
 
   // The per-type breakdown is the setting the user edits; the flat total is a
@@ -105,7 +141,7 @@ describe("getReviewers", () => {
     saveReviewer(
       reviewer({
         questionCount: 999,
-        questionCountByType: { identification: 4, scenario: 3, timeline: 2, code: 1 },
+        questionCountByType: { identification: 4, scenario: 3, timeline: 2, code: 1, "modified-tf": 0 },
       }),
     );
     expect(getReviewers()[0].questionCount).toBe(10);
@@ -127,10 +163,11 @@ describe("getReviewers", () => {
     const [migrated] = getReviewers();
     // Split evenly, remainder to the outermost types.
     expect(migrated.questionCountByType).toEqual({
-      identification: 13,
-      scenario: 12,
-      timeline: 12,
-      code: 13,
+      identification: 10,
+      scenario: 10,
+      timeline: 10,
+      code: 10,
+      "modified-tf": 10,
     });
     expect(migrated.questionCount).toBe(50);
   });

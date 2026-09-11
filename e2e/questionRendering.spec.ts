@@ -31,13 +31,13 @@ test.describe("Questions tab", () => {
     await page.getByRole("button", { name: /^Questions/i }).click();
   });
 
-  test("lists every seeded question, labelled with all four types", async ({ page }) => {
+  test("lists every seeded question, labelled with all five types", async ({ page }) => {
     const items = page.locator("li").filter({ hasText: /Question \d+ ·/ });
     await expect(items).toHaveCount(SEEDED_QUESTIONS.length);
 
     // The label is CSS-uppercased, so this is what the DOM text reads as.
     const listText = await page.locator("ul").filter({ hasText: /Question 1 ·/ }).innerText();
-    for (const label of ["IDENTIFICATION", "SCENARIO", "TIMELINE", "CODE"]) {
+    for (const label of ["IDENTIFICATION", "SCENARIO", "TIMELINE", "CODE", "MODIFIED TRUE/FALSE"]) {
       expect(listText).toContain(label);
     }
   });
@@ -70,6 +70,17 @@ test.describe("Questions tab", () => {
     const listingText = await listing.innerText();
     expect(listingText).toContain('    int fd = ___(1)___("data.txt", O_RDONLY);');
     expect(listingText).toContain("___(2)___");
+  });
+
+  test("a Modified True/False question is prose with preserved line breaks, not monospace", async ({
+    page,
+  }) => {
+    // Numbered statements must survive to the screen on separate lines, in a
+    // normal font — the monospace block is reserved for trace tables/listings.
+    const mtf = page.locator("p", { hasText: "Which combination of statements" }).first();
+    expect(await fontFamily(mtf)).not.toMatch(MONO);
+    expect(await mtf.evaluate((el) => getComputedStyle(el).whiteSpace)).toMatch(/^pre/);
+    expect(await mtf.innerText()).toContain("1. Deadlock requires");
   });
 
   test("a prose stimulus is quoted, not rendered as a code block", async ({ page }) => {
@@ -121,10 +132,10 @@ test.describe("Quiz", () => {
     const confirm = page.getByRole("button", { name: /Submit anyway|Submit quiz/i }).last();
     if (await confirm.count()) await confirm.click();
 
-    // Six of seven answered with the correct option's text. If `shuffleOptions`
+    // Seven of eight answered with the correct option's text. If `shuffleOptions`
     // ever reordered options without moving `correctIndex` with them, this
     // score would drift instead of failing outright.
-    await expect(page.getByText(/6\s*\/\s*7/)).toBeVisible();
+    await expect(page.getByText(/7\s*\/\s*8/)).toBeVisible();
 
     // ...and the shuffle has to actually be shuffling.
     expect(positions.size).toBeGreaterThan(1);
@@ -146,7 +157,7 @@ test.describe("Quiz", () => {
 
     // Title case, not the questions list's uppercase: `toContainText` reads
     // `textContent`, which is the source text before CSS `text-transform`.
-    for (const label of ["Identification", "Scenario", "Timeline", "Code"]) {
+    for (const label of ["Identification", "Scenario", "Timeline", "Code", "Modified True/False"]) {
       await expect(body).toContainText(label);
     }
   });
@@ -166,7 +177,7 @@ test.describe("Delete warning", () => {
     await page.getByRole("button", { name: /Submit/i }).first().click();
     const confirm = page.getByRole("button", { name: /Submit anyway|Submit quiz/i }).last();
     if (await confirm.count()) await confirm.click();
-    await expect(page.getByText(/\d\s*\/\s*7/)).toBeVisible();
+    await expect(page.getByText(/\d\s*\/\s*8/)).toBeVisible();
 
     const body = await openDeleteDialog(page);
     await expect(body).toContainText("has quiz history");
@@ -176,7 +187,7 @@ test.describe("Delete warning", () => {
   test("drops the history clause when there is none", async ({ page }) => {
     const body = await openDeleteDialog(page);
     await expect(body).toContainText("permanently delete");
-    await expect(body).toContainText("7 questions");
+    await expect(body).toContainText("8 questions");
     await expect(body).toContainText("uploaded files");
     await expect(body).not.toContainText("has quiz history");
   });

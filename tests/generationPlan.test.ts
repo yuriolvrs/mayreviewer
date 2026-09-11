@@ -8,6 +8,7 @@ const mix = (over: Partial<Record<QuestionType, number>> = {}) => ({
   scenario: 0,
   timeline: 0,
   code: 0,
+  "modified-tf": 0,
   ...over,
 });
 

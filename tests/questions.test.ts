@@ -6,6 +6,7 @@ import {
   isValidQuestionFields,
   optionLetter,
   scoreTone,
+  splitCountEvenly,
   dedupeQuestions,
   takeWithinBudget,
   takeWithinTypeBudget,
@@ -44,6 +45,25 @@ describe("isValidQuestionFields", () => {
     expect(isValidQuestionFields(question({ options: ["A", "B"], correctIndex: 1 }))).toBe(true);
     expect(
       isValidQuestionFields(question({ options: ["A", "B", "C", "D", "E"], correctIndex: 4 })),
+    ).toBe(true);
+  });
+
+  it("accepts a Modified True/False question with numbered statements", () => {
+    expect(
+      isValidQuestionFields(
+        question({
+          type: "modified-tf",
+          question:
+            "Which combination of statements is true?\n\n1. Deadlock needs all four Coffman conditions.\n2. Preemption can never fix a deadlock.",
+          options: [
+            "Statements 1 and 2 are true",
+            "Only statement 1 is true",
+            "All statements are true",
+            "None of the statements are true",
+          ],
+          correctIndex: 1,
+        }),
+      ),
     ).toBe(true);
   });
 
@@ -125,10 +145,35 @@ describe("presentation helpers", () => {
     expect(isPreformatted("code")).toBe(true);
     expect(isPreformatted("identification")).toBe(false);
     expect(isPreformatted("scenario")).toBe(false);
+    // Modified True/False carries numbered statements, but they render as
+    // normal prose with preserved line breaks — not a monospace block.
+    expect(isPreformatted("modified-tf")).toBe(false);
   });
 
   it("labels options A-D", () => {
     expect([0, 1, 2, 3].map(optionLetter)).toEqual(["A", "B", "C", "D"]);
+  });
+});
+
+describe("splitCountEvenly", () => {
+  it("splits evenly across all five types", () => {
+    expect(splitCountEvenly(10)).toEqual({
+      identification: 2,
+      scenario: 2,
+      timeline: 2,
+      code: 2,
+      "modified-tf": 2,
+    });
+  });
+
+  it("hands the remainder to the outermost types first", () => {
+    expect(splitCountEvenly(7)).toEqual({
+      identification: 2,
+      scenario: 1,
+      timeline: 1,
+      code: 1,
+      "modified-tf": 2,
+    });
   });
 });
 
@@ -305,6 +350,7 @@ describe("takeWithinTypeBudget", () => {
     scenario: 0,
     timeline: 0,
     code: 0,
+    "modified-tf": 0,
     ...over,
   });
 

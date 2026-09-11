@@ -302,7 +302,7 @@ export default function DetailsTab({
       <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
         <div>
           <p className="text-[15px] font-medium text-text-primary">Question count</p>
-          <p className="mt-1 text-[14px] text-text-secondary">How many questions to generate.</p>
+          <p className="mt-1 text-[14px] text-text-secondary">How many questions to generate per type.</p>
         </div>
         <QuestionCountControl value={countByType} onChange={setCountByType} />
       </div>

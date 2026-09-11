@@ -9,6 +9,7 @@ export const QUESTION_TYPES: QuestionType[] = [
   "scenario",
   "timeline",
   "code",
+  "modified-tf",
 ];
 export const QUESTION_SOURCES: QuestionSource[] = ["notes", "project", "manual"];
 
@@ -61,6 +62,7 @@ export const TYPE_LABELS: Record<QuestionType, string> = {
   scenario: "Scenario",
   timeline: "Timeline",
   code: "Code",
+  "modified-tf": "Modified True/False",
 };
 
 export const SOURCE_LABELS: Record<QuestionSource, string> = {

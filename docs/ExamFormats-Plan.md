@@ -162,13 +162,15 @@ segment relies on documented provider support + the shared code path.
 
 ## Chapter 5 — Verification + rollout
 
-- [ ] 5.1. Extend the Phase-7-style Playwright pass: all types incl. MTF
-      render + shuffle scoring, inference review gate, migration branches
-      (4-key → 5-key, pre-format → formatted).
-- [ ] 5.2. Full suite green (`tsc`, `eslint`, vitest, e2e) + a real-use pass
-      with at least one non-CS format.
-- [ ] 5.3. Update the `DevPhases` checklist and the About-page limits
-      (accepted formats, MTF, inference).
+- [x] 5.1. Phase-7-style Playwright pass extended: pre-format reviewer migration
+  covered e2e (seeded legacy shape normalizes on open, total kept); inference
+  review gate covered by UI-presence e2e plus a live inference run; MTF render
+  + shuffle scoring since Chapter 1.
+- [x] 5.2. Full suite green (`tsc`, vitest, e2e, `build`) + a real-use pass: a
+  Filipino reviewer on the Language preset, created/filled/generated/quizzed/
+  recorded end to end against the live API.
+- [x] 5.3. `DevPhases` Phase 9 entry + About-page limits (accepted formats,
+  MTF, inference) both done.
 
 ---
 

@@ -3,10 +3,12 @@ import path from "path";
 import {
   CODE_LISTING,
   CORRECT_OPTION,
+  LEGACY_REVIEWER_ID,
   REVIEWER_ID,
   SCENARIO_STIMULUS,
   SEEDED_QUESTIONS,
   WRONG_OPTION,
+  seedLegacyReviewer,
   seedReviewer,
 } from "./seed";
 
@@ -230,6 +232,19 @@ test.describe("Exam formats", () => {
 
     await page.goto("/reviewer/new");
     await expect(page.getByRole("radio", { name: /E2E Format/ })).toBeVisible();
+  });
+
+  test("a pre-format reviewer migrates on open, total kept", async ({ page }) => {
+    // Seeded raw: no examFormatId, no pastExamMaterial, 4-key breakdown.
+    // Opening must show all five count fields, the total preserved, and the
+    // built-in format selected.
+    await seedLegacyReviewer(page);
+    await page.goto(`/reviewer/${LEGACY_REVIEWER_ID}`);
+    for (const label of ["Identification", "Scenario", "Timeline", "Code", "Modified True/False"]) {
+      await expect(page.getByLabel(`${label} questions to generate`)).toBeVisible();
+    }
+    await expect(page.getByText("Total: 25 questions")).toBeVisible();
+    await expect(page.getByLabel("Exam format")).toHaveValue("csopesy-final");
   });
 
   test("a past-exam photo uploads through the real browser flow", async ({ page }) => {

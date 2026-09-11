@@ -13,6 +13,7 @@ import { CSOPESY_FINAL } from "@/app/lib/examFormats";
 //     which is what generation produced before sets existed
 
 export const REVIEWER_ID = "rv-e2e-render";
+export const LEGACY_REVIEWER_ID = "rv-e2e-legacy";
 
 export const TIMELINE_TABLE = `Process | Arrival | Burst
 P1      | 0       | 5
@@ -122,6 +123,38 @@ export function seededReviewer(): Reviewer {
   };
 }
 
+// A pre-format reviewer, exactly as browsers still hold them: no examFormatId,
+// no pastExamMaterial, and a 4-key breakdown from before Modified True/False
+// existed. The app must normalize it on open — five count fields, total kept.
+export function legacyReviewer(): { id: string; [key: string]: unknown } {
+  const now = new Date().toISOString();
+  return {
+    id: LEGACY_REVIEWER_ID,
+    reviewerName: "Legacy Pre-Format",
+    subject: "Operating Systems",
+    topics: [],
+    notes: "seeded legacy shape",
+    projectMaterial: "",
+    questionCount: 25,
+    questionCountByType: { identification: 7, scenario: 6, timeline: 6, code: 6 },
+    questions: [],
+    createdAt: now,
+    updatedAt: now,
+    questionsGeneratedAt: now,
+  };
+}
+
+// Appends rather than overwrites: it runs after seedReviewer's init script,
+// which owns the list. Idempotent across navigations like its sibling.
+export async function seedLegacyReviewer(page: Page): Promise<void> {
+  await page.addInitScript((reviewer) => {
+    const raw = window.localStorage.getItem("mayreviewer-reviewers");
+    const list = raw ? (JSON.parse(raw) as { id: string }[]) : [];
+    if (!list.some((r) => r.id === reviewer.id)) list.push(reviewer);
+    window.localStorage.setItem("mayreviewer-reviewers", JSON.stringify(list));
+  }, legacyReviewer());
+}
+//
 // Seeds via an init script rather than goto-then-evaluate, so the Reviewer is
 // in localStorage before the app's first read runs — the reviewer page renders
 // "Reviewer not found" if it isn't.

@@ -62,10 +62,11 @@ Transform tasks into verifiable goals:
 
 For multi-step tasks, state a brief plan with a verification step per step.
 
-## 5. Keep the plan checklist current
+## 5. Keep the plan checklists current
 
-`docs/ExamStyles-Plan.md` is the build checklist (local-only, gitignored,
-like the other planning docs in `docs/`). As development proceeds:
+Two checklists are tracked: `docs/DevPhases-MayReviewer-MVP.md` (the finished
+MVP build) and `docs/ExamStyles-Plan.md` (the live exam-styles build). As
+development proceeds:
 - Check off each `- [ ]` item as it is completed (`- [x]`).
 - Do this in the same change that completes the work, not as cleanup later.
 - If a phase's "Done when" criteria is not yet met, leave its items unchecked
@@ -76,7 +77,14 @@ like the other planning docs in `docs/`). As development proceeds:
 Never add an AI assistant as co-author or collaborator on commits (no
 `Co-Authored-By` trailer, no mention in commit messages or PR descriptions).
 
-## 7. Writing style — blended simplified technical English
+## 7. No commits or pushes without permission
+
+Never commit, amend, push, or open a pull request unless explicitly asked.
+Staging is also off limits without permission. Prepare the change, show the
+diff and status, then wait. A request to "track" or "save" files is not a
+request to commit them.
+
+## 8. Writing style — blended simplified technical English
 
 Write about half of your prose in ASD-STE100 simplified technical English.
 This applies mainly to chat replies: short sentences, active voice, one idea

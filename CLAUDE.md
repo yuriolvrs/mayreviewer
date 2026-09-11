@@ -74,3 +74,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ## 6. No Claude Co-Author
 
 Never add Claude/Anthropic as a co-author or collaborator on commits (no `Co-Authored-By: Claude` trailer, no mention in commit messages or PR descriptions).
+
+## 7. No Commits or Pushes Without Permission
+
+Never commit, amend, push, or open a pull request unless explicitly asked. Staging is also off limits without permission. Prepare the change, show the diff and status, then wait. A request to "track" or "save" files is not a request to commit them.

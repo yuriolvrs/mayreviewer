@@ -1,8 +1,8 @@
-@AGENTS.md
+# CLAUDE.md
 
-# Guidelines for Claude Code
+> Source of truth for agent rules. `AGENTS.md` only references this file.
 
-Behavioral guidelines to reduce common LLM coding mistakes (adapted from Andrej Karpathy's CLAUDE.md). Merge with project-specific instructions as needed.
+Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
@@ -62,19 +62,47 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+---
+
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
 
-## 5. Keep DevPhases Checklist Current
+## 5. Check Next.js Docs First
 
-`DevPhases-MayReviewer-MVP.md` is the build checklist. As development proceeds:
+**This is NOT the Next.js you know. Don't trust training data.**
+
+Before writing any code:
+- Read the relevant guide in `node_modules/next/dist/docs/` - resolve it from this file's directory, not the repo root.
+- Heed deprecation notices - don't use removed APIs or old conventions.
+
+## 6. Keep Plan Checklists Current
+
+**Check off work in the same change. Don't let checklists drift.**
+
+Two checklists are tracked: `docs/DevPhases-MayReviewer-MVP.md` and `docs/ExamStyles-Plan.md`.
 - Check off each `- [ ]` item as it's completed (`- [x]`).
-- Do this in the same commit/change that completes the work, not as a separate cleanup pass.
+- Do this in the same change that completes the work, not as a separate cleanup pass.
 - If a phase's "Done when" criteria isn't yet met, leave its items unchecked even if code exists for them.
 
-## 6. No Claude Co-Author
+## 7. No AI Co-Author
 
-Never add Claude/Anthropic as a co-author or collaborator on commits (no `Co-Authored-By: Claude` trailer, no mention in commit messages or PR descriptions).
+**Don't claim AI as collaborator. Leave commits clean.**
 
-## 7. No Commits or Pushes Without Permission
+- Never add an AI assistant (including Claude/Anthropic) as co-author or collaborator on commits.
+- No `Co-Authored-By` trailer, no mention in commit messages or PR descriptions.
 
-Never commit, amend, push, or open a pull request unless explicitly asked. Staging is also off limits without permission. Prepare the change, show the diff and status, then wait. A request to "track" or "save" files is not a request to commit them.
+## 8. No Commits or Pushes Without Permission
+
+**Don't commit, push, or open PRs unless asked. Staging counts too.**
+
+- Never commit, amend, push, or open a pull request unless explicitly asked.
+- Staging is also off limits without permission.
+- Prepare the change, show the diff and status, then wait. A request to "track" or "save" files is not a request to commit them.
+
+## 9. Write in Blended Simplified Technical English
+
+**Write half in simplified English. Keep the rest natural.**
+
+- Use ASD-STE100 style for about half your prose: short sentences, active voice, one idea per sentence.
+- Prefer plain words over jargon. No idioms or metaphors.
+- Apply it mainly to chat replies, and to code comments, commit messages, and UI copy where it fits.
+- Blend it rather than applying it everywhere - keep enough ordinary prose that reasoning and tradeoffs still read naturally.

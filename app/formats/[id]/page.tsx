@@ -9,6 +9,7 @@ import {
   getBuiltinFormats,
   saveCustomFormat,
 } from "@/app/lib/examFormats";
+import { cloneFormatAttachments } from "@/app/lib/attachments";
 import { useFormats } from "@/app/lib/useFormats";
 
 export default function EditFormatPage() {
@@ -25,6 +26,9 @@ export default function EditFormatPage() {
     if (!source) return;
     const copy = cloneFormat(source);
     saveCustomFormat(copy);
+    // Files follow in the background; the copy is complete without them (it
+    // keeps the past-exam text), so a storage failure must not strand the user.
+    void cloneFormatAttachments(source.id, copy.id).catch(() => {});
     router.push(`/formats/${copy.id}`);
   }
 
@@ -40,7 +44,7 @@ export default function EditFormatPage() {
         <span aria-hidden="true" className="text-text-tertiary">
           /
         </span>
-        <span className="text-text-tertiary">Edit format</span>
+        <span className="text-text-tertiary">{isBuiltin ? "Edit format" : "Format"}</span>
       </nav>
 
       {!custom ? (

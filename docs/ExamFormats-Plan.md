@@ -189,7 +189,7 @@ Deferred deliberately (unchanged): free-text/numeric answers (breaks shuffle +
 verify + scoring) and multi-select. Raw prompt input stays out; per-type
 plain-language guidance is the power-user path.
 
-## Post-plan hardening (injection review)
+## Post-plan hardening (injection review + quality pass)
 
 Prompt surfaces the new chapters added, reviewed as one: no `dangerouslySetInnerHTML`
 anywhere (React text only); all fence labels are fixed literals; format labels/names
@@ -197,6 +197,16 @@ flatten to single lines at sanitize time; guidance/examples keep newlines but lo
 bidi spoofing controls (`stripSpoofingControls`, unit-tested); verify-prompt question
 blocks are fenced per request. Containment stays what it was: schema pinning +
 re-validation, with the model tool-less and its output rendered as text.
+
+A two-agent quality pass on top fixed real bugs: builder validation now enforces
+every bound the store read enforces (overlong/invalid formats used to save, then
+vanish on reload); the past-exam truncation marker fits inside its cap; cloning
+clamps long names and copies past-exam files; type keys are charset-validated;
+new questions default to the format's own first type; failed parse batches delete
+their already-fetched blobs instead of orphaning them; plus a `useFormats` hook
+fixing an SSR hydration mismatch and a hooks-after-early-return crash, stale-copy
+updates (About, "four options" prompt wording), and custom-format e2e coverage
+(labels, filters, scope, scoring, clone/delete/validation/deep-link/switch).
 
 ---
 *Plan created from clickable Q&A; all decisions above are locked unless marked

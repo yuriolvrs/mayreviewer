@@ -1,14 +1,13 @@
-import { MAX_QUESTION_COUNT, QUESTION_TYPES, TYPE_LABELS } from "@/app/lib/questions";
+﻿import { MAX_QUESTION_COUNT, QUESTION_TYPES, TYPE_LABELS } from "@/app/lib/questions";
 import { MAX_FILENAME_CHARS } from "@/app/lib/attachmentLimits";
 import { clampToLine, stripSpoofingControls } from "@/app/lib/promptSafety";
 import type { QuestionType } from "@/app/types";
 
 // An exam format is a named set of question types: the thing that makes one
-// subject's exam a different shape from another's. Chapter 1 proved the
-// "add a type" path end to end; this module turns that path from code into
-// data. For now the only formats are built-ins below and every key is a
-// global QuestionType — custom string keys and the localStorage format store
-// arrive with the builder (Chapter 3).
+// subject's exam a different shape from another's. Built-ins ship below;
+// customs live in the localStorage store, and every key is an opaque string —
+// behavior comes from the format/shape/stimulus fields, never from matching
+// the key.
 
 // Choice-based answering only in v1. Free-text/numeric answers would break
 // option shuffling, the verify pass, and scoring, so they stay out until a
@@ -256,7 +255,7 @@ export function getBuiltinFormats(): ExamFormat[] {
   return [CSOPESY_FINAL, MATH_101, LANGUAGE, SCIENCE, HISTORY];
 }
 
-const CUSTOM_STYLES_KEY = "mayreviewer-formats";
+const CUSTOM_FORMATS_KEY = "mayreviewer-formats";
 
 // Custom formats live in localStorage beside reviewers (same seam, same
 // future Supabase swap). Built-ins are never stored — they ship with the app
@@ -264,7 +263,7 @@ const CUSTOM_STYLES_KEY = "mayreviewer-formats";
 export function getCustomFormats(): ExamFormat[] {
   if (typeof window === "undefined") return [];
   try {
-    const parsed: unknown = JSON.parse(window.localStorage.getItem(CUSTOM_STYLES_KEY) ?? "[]");
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(CUSTOM_FORMATS_KEY) ?? "[]");
     return Array.isArray(parsed) ? parsed.filter(isValidFormatDef) : [];
   } catch {
     return [];
@@ -273,12 +272,12 @@ export function getCustomFormats(): ExamFormat[] {
 
 export function saveCustomFormat(format: ExamFormat): void {
   const rest = getCustomFormats().filter((f) => f.id !== format.id);
-  window.localStorage.setItem(CUSTOM_STYLES_KEY, JSON.stringify([...rest, format]));
+  window.localStorage.setItem(CUSTOM_FORMATS_KEY, JSON.stringify([...rest, format]));
 }
 
 export function deleteCustomFormat(id: string): void {
   window.localStorage.setItem(
-    CUSTOM_STYLES_KEY,
+    CUSTOM_FORMATS_KEY,
     JSON.stringify(getCustomFormats().filter((f) => f.id !== id)),
   );
 }
@@ -320,8 +319,8 @@ export function formatTypeKeys(format: ExamFormat): string[] {
 
 // Split for the generation schema and prompt: standalone questions go in the
 // "questions" array, set types in "sets". Mirrors SET_TYPES in
-// generationPlan.ts, which keeps owning placement order until a second format
-// with different sets exists (Chapter 3).
+// generationPlan.ts, which keeps owning placement order; the route passes
+// this split as the planner's setTypes.
 export function standaloneKeys(format: ExamFormat): string[] {
   return format.types.filter((t) => t.shape === "standalone").map((t) => t.key);
 }
@@ -384,8 +383,10 @@ function isValidTypeDef(value: unknown): value is FormatTypeDef {
   const t = value as Record<string, unknown>;
   return (
     typeof t.key === "string" &&
-    t.key.length > 0 &&
-    t.key.length <= MAX_LABEL_CHARS &&
+    // Slugs only: keys are interpolated into prompt headings and schema
+    // enums, so anything outside this set is rejected rather than escaped.
+    /^[A-Za-z0-9_-]{1,40}$/.test(t.key) &&
+    typeof t.label === "string" &&
     typeof t.label === "string" &&
     t.label.trim().length > 0 &&
     t.label.length <= MAX_LABEL_CHARS &&
@@ -418,6 +419,7 @@ function isValidPastExam(value: unknown): value is PastExam {
   const p = value as Record<string, unknown>;
   return (
     typeof p.fileName === "string" &&
+    p.fileName.length > 0 &&
     p.fileName.length <= MAX_FILENAME_CHARS &&
     typeof p.text === "string" &&
     p.text.length <= MAX_PAST_EXAM_CHARS &&
@@ -488,6 +490,17 @@ export function sanitizeFormatDef(value: unknown): ExamFormat | undefined {
     })),
   };
 }
+// Joins past-exam text parts for the format record. Exported for tests: the
+// truncation marker itself must fit inside the cap, or a truncated exam saves
+// a record that fails validation and silently vanishes on next read.
+export function composePastExamText(parts: string[]): string {
+  const composed = parts.filter((part) => part.trim().length > 0).join("\n\n");
+  const MARKER = "\n[...truncated to fit]";
+  return composed.length > MAX_PAST_EXAM_CHARS
+    ? composed.slice(0, MAX_PAST_EXAM_CHARS - MARKER.length) + MARKER
+    : composed;
+}
+
 // Opaque custom keys: slug of the label plus a short random tail, so two
 // "Vocabulary" types in different formats never collide and renames never
 // orphan a reviewer's counts.
@@ -508,12 +521,15 @@ export function newFormatId(): string {
 // Cloning preserves type keys: a clone is the same shape under a new id, so
 // a reviewer's existing questions and counts keep matching while its labels
 // and guidance get edited. Only brand-new types added in the builder get
-// fresh keys.
+// fresh keys. The name is clamped: cloning an already-max-length name must
+// not produce a record that fails validation and vanishes on next read.
 export function cloneFormat(source: ExamFormat): ExamFormat {
+  const name = `${source.name} (copy)`;
   return {
     ...source,
     id: newFormatId(),
-    name: `${source.name} (copy)`,
+    name: name.length > MAX_ID_CHARS ? name.slice(0, MAX_ID_CHARS).trimEnd() : name,
+    pastExam: source.pastExam ? { ...source.pastExam } : undefined,
     types: source.types.map((t) => ({ ...t })),
   };
 }

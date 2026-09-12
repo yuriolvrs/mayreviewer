@@ -11,12 +11,12 @@ import {
   sumCounts,
 } from "@/app/lib/questions";
 import { addAttachment } from "@/app/lib/attachments";
-import { CSOPESY_FINAL, defaultCounts, getBuiltinFormats, resolveFromList, resolveFormat, saveCustomFormat, type ExamFormat } from "@/app/lib/examFormats";
+import { CSOPESY_FINAL, defaultCounts, getBuiltinFormats, resolveFromList, saveCustomFormat } from "@/app/lib/examFormats";
 import { useFormats } from "@/app/lib/useFormats";
 import { parseReviewerFile, type ParsedReviewerFile } from "@/app/lib/reviewerFile";
 import QuestionCountControl from "@/app/components/QuestionCountControl";
 import SourceSections from "@/app/components/SourceSections";
-import type { QuestionType, Reviewer } from "@/app/types";
+import type { Reviewer } from "@/app/types";
 
 // Reasonable starting point for a reviewer with no questions yet — matches
 // what most first generations ask for, without forcing the max every time.
@@ -427,7 +427,7 @@ export default function NewReviewerPage() {
                       // Counts typed for another format's types are meaningless
                       // after a switch — re-seed from the new format's mix.
                       setExamFormatId(f.id);
-                      setCountByType(defaultCounts(resolveFormat(f.id)));
+                      setCountByType(defaultCounts(resolveFromList(formats, f.id)));
                     }}
                     className="h-4 w-4 shrink-0 accent-accent"
                   />

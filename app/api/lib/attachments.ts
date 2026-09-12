@@ -1,4 +1,5 @@
 import { GoogleGenAI, FileState } from "@google/genai";
+import { del } from "@vercel/blob";
 import {
   ALLOWED_ATTACHMENT_MIME_TYPES,
   HEIC_GUIDANCE,
@@ -109,31 +110,39 @@ export async function parseAttachments(
   const attachments: ParsedAttachment[] = [];
   let totalBytes = 0;
 
+  // Blobs fetched before a later entry fails validation would otherwise be
+  // orphaned — the caller only learns blob URLs on success, so cleanup of a
+  // failed batch happens here, not at the call site.
+  async function fail(error: string): Promise<{ error: string }> {
+    await Promise.all(attachments.map((a) => del(a.blobUrl).catch(() => {})));
+    return { error };
+  }
+
   for (const entry of raw) {
-    if (typeof entry !== "object" || entry === null) return { error: "Malformed attachment." };
+    if (typeof entry !== "object" || entry === null) return fail("Malformed attachment.");
     const { name, mimeType, url, field } = entry as Record<string, unknown>;
 
     if (typeof name !== "string" || typeof mimeType !== "string" || typeof url !== "string") {
-      return { error: "Malformed attachment." };
+      return fail("Malformed attachment.");
     }
     if (field !== "notes" && field !== "project" && field !== "pastexam") {
-      return { error: "Attachment has an unrecognised field." };
+      return fail("Attachment has an unrecognised field.");
     }
     if (!ALLOWED_ATTACHMENT_MIME_TYPES.includes(mimeType)) {
-      return { error: `Unsupported file type "${clampToLine(mimeType, 60)}" — PDF, JPG, PNG, or WebP only.` };
+      return fail(`Unsupported file type "${clampToLine(mimeType, 60)}" — PDF, JPG, PNG, or WebP only.`);
     }
     // Only ever fetch our own Blob store's URLs — otherwise this is a
     // server-side fetch of an attacker-supplied URL (SSRF).
     if (!isAllowedAttachmentUrl(url)) {
-      return { error: "Attachment has an invalid file URL." };
+      return fail("Attachment has an invalid file URL.");
     }
 
     const fetched = await fetchAttachment(url, name);
-    if ("error" in fetched) return { error: fetched.error };
+    if ("error" in fetched) return fail(fetched.error);
 
     totalBytes += fetched.data.byteLength;
     if (totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) {
-      return { error: `Files total more than ${MAX_TOTAL_ATTACHMENT_BYTES / 1024 / 1024}MB — remove some and try again.` };
+      return fail(`Files total more than ${MAX_TOTAL_ATTACHMENT_BYTES / 1024 / 1024}MB — remove some and try again.`);
     }
 
     // The name is echoed back to the client as a progress label and sent to

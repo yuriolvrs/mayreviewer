@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CSOPESY_FINAL,
   cloneFormat,
+  composePastExamText,
   coversAllTypes,
   defaultCounts,
   getBuiltinFormats,
@@ -98,6 +99,22 @@ describe("isValidFormatDef", () => {
     ).toBe(false);
   });
 
+  it("rejects type keys outside the slug charset", () => {
+    const def = validFormat();
+    expect(
+      isValidFormatDef({
+        ...def,
+        types: [{ ...def.types[0], key: "has spaces\nand\nnewlines" }],
+      }),
+    ).toBe(false);
+    expect(
+      isValidFormatDef({
+        ...def,
+        types: [{ ...def.types[0], key: "vocab-1" }],
+      }),
+    ).toBe(true);
+  });
+
   it.each([
     ["null", null],
     ["missing types", { id: "x", name: "X", types: [] }],
@@ -187,10 +204,16 @@ describe("cloneFormat", () => {
     expect(copy.name).toContain("copy");
     expect(copy.types.map((t) => t.key)).toEqual(formatTypeKeys(CSOPESY_FINAL));
   });
+
+  it("clamps an already-max-length name instead of producing an invalid clone", () => {
+    const long = validFormat({ name: "n".repeat(80) });
+    const copy = cloneFormat(long);
+    expect(copy.name.length).toBeLessThanOrEqual(80);
+    expect(isValidFormatDef(copy)).toBe(true);
+  });
 });
 
-describe("ids and counts", () => {
-  it("mints unique ids and slugged type keys", () => {
+describe("ids and counts", () => {  it("mints unique ids and slugged type keys", () => {
     expect(newFormatId()).not.toBe(newFormatId());
     expect(newTypeKey("Formula recall")).toMatch(/^formula-recall-[a-z0-9]+$/);
     expect(newTypeKey("Vocabulary")).not.toBe(newTypeKey("Vocabulary"));
@@ -204,5 +227,12 @@ describe("ids and counts", () => {
       code: 4,
       "modified-tf": 4,
     });
+  });
+
+  it("keeps composed past-exam text within the cap, marker included", () => {
+    expect(composePastExamText(["hello", "  ", "world"])).toBe("hello\n\nworld");
+    const long = composePastExamText(["y".repeat(40_000)]);
+    expect(long.length).toBeLessThanOrEqual(30_000);
+    expect(long).toContain("[...truncated to fit]");
   });
 });

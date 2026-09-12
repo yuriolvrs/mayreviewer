@@ -155,7 +155,8 @@ export default function QuizSetup({
 
   // Scope chips follow the reviewer's format order, showing only types the
   // pool actually contains.
-  const format = resolveFromList(useFormats(), reviewer.examFormatId);
+  const formats = useFormats();
+  const format = resolveFromList(formats, reviewer.examFormatId);
   const typesPresent = formatTypeKeys(format).filter((t) =>
     reviewer.questions.some((q) => q.type === t),
   );

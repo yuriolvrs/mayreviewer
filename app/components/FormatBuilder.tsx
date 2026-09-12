@@ -9,7 +9,14 @@ import {
   isHeicFile,
 } from "@/app/lib/attachmentLimits";
 import {
+  MAX_DESCRIPTION_CHARS,
   MAX_EXAMPLES,
+  MAX_EXAMPLE_CHARS,
+  MAX_FORMAT_TYPES,
+  MAX_GUIDANCE_CHARS,
+  MAX_ID_CHARS,
+  MAX_LABEL_CHARS,
+  composePastExamText,
   MAX_PAST_EXAM_CHARS,
   newTypeKey,
   type AnswerFormat,
@@ -75,8 +82,7 @@ function toDraft(t: FormatTypeDef): TypeDraft {
   };
 }
 
-function blankDraft(label = ""): TypeDraft {
-  return {
+function blankDraft(label = ""): TypeDraft {  return {
     key: newTypeKey(label || "type"),
     label,
     format: "mc",
@@ -126,13 +132,10 @@ export default function FormatBuilder({
   }, [formatId]);
 
   function pastExamText(): string {
-    const parts = [pastText, ...extracted.map((f) => `--- ${f.name} ---\n${f.text}`)].filter(
-      (part) => part.trim().length > 0,
-    );
-    const composed = parts.join("\n\n");
-    return composed.length > MAX_PAST_EXAM_CHARS
-      ? `${composed.slice(0, MAX_PAST_EXAM_CHARS)}\n[...truncated]`
-      : composed;
+    return composePastExamText([
+      pastText,
+      ...extracted.map((f) => `--- ${f.name} ---\n${f.text}`),
+    ]);
   }
 
   async function addPastFiles(incoming: File[]) {
@@ -166,7 +169,9 @@ export default function FormatBuilder({
         const text = await extractTextFromFile(file);
         setExtracted((prev) => [...prev, { id: crypto.randomUUID(), name: file.name, text }]);
       } catch {
-        setPastFileError(`Couldn't read "${file.name}" as text.`);
+        // A HEIC rejection above stays put — one unreadable text file must
+        // not erase the more actionable message.
+        setPastFileError((prev) => prev || `Couldn't read "${file.name}" as text.`);
       }
     }
   }
@@ -213,7 +218,13 @@ export default function FormatBuilder({
       const res = await fetch("/api/infer-format", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ attachments, text: pastExamText() }),
+        // The format name gives the analyst subject context ("midterm for
+        // Math 101" beats "the course").
+        body: JSON.stringify({
+          attachments,
+          text: pastExamText(),
+          subject: name.trim() || undefined,
+        }),
       });
       const data = (await res.json()) as {
         types?: InferredType[];
@@ -248,12 +259,28 @@ export default function FormatBuilder({
 
   function handleSave() {
     if (!name.trim()) return setError("Give the format a name.");
+    if (name.trim().length > MAX_ID_CHARS)
+      return setError(`Name must be ${MAX_ID_CHARS} characters or less.`);
+    if (description.trim().length > MAX_DESCRIPTION_CHARS)
+      return setError(`Description must be ${MAX_DESCRIPTION_CHARS} characters or less.`);
     if (types.length === 0) return setError("Add at least one question type.");
+    if (types.length > MAX_FORMAT_TYPES)
+      return setError(`At most ${MAX_FORMAT_TYPES} types per format.`);
     for (const t of types) {
       if (!t.label.trim()) return setError("Every type needs a label.");
+      if (t.label.trim().length > MAX_LABEL_CHARS)
+        return setError(`"${t.label.trim()}": label must be ${MAX_LABEL_CHARS} characters or less.`);
       const n = parseInt(t.countText, 10);
       if (!Number.isInteger(n) || n < 0 || n > MAX_QUESTION_COUNT)
         return setError(`"${t.label || "Unnamed type"}": count must be 0–${MAX_QUESTION_COUNT}.`);
+      if (t.guidance.trim().length > MAX_GUIDANCE_CHARS)
+        return setError(`"${t.label.trim()}": guidance must be ${MAX_GUIDANCE_CHARS} characters or less.`);
+      if (t.examples.length > MAX_EXAMPLES)
+        return setError(`"${t.label.trim()}": at most ${MAX_EXAMPLES} examples.`);
+      for (const e of t.examples) {
+        if (e.trim().length > MAX_EXAMPLE_CHARS)
+          return setError(`"${t.label.trim()}": each example must be ${MAX_EXAMPLE_CHARS} characters or less.`);
+      }
     }
     setError("");
     const pastText = pastExamText();
@@ -322,7 +349,8 @@ export default function FormatBuilder({
         <p className="mt-1 text-[14px] text-text-secondary">
           Upload or paste a past exam. The AI drafts the question types it sees — you review
           every draft below before saving. The exam is also kept on the format as generation
-          material.
+          material (past text beyond ~30k characters is trimmed; extracted DOCX text needs
+          re-adding after a reload, uploaded files persist).
         </p>
 
         <div className="mt-3 flex flex-col gap-2">
@@ -334,6 +362,14 @@ export default function FormatBuilder({
             className="rounded-lg border border-border px-3 py-2 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
           />
           <div
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                pastInputRef.current?.click();
+              }
+            }}
             onClick={() => pastInputRef.current?.click()}
             className="cursor-pointer rounded-lg border-2 border-dashed border-border p-5 text-center text-[14px] text-text-secondary hover:border-border-strong"
           >
@@ -387,7 +423,12 @@ export default function FormatBuilder({
             <button
               type="button"
               onClick={() => void runInference()}
-              disabled={inferState === "running"}
+              disabled={inferState === "running" || (pastExamText().trim() === "" && storedFiles.length === 0)}
+              title={
+                pastExamText().trim() === "" && storedFiles.length === 0
+                  ? "Paste or upload a past exam first"
+                  : undefined
+              }
               className="rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-white enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
             >
               {inferState === "running" ? "Reading exam…" : "Infer question types"}
@@ -552,6 +593,11 @@ export default function FormatBuilder({
         >
           + Add question type
         </button>
+        {types.length === 0 && (
+          <p className="mt-2 text-[14px] text-text-secondary">
+            Add at least one type to save — or infer them from a past exam above.
+          </p>
+        )}
         <p className="mt-2 text-[14px] text-text-secondary">
           {totalDefault} question{totalDefault === 1 ? "" : "s"} by default.
         </p>

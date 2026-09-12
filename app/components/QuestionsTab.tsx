@@ -36,10 +36,10 @@ type Sort = "newest" | "oldest" | "type" | "number";
 // exact same draft state and editor as an existing question being edited.
 const NEW_ID = "__new__";
 
-function blankQuestion(): Question {
+function blankQuestion(defaultType: string): Question {
   return {
     id: NEW_ID,
-    type: "identification",
+    type: defaultType,
     question: "",
     options: ["", ""],
     correctIndex: 0,
@@ -341,7 +341,8 @@ export default function QuestionsTab({
   const [typeFilter, setTypeFilter] = useState<"all" | string>("all");
   // Filters, sort order, and the add-form type list follow the reviewer's
   // format rather than the global type list.
-  const format = resolveFromList(useFormats(), reviewer.examFormatId);
+  const formats = useFormats();
+  const format = resolveFromList(formats, reviewer.examFormatId);
   const typeKeys = formatTypeKeys(format);
   const typeFilters: ("all" | string)[] = ["all", ...typeKeys];
   const [sourceFilter, setSourceFilter] = useState<"all" | QuestionSource>("all");
@@ -400,9 +401,11 @@ export default function QuestionsTab({
     setConfirmDeleteId(null);
   }
 
-  function startCreate() {
-    setEditingId(NEW_ID);
-    setDraft(blankQuestion());
+function startCreate() {
+  setEditingId(NEW_ID);
+  // A new question starts in the format's own first type — "identification"
+  // is only correct for formats that actually have it.
+  setDraft(blankQuestion(typeKeys[0] ?? "identification"));
     setConfirmDeleteId(null);
   }
 

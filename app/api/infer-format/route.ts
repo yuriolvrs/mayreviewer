@@ -24,7 +24,6 @@ import {
   activateFiles,
   parseAttachments,
   withRetry,
-  type IncomingAttachment,
 } from "../lib/attachments";
 
 // Server-side only — GEMINI_API_KEY must never reach the client.

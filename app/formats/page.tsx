@@ -12,7 +12,7 @@ import {
   saveCustomFormat,
   type ExamFormat,
 } from "@/app/lib/examFormats";
-import { deleteFormatAttachments } from "@/app/lib/attachments";
+import { cloneFormatAttachments, deleteFormatAttachments } from "@/app/lib/attachments";
 import { getReviewers } from "@/app/lib/storage";
 
 function FormatCard({
@@ -110,19 +110,24 @@ export default function FormatsPage() {
   function handleClone(source: ExamFormat) {
     const copy = cloneFormat(source);
     saveCustomFormat(copy);
+    void cloneFormatAttachments(source.id, copy.id).catch(() => {});
     router.push(`/formats/${copy.id}`);
   }
 
   // Deleting a format also drops its past-exam files from IndexedDB, so no
   // orphaned entries survive under a deleted id. Reviewers on it keep their
-  // questions and fall back to the built-in on resolve.
+  // questions and fall back to the built-in on resolve. The list refreshes
+  // even if the file delete fails — the record is already gone.
   async function confirmDeleteFormat() {
     if (!confirmDelete) return;
     const id = confirmDelete.id;
     setConfirmDelete(null);
     deleteCustomFormat(id);
-    await deleteFormatAttachments(id);
-    refresh();
+    try {
+      await deleteFormatAttachments(id);
+    } finally {
+      refresh();
+    }
   }
 
   if (!loaded) return null;

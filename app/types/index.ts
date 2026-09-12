@@ -23,7 +23,7 @@ export type QuestionSource = "notes" | "project" | "manual" | "pastexam";
 // off it. The shared problem is copied onto every question in the set rather
 // than stored once in a parallel array, so a Question stays self-contained —
 // filtering, deleting, and importing one never has to chase a second table.
-// Questions in a set are contiguous and share `groupId`; the other two types
+// Questions in a set are contiguous and share `groupId`; the other three types
 // leave all three fields undefined.
 export type Question = {
   id: string;

@@ -6,7 +6,6 @@ import {
   DEFAULT_QUESTION_COUNT,
   MAX_QUESTION_COUNT,
   MIN_QUESTION_COUNT,
-  QUESTION_TYPES,
   isValidQuestionFields,
   dedupeQuestions,
   takeWithinBudget,
@@ -30,7 +29,7 @@ import {
 } from "@/app/lib/promptSafety";
 import { sanitizeFormatDef, setKeys, standaloneKeys, formatTypeKeys, CSOPESY_FINAL } from "@/app/lib/examFormats";
 import type { AnswerFormat, ExamFormat, StimulusKind, TypeShape } from "@/app/lib/examFormats";
-import type { Question, QuestionSource } from "@/app/types";
+import type { Question } from "@/app/types";
 import {
   activateFiles,
   parseAttachments,
@@ -494,7 +493,7 @@ for this course but absent from the material is off limits — this outranks the
 above, so return fewer questions rather than reaching outside it.${format.id === CSOPESY_FINAL.id ? " Never write a question about semaphores; they are not on this exam." : ""}
 
 Before finalizing a question with a computed answer (an average, a total, a time), do the
-computation, confirm the result exactly matches one of the four options, and only then write
+computation, confirm the result exactly matches one of its options, and only then write
 the question — never publish one whose worked answer isn't among its own options, and never
 let a wrong option be the one you'd actually compute.
 
@@ -792,7 +791,7 @@ trust the "Marked correct" label, actually recompute or re-derive it — then re
 for that question's [index]:
 - "correct" — the marked option is genuinely right.
 - "wrong" — a different option is actually right. Include "correctIndex" (0-3) for it.
-- "drop" — none of the four options is right, or the question can't be answered from the
+- "drop" — none of the options is right, or the question can't be answered from the
   information given.
 
 ${renderVerifyBlock(questions, indices, fenceToken)}`;

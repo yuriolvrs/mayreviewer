@@ -146,3 +146,19 @@ export async function deleteFormatAttachments(formatId: string): Promise<void> {
   }
   await tx.done;
 }
+
+// Copies a format's past-exam files under a new id (used when cloning: the
+// record clone alone would leave the copy generating from text only, with no
+// indication its files stayed behind).
+export async function cloneFormatAttachments(sourceId: string, newId: string): Promise<void> {
+  const db = await getDb();
+  const source = await db.getAllFromIndex("format-attachments", "by-format", sourceId);
+  for (const a of source) {
+    await db.put("format-attachments", {
+      ...a,
+      id: crypto.randomUUID(),
+      formatId: newId,
+      addedAt: new Date().toISOString(),
+    });
+  }
+}

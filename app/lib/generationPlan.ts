@@ -1,12 +1,12 @@
-import type { QuestionType } from "@/app/types";
-
 // Turns one generation request into the exact prompts it will be sent as.
 // Splitting lives here rather than in the route because the per-type mix only
 // survives if the split is decided against the whole request at once.
 
 // Timeline and Code arrive as whole problem sets, so their counts can't be
 // divided arbitrarily the way a standalone question's can.
-export const SET_TYPES: QuestionType[] = ["timeline", "code"];
+// SET_TYPES stays a plain list of the built-in set keys: the default the
+// planner uses when the caller passes no explicit split.
+export const SET_TYPES: string[] = ["timeline", "code"];
 
 export const MIN_SET_SIZE = 5;
 export const MAX_SET_SIZE = 10;

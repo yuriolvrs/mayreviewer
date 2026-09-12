@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { updateReviewer } from "@/app/lib/storage";
-import { defaultCounts, formatTypeKeys, getAllFormats, resolveFormat } from "@/app/lib/examFormats";
+import { defaultCounts, formatTypeKeys, resolveFromList } from "@/app/lib/examFormats";
+import { useFormats } from "@/app/lib/useFormats";
 import {
   MAX_QUESTION_COUNT,
   MIN_QUESTION_COUNT,
@@ -163,11 +164,12 @@ export default function DetailsTab({
   // another format's types are meaningless after a switch, so changing format
   // re-seeds from the new format's defaults (saved immediately, like the
   // switch itself).
-  const format = resolveFormat(reviewer.examFormatId);
+  const formats = useFormats();
+  const format = resolveFromList(formats, reviewer.examFormatId);
   const typeKeys = formatTypeKeys(format);
 
   function changeFormat(id: string) {
-    const next = resolveFormat(id);
+    const next = resolveFromList(formats, id);
     updateReviewer(reviewer.id, {
       examFormatId: next.id,
       questionCountByType: defaultCounts(next),
@@ -342,7 +344,7 @@ export default function DetailsTab({
             aria-label="Exam format"
             className="h-11 rounded-lg border border-border bg-surface px-3 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
           >
-            {getAllFormats().map((f) => (
+            {formats.map((f) => (
               <option key={f.id} value={f.id}>
                 {f.name}
               </option>

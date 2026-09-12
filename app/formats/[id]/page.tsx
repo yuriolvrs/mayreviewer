@@ -2,21 +2,23 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
 import FormatBuilder from "@/app/components/FormatBuilder";
 import {
   cloneFormat,
   getAllFormats,
-  getCustomFormats,
+  getBuiltinFormats,
   saveCustomFormat,
-  type ExamFormat,
 } from "@/app/lib/examFormats";
+import { useFormats } from "@/app/lib/useFormats";
 
 export default function EditFormatPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const custom = getCustomFormats().find((f) => f.id === id);
-  const [draft] = useState<ExamFormat | null>(custom ?? null);
+  const formats = useFormats();
+  const isBuiltin = getBuiltinFormats().some((b) => b.id === id);
+  // Customs arrive after mount, so an unknown id reads as missing on the
+  // first render either way — both server and client agree, no mismatch.
+  const custom = !isBuiltin ? formats.find((f) => f.id === id) ?? null : null;
 
   function cloneAndEdit() {
     const source = getAllFormats().find((f) => f.id === id);
@@ -41,21 +43,27 @@ export default function EditFormatPage() {
         <span className="text-text-tertiary">Edit format</span>
       </nav>
 
-      {!draft ? (
+      {!custom ? (
         <>
-          <h1 className="text-[26px] font-semibold text-text-primary">Can&apos;t edit this format</h1>
+          <h1 className="text-[26px] font-semibold text-text-primary">
+            {isBuiltin ? "Can't edit this format" : "Format not found"}
+          </h1>
           <p className="mt-1 text-[15px] text-text-secondary">
-            Built-in formats are read-only. Clone it to make your own editable copy.
+            {isBuiltin
+              ? "Built-in formats are read-only. Clone it to make your own editable copy."
+              : "No format with this id exists in the library."}
           </p>
-          <div className="mt-6">
-            <button
-              type="button"
-              onClick={cloneAndEdit}
-              className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-white hover:bg-accent-hover"
-            >
-              Clone and edit
-            </button>
-          </div>
+          {isBuiltin && (
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={cloneAndEdit}
+                className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-white hover:bg-accent-hover"
+              >
+                Clone and edit
+              </button>
+            </div>
+          )}
         </>
       ) : (
         <>
@@ -65,9 +73,12 @@ export default function EditFormatPage() {
             edited definition.
           </p>
           <div className="mt-6">
+            {/* Keyed by id: navigating between two edits remounts instead of
+                showing the previous format's state. */}
             <FormatBuilder
-              initial={draft}
-              formatId={draft.id}
+              key={custom.id}
+              initial={custom}
+              formatId={custom.id}
               saveLabel="Save format"
               onSave={(format) => {
                 saveCustomFormat(format);

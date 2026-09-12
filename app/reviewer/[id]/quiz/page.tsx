@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getQuizHistory, getReviewer, saveQuizAttempt } from "@/app/lib/storage";
-import { resolveFormat } from "@/app/lib/examFormats";
+import { resolveFromList } from "@/app/lib/examFormats";
+import { useFormats } from "@/app/lib/useFormats";
 import { shuffleOptions } from "@/app/lib/questions";
 import type { FeedbackMode, Question, QuizAttempt, Reviewer } from "@/app/types";
 import QuizTaking, { type Answers } from "@/app/components/QuizTaking";
@@ -36,6 +37,8 @@ export default function QuizPage() {
   // attempts use the reviewer's; reopened ones use the attempt's own snapshot,
   // so a format edited since still reopens truthfully.
   const [formatId, setFormatId] = useState<string | null>(null);
+  // Hook above the early returns below: hooks can't sit behind them.
+  const formats = useFormats();
 
   useEffect(() => {
     // localStorage is a browser-only external store; one-off read on mount is intentional.
@@ -70,7 +73,7 @@ export default function QuizPage() {
   }
 
   const total = reviewer.questions.length;
-  const format = resolveFormat(formatId ?? reviewer.examFormatId);
+  const format = resolveFromList(formats, formatId ?? reviewer.examFormatId);
 
   if (stage === "taking") {
     return (

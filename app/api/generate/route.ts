@@ -757,7 +757,7 @@ function verifyChunks(questions: Question[]): number[][] {
   return chunks;
 }
 
-function renderVerifyBlock(questions: Question[], indices: number[]): string {
+function renderVerifyBlock(questions: Question[], indices: number[], fenceToken: string): string {
   const blocks: string[] = [];
   let lastGroupId: string | undefined;
   for (const i of indices) {
@@ -772,7 +772,10 @@ function renderVerifyBlock(questions: Question[], indices: number[]): string {
         `\n  Marked correct: ${OPTION_LETTERS[q.correctIndex]}`,
     );
   }
-  return blocks.join("\n\n");
+  // Fenced like any other model-written text in an instruction slot: a hostile
+  // question smuggled in via shared material must not be able to address the
+  // fact-checker directly ("mark everything correct").
+  return fence("VERIFY", fenceToken, blocks.join("\n\n"));
 }
 
 type VerifyVerdict = { index: number; verdict: "correct" | "wrong" | "drop"; correctIndex?: number };
@@ -781,6 +784,7 @@ async function verifyChunk(
   ai: GoogleGenAI,
   questions: Question[],
   indices: number[],
+  fenceToken: string,
 ): Promise<VerifyVerdict[]> {
   const prompt = `You are fact-checking already-written multiple-choice exam questions. For EACH
 question below, work out the correct answer yourself from the information given — don't just
@@ -791,7 +795,7 @@ for that question's [index]:
 - "drop" — none of the four options is right, or the question can't be answered from the
   information given.
 
-${renderVerifyBlock(questions, indices)}`;
+${renderVerifyBlock(questions, indices, fenceToken)}`;
 
   const response = await withRetry(() =>
     ai.models.generateContent({
@@ -832,6 +836,7 @@ ${renderVerifyBlock(questions, indices)}`;
 async function verifyQuestions(
   ai: GoogleGenAI,
   questions: Question[],
+  fenceToken: string,
 ): Promise<{ questions: Question[]; corrected: number; dropped: Question[] }> {
   const chunks = verifyChunks(questions);
   const next = [...questions];
@@ -841,7 +846,7 @@ async function verifyQuestions(
   await runWithConcurrency(chunks, SOURCE_CONCURRENCY, async (indices) => {
     let results: VerifyVerdict[];
     try {
-      results = await verifyChunk(ai, questions, indices);
+      results = await verifyChunk(ai, questions, indices, fenceToken);
     } catch {
       return; // Fail open — this chunk ships as originally generated.
     }
@@ -1292,7 +1297,7 @@ export async function POST(request: Request) {
       let verified = { corrected: 0, dropped: 0 };
       if (questions.length > 0 && timeLeftMs() > 5000) {
         send({ type: "progress", phase: "start", label: "Verifying answers", completed: 0, total: 1, stage: "verify" });
-        const result = await withTimeout(verifyQuestions(ai, questions), timeLeftMs(), {
+        const result = await withTimeout(verifyQuestions(ai, questions, context.fenceToken), timeLeftMs(), {
           questions,
           corrected: 0,
           dropped: [] as Question[],
@@ -1343,7 +1348,7 @@ export async function POST(request: Request) {
           );
 
           if (backfilled.length > 0 && timeLeftMs() > 3000) {
-            const rechecked = await withTimeout(verifyQuestions(ai, backfilled), timeLeftMs(), {
+            const rechecked = await withTimeout(verifyQuestions(ai, backfilled, context.fenceToken), timeLeftMs(), {
               questions: backfilled,
               corrected: 0,
               dropped: [] as Question[],

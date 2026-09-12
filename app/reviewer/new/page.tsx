@@ -11,7 +11,8 @@ import {
   sumCounts,
 } from "@/app/lib/questions";
 import { addAttachment } from "@/app/lib/attachments";
-import { CSOPESY_FINAL, defaultCounts, getAllFormats, getBuiltinFormats, resolveFormat, saveCustomFormat } from "@/app/lib/examFormats";
+import { CSOPESY_FINAL, defaultCounts, getBuiltinFormats, resolveFromList, resolveFormat, saveCustomFormat, type ExamFormat } from "@/app/lib/examFormats";
+import { useFormats } from "@/app/lib/useFormats";
 import { parseReviewerFile, type ParsedReviewerFile } from "@/app/lib/reviewerFile";
 import QuestionCountControl from "@/app/components/QuestionCountControl";
 import SourceSections from "@/app/components/SourceSections";
@@ -29,23 +30,27 @@ export default function NewReviewerPage() {
   const [countByType, setCountByType] = useState<Record<string, number>>(() =>
     splitCountEvenly(DEFAULT_NEW_QUESTION_COUNT),
   );
-  // The only formats that exist so far are built-ins; custom formats arrive
-  // with the builder. Every built-in shares the same type keys, so switching
-  // formats never invalidates the counts above.
+  // Customs arrive after mount (see useFormats): the first render is
+  // built-ins-only on both server and client, so hydration always agrees.
   const [examFormatId, setExamFormatId] = useState<string>(CSOPESY_FINAL.id);
-  const format = resolveFormat(examFormatId);
+  const formats = useFormats();
+  const format = resolveFromList(formats, examFormatId);
+  const [linkApplied, setLinkApplied] = useState(false);
 
   // Deep link from the formats library ("Use this format"). Read on mount
   // rather than via useSearchParams, which would force a Suspense boundary
-  // on this otherwise static page.
+  // on this otherwise static page. Runs again once customs load, so a link
+  // to a custom format still resolves.
   useEffect(() => {
+    if (linkApplied) return;
     const id = new URLSearchParams(window.location.search).get("format");
-    if (id && getAllFormats().some((f) => f.id === id)) {
+    if (id && formats.some((f) => f.id === id)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setExamFormatId(id);
-      setCountByType(defaultCounts(resolveFormat(id)));
+      setCountByType(defaultCounts(resolveFromList(formats, id)));
+      setLinkApplied(true);
     }
-  }, []);
+  }, [formats, linkApplied]);
   const [notes, setNotes] = useState("");
   const [projectMaterial, setProjectMaterial] = useState("");
   const [pastExamMaterial, setPastExamMaterial] = useState("");
@@ -404,7 +409,7 @@ export default function NewReviewerPage() {
             </p>
           </div>
           <div className="flex flex-col gap-3">
-            {getAllFormats().map((f) => (
+            {formats.map((f) => (
               <label
                 key={f.id}
                 className={`cursor-pointer rounded-lg border p-4 ${

@@ -6,7 +6,8 @@ import {
   sampleProportionally,
   scoreTone,
 } from "@/app/lib/questions";
-import { isMonoKind, resolveFormat, formatTypeKeys, stimulusKindOf, typeLabelOf } from "@/app/lib/examFormats";
+import { isMonoKind, formatTypeKeys, resolveFromList, stimulusKindOf, typeLabelOf } from "@/app/lib/examFormats";
+import { useFormats } from "@/app/lib/useFormats";
 import type { ExamFormat } from "@/app/lib/examFormats";
 import type { FeedbackMode, Question, QuizAttempt, Reviewer } from "@/app/types";
 
@@ -154,7 +155,7 @@ export default function QuizSetup({
 
   // Scope chips follow the reviewer's format order, showing only types the
   // pool actually contains.
-  const format = resolveFormat(reviewer.examFormatId);
+  const format = resolveFromList(useFormats(), reviewer.examFormatId);
   const typesPresent = formatTypeKeys(format).filter((t) =>
     reviewer.questions.some((q) => q.type === t),
   );

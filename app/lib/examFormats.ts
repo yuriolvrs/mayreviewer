@@ -1,5 +1,6 @@
 import { MAX_QUESTION_COUNT, QUESTION_TYPES, TYPE_LABELS } from "@/app/lib/questions";
 import { MAX_FILENAME_CHARS } from "@/app/lib/attachmentLimits";
+import { clampToLine, stripSpoofingControls } from "@/app/lib/promptSafety";
 import type { QuestionType } from "@/app/types";
 
 // An exam format is a named set of question types: the thing that makes one
@@ -283,10 +284,16 @@ export function deleteCustomFormat(id: string): void {
 }
 
 export function getAllFormats(): ExamFormat[] {
-  // Built-ins win id collisions outright: an import carrying a built-in id
-  // can never shadow the shipped definition.
-  const builtinIds = new Set(getBuiltinFormats().map((f) => f.id));
-  return [...getBuiltinFormats(), ...getCustomFormats().filter((f) => !builtinIds.has(f.id))];
+  return mergeFormats(getBuiltinFormats(), getCustomFormats());
+}
+
+// Pure merge: built-ins first, customs after, built-in ids winning outright.
+// Split out so render paths can merge a mount-loaded custom list instead of
+// reading localStorage during render — which would SSR without customs and
+// hydrate with them, a guaranteed hydration mismatch.
+export function mergeFormats(builtins: ExamFormat[], customs: ExamFormat[]): ExamFormat[] {
+  const builtinIds = new Set(builtins.map((f) => f.id));
+  return [...builtins, ...customs.filter((f) => !builtinIds.has(f.id))];
 }
 
 // Unknown ids fall back to the built-in rather than breaking the page: a
@@ -294,6 +301,15 @@ export function getAllFormats(): ExamFormat[] {
 // something renderable, not "Reviewer not found".
 export function resolveFormat(id: string | undefined): ExamFormat {
   return getAllFormats().find((f) => f.id === id) ?? CSOPESY_FINAL;
+}
+
+// Same lookup against an already-loaded list. Render paths use this with
+// useFormats() (app/lib/useFormats.ts) — never resolveFormat/getAllFormats
+// during render: those read localStorage, which is empty server-side, so the
+// server would render built-ins-only while the client hydrates with customs
+// (a guaranteed hydration mismatch wherever customs exist).
+export function resolveFromList(formats: ExamFormat[], id: string | undefined): ExamFormat {
+  return formats.find((f) => f.id === id) ?? CSOPESY_FINAL;
 }
 
 // The format's type keys in the format's own order — the list every count
@@ -436,29 +452,38 @@ export function isValidFormatDef(value: unknown): value is ExamFormat {
 export function defaultCounts(format: ExamFormat): Record<string, number> {
   return Object.fromEntries(format.types.map((t) => [t.key, t.defaultCount]));
 }
+
 // Accepts a format-shaped payload from outside the trust boundary (the
 // generate request carries the reviewer's format because the server cannot
-// read browser localStorage, where custom formats live). Validation bounds
-// the shape; the copies below normalize the optionals so prompt code never
-// defends against undefined. Returns undefined for anything malformed, and
-// the caller falls back to the built-in.
+// read browser localStorage, where custom formats live; shared files arrive
+// the same way). Validation bounds the shape; the copies below normalize the
+// optionals so prompt code never defends against undefined. Heading slots
+// (id, name, labels, filenames) are flattened to single lines — they sit in
+// the instruction preamble. Guidance and examples keep their newlines but
+// lose spoofing controls, so a reviewing human and the model read the same
+// text. Returns undefined for anything malformed, and the caller falls back
+// to the built-in.
 export function sanitizeFormatDef(value: unknown): ExamFormat | undefined {
   if (!isValidFormatDef(value)) return undefined;
   return {
-    id: value.id,
-    name: value.name,
-    description: value.description ?? "",
+    id: clampToLine(value.id, MAX_ID_CHARS),
+    name: clampToLine(value.name, MAX_ID_CHARS),
+    description: stripSpoofingControls(value.description ?? ""),
     pastExam: value.pastExam
-      ? { fileName: value.pastExam.fileName, text: value.pastExam.text, addedAt: value.pastExam.addedAt }
+      ? {
+          fileName: clampToLine(value.pastExam.fileName, MAX_FILENAME_CHARS),
+          text: stripSpoofingControls(value.pastExam.text),
+          addedAt: value.pastExam.addedAt,
+        }
       : undefined,
     types: value.types.map((t) => ({
       key: t.key,
-      label: t.label,
+      label: clampToLine(t.label, MAX_LABEL_CHARS),
       format: t.format,
       shape: t.shape,
       stimulus: t.stimulus,
-      guidance: t.guidance ?? "",
-      examples: (t.examples ?? []).slice(0, MAX_EXAMPLES),
+      guidance: stripSpoofingControls(t.guidance ?? ""),
+      examples: (t.examples ?? []).slice(0, MAX_EXAMPLES).map(stripSpoofingControls),
       defaultCount: t.defaultCount,
     })),
   };

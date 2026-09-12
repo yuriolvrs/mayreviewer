@@ -10,12 +10,13 @@ import {
 } from "@/app/lib/questions";
 import {
   isMonoKind,
-  resolveFormat,
+  resolveFromList,
   formatTypeKeys,
   stimulusKindOf,
   typeLabelOf,
   type ExamFormat,
 } from "@/app/lib/examFormats";
+import { useFormats } from "@/app/lib/useFormats";
 import {
   generateQuestions,
   type GenerationFailure,
@@ -340,7 +341,7 @@ export default function QuestionsTab({
   const [typeFilter, setTypeFilter] = useState<"all" | string>("all");
   // Filters, sort order, and the add-form type list follow the reviewer's
   // format rather than the global type list.
-  const format = resolveFormat(reviewer.examFormatId);
+  const format = resolveFromList(useFormats(), reviewer.examFormatId);
   const typeKeys = formatTypeKeys(format);
   const typeFilters: ("all" | string)[] = ["all", ...typeKeys];
   const [sourceFilter, setSourceFilter] = useState<"all" | QuestionSource>("all");

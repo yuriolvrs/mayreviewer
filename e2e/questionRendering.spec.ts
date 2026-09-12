@@ -3,11 +3,14 @@ import path from "path";
 import {
   CODE_LISTING,
   CORRECT_OPTION,
+  CUSTOM_FORMAT_ID,
+  CUSTOM_REVIEWER_ID,
   LEGACY_REVIEWER_ID,
   REVIEWER_ID,
   SCENARIO_STIMULUS,
   SEEDED_QUESTIONS,
   WRONG_OPTION,
+  seedCustom,
   seedLegacyReviewer,
   seedReviewer,
 } from "./seed";
@@ -246,6 +249,92 @@ test.describe("Exam formats", () => {
     await expect(page.getByText("Total: 25 questions")).toBeVisible();
     await expect(page.getByLabel("Exam format")).toHaveValue("csopesy-final");
   });
+});
+
+test.describe("Custom formats", () => {
+  test.beforeEach(async ({ page }) => {
+    await seedCustom(page);
+  });
+
+  test("lists custom labels and filters by them", async ({ page }) => {
+    await page.goto(`/reviewer/${CUSTOM_REVIEWER_ID}`);
+    await page.getByRole("button", { name: /^Questions/i }).click();
+    const items = page.locator("li").filter({ hasText: /Question \d+ ·/ });
+    await expect(items).toHaveCount(4);
+
+    const listText = await page.locator("ul").filter({ hasText: /Question 1 ·/ }).innerText();
+    expect(listText).toContain("RECALL");
+    expect(listText).toContain("BLANK SET");
+
+    await page.getByRole("button", { name: "Blank Set", exact: true }).click();
+    await expect(page.locator("li").filter({ hasText: /Question \d+ ·/ })).toHaveCount(2);
+  });
+
+  test("quiz setup scopes and scores by custom keys", async ({ page }) => {
+    await page.goto(`/reviewer/${CUSTOM_REVIEWER_ID}/quiz`);
+    await expect(page.getByRole("button", { name: "Recall" })).toBeVisible();
+    await page.getByRole("button", { name: "Recall" }).click();
+    await page.getByRole("button", { name: "Start quiz" }).click();
+    await expect(page.locator('div[id^="question-"]')).toHaveCount(2);
+
+    await answerAll(page, { missIndex: 0 });
+    await page.getByRole("button", { name: /Submit/i }).first().click();
+    const confirm = page.getByRole("button", { name: /Submit anyway|Submit quiz/i }).last();
+    if (await confirm.count()) await confirm.click();
+    // No space in the rendered score: the percent rides in a margin-spaced span.
+    await expect(page.getByText("1/2(50%)", { exact: true })).toBeVisible();
+  });
+
+  test("a prose set quotes its passage per question", async ({ page }) => {
+    await page.goto(`/reviewer/${CUSTOM_REVIEWER_ID}/quiz`);
+    await page.getByRole("button", { name: "Start quiz" }).click();
+    // Mono sets share one block; prose rides with its question (the 7f rule).
+    await expect(page.locator("blockquote", { hasText: "Ang bata" })).toHaveCount(2);
+    await expect(page.locator("pre", { hasText: "Ang bata" })).toHaveCount(0);
+  });
+
+  test("switching format re-seeds counts from the new defaults", async ({ page }) => {
+    await page.goto(`/reviewer/${REVIEWER_ID}`);
+    await page.getByLabel("Exam format").selectOption(CUSTOM_FORMAT_ID);
+    await expect(page.getByLabel("Recall questions to generate")).toHaveValue("2");
+    await expect(page.getByLabel("Blank Set questions to generate")).toHaveValue("2");
+    await expect(page.getByText("Total: 4 questions")).toBeVisible();
+  });
+
+  test("clone creates an editable copy", async ({ page }) => {
+    await page.goto("/formats");
+    const card = page.locator("li", { hasText: "CSOPESY Final" }).first();
+    await card.getByRole("button", { name: "Clone" }).click();
+    await expect(page).toHaveURL(/\/formats\/.+/);
+    await expect(page.locator('input[value="CSOPESY Final (copy)"]')).toBeVisible();
+  });
+
+  test("delete removes a custom format", async ({ page }) => {
+    await page.goto("/formats/new");
+    await page.getByPlaceholder(/Math 101/).fill("Delete Me");
+    await page.getByRole("button", { name: "+ Add question type" }).click();
+    await page.getByPlaceholder(/Formula recall/).fill("Recall");
+    await page.getByRole("button", { name: "Create format" }).click();
+    await expect(page.getByText("Delete Me")).toBeVisible();
+
+    await page.locator("li", { hasText: "Delete Me" }).getByRole("button", { name: "Delete" }).click();
+    await page.getByRole("button", { name: "Delete format" }).click();
+    await expect(page.getByText("Delete Me")).toHaveCount(0);
+  });
+
+  test("builder validation blocks an unnamed format", async ({ page }) => {
+    await page.goto("/formats/new");
+    await page.getByRole("button", { name: "+ Add question type" }).click();
+    await page.getByRole("button", { name: "Create format" }).click();
+    await expect(page.getByText("Give the format a name.")).toBeVisible();
+    await expect(page).toHaveURL(/\/formats\/new/);
+  });
+
+  test("deep link preselects the custom format in the picker", async ({ page }) => {
+    await page.goto(`/reviewer/new?format=${CUSTOM_FORMAT_ID}`);
+    await expect(page.getByRole("radio", { name: /E2E Custom/ })).toBeChecked();
+  });
+});
 
   test("a past-exam photo uploads through the real browser flow", async ({ page }) => {
     // Drives the actual file input (accept list, IndexedDB write, row
@@ -263,7 +352,6 @@ test.describe("Exam formats", () => {
     await expect(row.getByText("IMG")).toBeVisible();
     await expect(row.getByText("sent as-is")).toBeVisible();
   });
-});
 
 // Answers every question by the option's TEXT — the only deterministic way once
 // options are shuffled per attempt. Returns which slots the correct option

@@ -165,7 +165,10 @@ segment relies on documented provider support + the shared code path.
 - [x] 5.1. Phase-7-style Playwright pass extended: pre-format reviewer migration
   covered e2e (seeded legacy shape normalizes on open, total kept); inference
   review gate covered by UI-presence e2e plus a live inference run; MTF render
-  + shuffle scoring since Chapter 1.
+  + shuffle scoring since Chapter 1. Follow-up hardening: custom-format e2e
+  (labels, filters, scope, scoring, prose-set quoting, switch re-seeds,
+  clone/delete/validation/deep-link, photo upload) and a `useFormats` hook so
+  custom lists load post-mount instead of hydrating mismatched.
 - [x] 5.2. Full suite green (`tsc`, vitest, e2e, `build`) + a real-use pass: a
   Filipino reviewer on the Language preset, created/filled/generated/quizzed/
   recorded end to end against the live API.
@@ -185,6 +188,15 @@ segment relies on documented provider support + the shared code path.
 Deferred deliberately (unchanged): free-text/numeric answers (breaks shuffle +
 verify + scoring) and multi-select. Raw prompt input stays out; per-type
 plain-language guidance is the power-user path.
+
+## Post-plan hardening (injection review)
+
+Prompt surfaces the new chapters added, reviewed as one: no `dangerouslySetInnerHTML`
+anywhere (React text only); all fence labels are fixed literals; format labels/names
+flatten to single lines at sanitize time; guidance/examples keep newlines but lose
+bidi spoofing controls (`stripSpoofingControls`, unit-tested); verify-prompt question
+blocks are fenced per request. Containment stays what it was: schema pinning +
+re-validation, with the model tool-less and its output rendered as text.
 
 ---
 *Plan created from clickable Q&A; all decisions above are locked unless marked

@@ -14,6 +14,8 @@ import { CSOPESY_FINAL } from "@/app/lib/examFormats";
 
 export const REVIEWER_ID = "rv-e2e-render";
 export const LEGACY_REVIEWER_ID = "rv-e2e-legacy";
+export const CUSTOM_FORMAT_ID = "e2e-custom";
+export const CUSTOM_REVIEWER_ID = "rv-e2e-custom";
 
 export const TIMELINE_TABLE = `Process | Arrival | Burst
 P1      | 0       | 5
@@ -142,6 +144,89 @@ export function legacyReviewer(): { id: string; [key: string]: unknown } {
     updatedAt: now,
     questionsGeneratedAt: now,
   };
+}
+
+// A custom format plus a reviewer on it, so specs can cover everything the
+// built-in suite cannot: custom labels in lists/filters/scope chips, grouping
+// over a custom set type, and quiz scoring with opaque type keys.
+export const CUSTOM_PASSAGE = `Ang bata ay ___(1)___ ng tinapay.
+Si Maria ay ___(2)___ ng mansanas.`;
+
+export function customFormat(): Record<string, unknown> {
+  return {
+    id: CUSTOM_FORMAT_ID,
+    name: "E2E Custom",
+    description: "Seeded format with opaque type keys.",
+    types: [
+      { key: "recall-x1", label: "Recall", format: "mc", shape: "standalone", stimulus: "none", defaultCount: 2 },
+      { key: "blanks-x2", label: "Blank Set", format: "mc", shape: "set", stimulus: "prose", defaultCount: 2 },
+    ],
+  };
+}
+
+export function customReviewer(): Record<string, unknown> {
+  const now = new Date().toISOString();
+  const base = (id: string, type: string, text: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    type,
+    question: text,
+    options: ["Option one", CORRECT_OPTION, WRONG_OPTION, "Option four"],
+    correctIndex: 1,
+    source: "notes",
+    explanation: "Because option two is the one the material states.",
+    whyOthersWrong: "The others name unrelated mechanisms.",
+    ...extra,
+  });
+  return {
+    id: CUSTOM_REVIEWER_ID,
+    reviewerName: "Custom Render",
+    subject: "Filipino",
+    topics: [],
+    notes: "seeded custom shape",
+    projectMaterial: "",
+    pastExamMaterial: "",
+    examFormatId: CUSTOM_FORMAT_ID,
+    questionCount: 4,
+    questionCountByType: { "recall-x1": 2, "blanks-x2": 2 },
+    questions: [
+      base("q-c1", "recall-x1", "What does 'pandiwa' mean?"),
+      base("q-c2", "recall-x1", "What is 'panlapi'?"),
+      base("q-c3", "blanks-x2", "Blank (1): what belongs here?", {
+        groupId: "g-custom",
+        groupTitle: "Pangungusap",
+        stimulus: CUSTOM_PASSAGE,
+      }),
+      base("q-c4", "blanks-x2", "Blank (2): what belongs here?", {
+        groupId: "g-custom",
+        groupTitle: "Pangungusap",
+        stimulus: CUSTOM_PASSAGE,
+      }),
+    ],
+    createdAt: now,
+    updatedAt: now,
+    questionsGeneratedAt: now,
+  };
+}
+
+// Appends the custom format and its reviewer idempotently. Runs after
+// seedReviewer's init script like its legacy sibling.
+export async function seedCustom(page: Page): Promise<void> {
+  await page.addInitScript(
+    ({ format, reviewer }: { format: { id: string }; reviewer: { id: string } }) => {
+      const fraw = window.localStorage.getItem("mayreviewer-formats");
+      const formats = fraw ? (JSON.parse(fraw) as { id: string }[]) : [];
+      if (!formats.some((f) => f.id === format.id)) formats.push(format);
+      window.localStorage.setItem("mayreviewer-formats", JSON.stringify(formats));
+      const rraw = window.localStorage.getItem("mayreviewer-reviewers");
+      const reviewers = rraw ? (JSON.parse(rraw) as { id: string }[]) : [];
+      if (!reviewers.some((r) => r.id === reviewer.id)) reviewers.push(reviewer);
+      window.localStorage.setItem("mayreviewer-reviewers", JSON.stringify(reviewers));
+    },
+    { format: customFormat(), reviewer: customReviewer() } as unknown as {
+      format: { id: string };
+      reviewer: { id: string };
+    },
+  );
 }
 
 // Appends rather than overwrites: it runs after seedReviewer's init script,

@@ -19,8 +19,11 @@ export type RateLimiter = (key: string, now?: number) => RateLimitResult;
 
 export function createRateLimiter(limit: number, windowMs: number): RateLimiter {
   const buckets = new Map<string, Bucket>();
+  // Caps the map so a stream of spoofed IPs can't grow it forever.
+  const MAX_KEYS = 10_000;
 
-  return function check(key: string, now = Date.now()): RateLimitResult {
+  return function check(rawKey: string, now = Date.now()): RateLimitResult {
+    const key = rawKey.trim().toLowerCase().slice(0, 64) || "unknown";
     const bucket = buckets.get(key);
 
     if (!bucket || now >= bucket.resetAt) {
@@ -28,6 +31,11 @@ export function createRateLimiter(limit: number, windowMs: number): RateLimiter 
       // of one-request-each IPs would grow the map forever.
       for (const [k, b] of buckets) {
         if (now >= b.resetAt) buckets.delete(k);
+      }
+      if (buckets.size >= MAX_KEYS) {
+        // Evict the oldest entry rather than growing without bound.
+        const oldest = buckets.keys().next().value;
+        if (oldest !== undefined) buckets.delete(oldest);
       }
       buckets.set(key, { count: 1, resetAt: now + windowMs });
       return { allowed: true, remaining: limit - 1, retryAfterSeconds: 0 };

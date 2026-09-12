@@ -48,6 +48,8 @@ The final is described as similar in *format* to the midterm, but no copy of the
 
 All four *formats* must be supported in the MVP — this is non-negotiable since it's what the exam will actually look like. But none of the 4 types should be scoped or hardcoded to scheduling/processes specifically — they need to work for whatever topic's notes get uploaded (paging, memory management, deadlocks, file systems, etc., as covered across the semester). The full topic list will be supplied later in Claude Code.
 
+**Superseded in part by `ExamFormats-Plan.md`:** the app now ships a fifth type (Modified True/False), preset formats beyond the OS midterm (Math, Language, Science, History), and a custom format builder — the "4 types" above are the built-in CSOPESY Final set, not the ceiling.
+
 ### Additional Content Source: The Class Project (OS Emulator)
 The class has been building an OS emulator as a semester-long project (started before the midterm), and the midterm included questions that referenced it directly. So uploaded material is a **second input source alongside notes/slides**, not a separate question type — any of the 4 formats above can be generated *from* the project instead of *from* lecture notes. Inputs may include:
 - Project specs/requirements document (to be uploaded later)

@@ -34,7 +34,7 @@ test.beforeEach(async ({ page }) => {
 test.describe("Questions tab", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(`/reviewer/${REVIEWER_ID}`);
-    await page.getByRole("button", { name: /^Questions/i }).click();
+    await page.getByRole("tab", { name: /^Questions/i }).click();
   });
 
   test("lists every seeded question, labelled with all five types", async ({ page }) => {
@@ -132,7 +132,7 @@ test.describe("Quiz", () => {
   });
 
   test("scores a shuffled attempt by option text, not position", async ({ page }) => {
-    const { positions } = await answerAll(page, { missIndex: 1 });
+    const { found } = await answerAll(page, { missIndex: 1 });
 
     await page.getByRole("button", { name: /Submit/i }).first().click();
     const confirm = page.getByRole("button", { name: /Submit anyway|Submit quiz/i }).last();
@@ -143,8 +143,11 @@ test.describe("Quiz", () => {
     // score would drift instead of failing outright.
     await expect(page.getByText(/7\s*\/\s*8/)).toBeVisible();
 
-    // ...and the shuffle has to actually be shuffling.
-    expect(positions.size).toBeGreaterThan(1);
+    // Every wanted option was actually found and checked — a question whose
+    // text went missing would otherwise pass silently with a lower score.
+    // (Slot movement itself is pinned by the shuffleOptions unit test; asserting
+    // on random slot spread here would be probabilistic, not deterministic.)
+    expect(found).toBe(SEEDED_QUESTIONS.length);
   });
 
   test("results carry the missed question's prose stimulus, still as a quote", async ({ page }) => {
@@ -258,7 +261,7 @@ test.describe("Custom formats", () => {
 
   test("lists custom labels and filters by them", async ({ page }) => {
     await page.goto(`/reviewer/${CUSTOM_REVIEWER_ID}`);
-    await page.getByRole("button", { name: /^Questions/i }).click();
+    await page.getByRole("tab", { name: /^Questions/i }).click();
     const items = page.locator("li").filter({ hasText: /Question \d+ ·/ });
     await expect(items).toHaveCount(4);
 
@@ -359,9 +362,9 @@ test.describe("Custom formats", () => {
 async function answerAll(
   page: Page,
   { missIndex }: { missIndex: number },
-): Promise<{ positions: Set<number> }> {
+): Promise<{ found: number }> {
   const blocks = page.locator('div[id^="question-"]');
-  const positions = new Set<number>();
+  let found = 0;
 
   for (let i = 0; i < (await blocks.count()); i++) {
     const wanted = i === missIndex ? WRONG_OPTION : CORRECT_OPTION;
@@ -370,12 +373,12 @@ async function answerAll(
     for (let j = 0; j < (await labels.count()); j++) {
       if ((await labels.nth(j).innerText()).includes(wanted)) {
         await labels.nth(j).locator('input[type="radio"]').check();
-        if (i !== missIndex) positions.add(j);
+        found++;
         break;
       }
     }
   }
-  return { positions };
+  return { found };
 }
 
 // Referenced so an accidental edit to the fixture's listing shows up here

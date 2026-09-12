@@ -22,12 +22,14 @@ import {
 } from "@/app/lib/examFormats";
 import {
   activateFiles,
+  deleteGeminiFiles,
   parseAttachments,
   withRetry,
 } from "../lib/attachments";
 
 // Server-side only — GEMINI_API_KEY must never reach the client.
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 // One inference is one model call (plus file uploads), so this bucket can
 // match generate's without multiplying quota risk.
@@ -37,6 +39,9 @@ const checkRateLimiter = createRateLimiter(RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const MAX_INFER_TEXT_CHARS = 30_000;
+// One model call carries the whole inference — cap the files so a 10-file
+// batch can't 503/timeout the single call or multiply its cost.
+const MAX_INFER_FILES = 2;
 const MODEL = "gemini-3.1-flash-lite";
 
 const ANSWER_FORMATS: AnswerFormat[] = ["mc", "true-false", "modified-tf"];
@@ -164,13 +169,24 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
   }
+  // content-length can be missing (chunked) or lied about — enforce the cap
+  // on the parsed body too.
+  if (JSON.stringify(body).length > MAX_BODY_BYTES) {
+    return Response.json(
+      { error: `Request is too large (limit ${MAX_BODY_BYTES / 1024 / 1024}MB).` },
+      { status: 413 },
+    );
+  }
   if (typeof body !== "object" || body === null) {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
   }
 
   const parsed = await parseAttachments(body.attachments);
   if ("error" in parsed) return Response.json({ error: parsed.error }, { status: 400 });
-  const attachments = parsed.attachments;
+  // Inference is one model call over the material — it needs the gist, not
+  // every page. Two files keep the call fast and inside the time budget;
+  // generation (not inference) is where the full set gets read.
+  const attachments = parsed.attachments.slice(0, MAX_INFER_FILES);
 
   const text = typeof body.text === "string" ? body.text : "";
   if (attachments.length === 0 && !text.trim()) {
@@ -255,6 +271,9 @@ ${materialBlock}`;
   }
 
   const { types, unsupported } = sanitizeDrafts(parsedJson);
+  // The Blob copies and Gemini files were only relays — clean both up
+  // best-effort before responding. Neither delete throws.
+  await deleteGeminiFiles(ai, activated.files);
   if (types.length === 0 && unsupported.length === 0) {
     return Response.json(
       { error: "Couldn't recognize any question formats in that material." },

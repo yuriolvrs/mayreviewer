@@ -43,6 +43,15 @@ function ReviewerSpace() {
   );
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
+  // Follows `?tab=` after mount too, so a client navigation that only changes
+  // the query (rather than remounting) still lands on the requested tab.
+  useEffect(() => {
+    if (TABS.some((t) => t.id === requestedTab)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActiveTab(requestedTab as Tab);
+    }
+  }, [requestedTab]);
+
   useEffect(() => {
     // localStorage is a browser-only external store; one-off read on mount is intentional.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -105,12 +114,15 @@ function ReviewerSpace() {
                 Take Quiz
               </Link>
             ) : (
-              <span
+              <button
+                type="button"
+                disabled
                 title="Generate questions first"
+                aria-disabled="true"
                 className="cursor-not-allowed rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-white opacity-40"
               >
                 Take Quiz
-              </span>
+              </button>
             )}
           </div>
         </div>
@@ -121,10 +133,13 @@ function ReviewerSpace() {
         {/* `pb-px` absorbs the tabs' `-mb-px` overhang so the horizontal
             scroll container doesn't also report 1px of vertical overflow
             (which renders a stray vertical scrollbar on Windows). */}
-        <nav className="mt-4 flex items-center gap-1 overflow-x-auto pb-px border-b border-border-strong">
+        <nav aria-label="Reviewer sections" className="mt-4 flex items-center gap-1 overflow-x-auto pb-px border-b border-border-strong">
+          <div role="tablist" aria-label="Reviewer sections" className="flex items-center gap-1">
           {TABS.map((tab) => (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`-mb-px shrink-0 rounded-t-md border-b-2 px-2.5 py-2 text-[15px] font-medium whitespace-nowrap sm:px-3 sm:text-[17px] ${
                 activeTab === tab.id
@@ -135,6 +150,7 @@ function ReviewerSpace() {
               {tab.label}
             </button>
           ))}
+          </div>
         </nav>
       </div>
 

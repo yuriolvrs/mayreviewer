@@ -26,11 +26,30 @@ function isAttachmentManifestEntry(value: unknown): value is AttachmentManifestE
     (v.field === "notes" || v.field === "project") &&
     typeof v.name === "string" &&
     typeof v.mimeType === "string" &&
-    typeof v.path === "string"
+    typeof v.path === "string" &&
+    MANIFEST_PATH_RE.test(v.path) &&
+    !v.path.includes("..")
   );
 }
 
 export type ParsedAttachment = AttachmentManifestEntry & { data: Uint8Array };
+
+// Zip-bomb guards: the whole archive is user bytes inflated in memory.
+export const MAX_IMPORT_FILE_BYTES = 25 * 1024 * 1024;
+export const MAX_IMPORT_DECOMPRESSED_BYTES = 40 * 1024 * 1024;
+export const MAX_IMPORT_JSON_CHARS = 5 * 1024 * 1024;
+// Pasted-text fields are unbounded in older exports; cap them so one huge
+// field can't crash the later saveReviewer write with a quota error.
+export const MAX_IMPORT_TEXT_CHARS = 200_000;
+
+// Zip entry paths are app-written (`files/<id>__<name>`). Anything else —
+// absolute paths, `..`, nested folders — is rejected rather than trusted.
+const MANIFEST_PATH_RE = /^files\/[A-Za-z0-9-]{1,80}__[^/\\]{1,180}$/;
+
+export function sanitizeFilename(name: string): string {
+  const cleaned = name.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").replace(/\.+$/g, "").trim();
+  return cleaned.slice(0, 80) || "reviewer";
+}
 
 export type ParsedReviewerFile = {
   fileName: string;
@@ -45,6 +64,9 @@ export type ParsedReviewerFile = {
   questionCountByType?: Record<string, number>;
   questions: Question[];
   attachments: ParsedAttachment[];
+  // Manifest entries whose files are missing from the archive. Surfaced so
+  // the import screen can warn instead of silently dropping them.
+  skippedAttachments: number;
   // The format the reviewer was on, so its custom types travel with the
   // export instead of arriving as unknown keys. Validated structurally;
   // anything malformed is left out rather than failing the whole file.
@@ -62,11 +84,22 @@ export async function parseReviewerFile(
   let reviewerJsonText: string;
   let zipEntries: Record<string, Uint8Array> | null = null;
 
+  if (file.size > MAX_IMPORT_FILE_BYTES) {
+    return { ok: false, error: "That file is too large to import (limit 25MB)." };
+  }
+
   if (isArchive) {
     try {
       zipEntries = unzipSync(new Uint8Array(await file.arrayBuffer()));
     } catch {
       return { ok: false, error: "Couldn't read that file as a valid .zip archive." };
+    }
+    let decompressed = 0;
+    for (const entry of Object.values(zipEntries)) {
+      decompressed += entry.length;
+      if (decompressed > MAX_IMPORT_DECOMPRESSED_BYTES) {
+        return { ok: false, error: "That archive expands to more than 40MB — refusing to open it." };
+      }
     }
     const reviewerEntry = zipEntries["reviewer.json"];
     if (!reviewerEntry) {
@@ -75,6 +108,9 @@ export async function parseReviewerFile(
     reviewerJsonText = strFromU8(reviewerEntry);
   } else {
     reviewerJsonText = await file.text();
+  }
+  if (reviewerJsonText.length > MAX_IMPORT_JSON_CHARS) {
+    return { ok: false, error: "That reviewer file is too large to import (limit 5MB of JSON)." };
   }
 
   let parsed: unknown;
@@ -125,13 +161,16 @@ export async function parseReviewerFile(
       ? (Object.fromEntries(entries) as Record<string, number>)
       : undefined;
 
-  let attachments: ParsedAttachment[] = [];  if (zipEntries) {
+  let attachments: ParsedAttachment[] = [];  let skippedAttachments = 0;
+  if (zipEntries) {
     const manifestRaw = obj.attachments;
     const manifest = Array.isArray(manifestRaw) ? manifestRaw.filter(isAttachmentManifestEntry) : [];
+    skippedAttachments = Array.isArray(manifestRaw) ? manifestRaw.length - manifest.length : 0;
     const entries = zipEntries;
     attachments = manifest
       .filter((m) => entries[m.path])
       .map((m) => ({ ...m, data: entries[m.path] }));
+    skippedAttachments += manifest.length - attachments.length;
   }
 
   return {
@@ -142,13 +181,20 @@ export async function parseReviewerFile(
       reviewerName: typeof obj.reviewerName === "string" ? obj.reviewerName : "",
       subject: typeof obj.subject === "string" ? obj.subject : "",
       topics: Array.isArray(obj.topics) ? obj.topics.filter((t): t is string => typeof t === "string") : [],
-      notes: typeof obj.notes === "string" ? obj.notes : "",
-      projectMaterial: typeof obj.projectMaterial === "string" ? obj.projectMaterial : "",
-      pastExamMaterial: typeof obj.pastExamMaterial === "string" ? obj.pastExamMaterial : "",
+      notes: typeof obj.notes === "string" ? obj.notes.slice(0, MAX_IMPORT_TEXT_CHARS) : "",
+      projectMaterial:
+        typeof obj.projectMaterial === "string"
+          ? obj.projectMaterial.slice(0, MAX_IMPORT_TEXT_CHARS)
+          : "",
+      pastExamMaterial:
+        typeof obj.pastExamMaterial === "string"
+          ? obj.pastExamMaterial.slice(0, MAX_IMPORT_TEXT_CHARS)
+          : "",
       questionCount,
       questionCountByType,
       questions,
       attachments,
+      skippedAttachments,
       ...(isValidFormatDef(obj.format) ? { format: obj.format } : {}),
     },
   };

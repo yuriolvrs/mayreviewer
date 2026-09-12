@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { newId } from "@/app/lib/ids";
 import { extractTextFromFile } from "@/app/lib/extractText";
 import {
   ACCEPTED_UPLOAD_EXTENSIONS,
@@ -201,7 +202,7 @@ export default function ContentField({
     if (stored.length) notifyAttachmentChange();
 
     const entries: UploadedTextFile[] = others.map((f) => ({
-      id: crypto.randomUUID(),
+      id: newId(),
       name: f.name,
       file: f,
       text: "",
@@ -241,9 +242,11 @@ export default function ContentField({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex gap-4 border-b border-border">
+      <div className="flex gap-4 border-b border-border" role="tablist" aria-label="Content input mode">
         <button
           type="button"
+          role="tab"
+          aria-selected={mode === "upload"}
           onClick={() => setMode("upload")}
           className={`-mb-px border-b-2 py-2 text-[15px] font-medium ${
             mode === "upload"
@@ -255,6 +258,8 @@ export default function ContentField({
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={mode === "paste"}
           onClick={() => setMode("paste")}
           className={`-mb-px border-b-2 py-2 text-[15px] font-medium ${
             mode === "paste"
@@ -277,6 +282,7 @@ export default function ContentField({
             emit(e.target.value, textFilesRef.current);
           }}
           placeholder={placeholder}
+          aria-label={placeholder}
           className={`min-h-[220px] rounded-lg border border-border ${surfaceClassName} p-4 font-mono text-[16px] leading-[22px] text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20`}
         />
       ) : (
@@ -302,12 +308,15 @@ export default function ContentField({
               <p className="mx-auto mt-2 max-w-md text-[14px] text-error">{fileError}</p>
             )}
 
+            {/* Visually hidden but focusable, so keyboard users reach a
+                native file input instead of a div pretending to be one. */}
             <input
               ref={inputRef}
               type="file"
               accept={ACCEPTED_UPLOAD_EXTENSIONS}
               multiple
-              className="hidden"
+              aria-label="Upload files"
+              className="sr-only"
               onChange={(e) => {
                 if (e.target.files) addFiles(Array.from(e.target.files));
                 e.target.value = "";
@@ -356,12 +365,10 @@ export default function ContentField({
                     </a>
                   </div>
                   <div className="flex shrink-0 items-center gap-4">
-                    {f.status === "extracting" && (
-                      <span className="text-[14px] text-text-tertiary">Extracting…</span>
-                    )}
-                    {f.status === "done" && (
-                      <span className="text-[14px] text-text-tertiary">converted to text</span>
-                    )}
+                    <span aria-live="polite" className="text-[14px] text-text-tertiary">
+                      {f.status === "extracting" && "Extracting…"}
+                      {f.status === "done" && "converted to text"}
+                    </span>
                     {f.status === "error" && <span className="text-[14px] text-error">{f.error}</span>}
                     <button
                       type="button"

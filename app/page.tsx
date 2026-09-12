@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getReviewers } from "@/app/lib/storage";
 import { removeReviewerCompletely } from "@/app/lib/reviewers";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
@@ -28,6 +28,7 @@ export default function Home() {
   const [loaded, setLoaded] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
+  const selectAllRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // localStorage is a browser-only external store; one-off read on mount is intentional.
@@ -42,6 +43,13 @@ export default function Home() {
 
   const allSelected = reviewers.length > 0 && reviewers.every((r) => selected.includes(r.id));
   const someSelected = reviewers.some((r) => selected.includes(r.id));
+
+  // Set outside render: mutating the DOM node during render is a side effect.
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = !allSelected && someSelected;
+    }
+  }, [allSelected, someSelected]);
 
   function toggleSelectAll() {
     setSelected(allSelected ? [] : reviewers.map((r) => r.id));
@@ -90,9 +98,7 @@ export default function Home() {
             <input
               type="checkbox"
               checked={allSelected}
-              ref={(el) => {
-                if (el) el.indeterminate = !allSelected && someSelected;
-              }}
+              ref={selectAllRef}
               onChange={toggleSelectAll}
               aria-label={`Select all ${reviewers.length} reviewer${reviewers.length === 1 ? "" : "s"}`}
               className="h-4 w-4 shrink-0 accent-accent"
@@ -132,8 +138,14 @@ export default function Home() {
                   tabIndex={0}
                   onClick={() => router.push(`/reviewer/${reviewer.id}`)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") router.push(`/reviewer/${reviewer.id}`);
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    // The selection checkbox nests inside the row: interacting
+                    // with it must toggle, not navigate.
+                    if ((e.target as HTMLElement).closest("input,button,textarea,select,a")) return;
+                    e.preventDefault();
+                    router.push(`/reviewer/${reviewer.id}`);
                   }}
+                  aria-label={`Open ${reviewer.reviewerName}`}
                   className="group flex cursor-pointer items-center gap-4 rounded-lg border border-border bg-surface p-6 hover:border-border-strong"
                 >
                   <input

@@ -101,7 +101,7 @@ Let Claude Code scaffold from here — a single `app/page.tsx` (or `.jsx`) plus 
 
 **Complexity:** Easy — and disproportionately valuable for how little code it takes
 
-- **What:** A button to download a full Reviewer (info + notes + project material text + questions) as a `.json` file, and a button to upload/import one back in. **Uploaded PDF attachments are explicitly excluded** — they live in IndexedDB only, not in the `Reviewer` object this feature exports/imports.
+- **What:** A button to download a full Reviewer (info + notes + project material text + questions) as a `.json` file, and a button to upload/import one back in. The plain JSON export excludes uploaded files (they live in IndexedDB only, not in the `Reviewer` object); a separate **Export with uploaded files (.zip)** bundles the JSON plus the files with a manifest, and zip import merges them back in.
 - **Why now, not later:** Since the AI-generated quiz format *is* JSON (see Feature 2), export is just `JSON.stringify()` + file download, and import is `JSON.parse()` + merge into `localStorage` — there's no extra format to design. This single feature covers three needs at once without deployment or a database:
   - **Backup** against browser data loss
   - **Sharing** with classmates (send the file, they import it)

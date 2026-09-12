@@ -31,6 +31,8 @@ export type ChunkPlan = {
 };
 
 export function distributeCount(total: number, sourceCount: number): number[] {
+  if (!Number.isInteger(sourceCount) || sourceCount <= 0) return [];
+  if (!Number.isInteger(total) || total <= 0) return Array.from({ length: sourceCount }, () => 1);
   const base = Math.floor(total / sourceCount);
   const remainder = total % sourceCount;
   // If there are more sources than requested questions, every source still
@@ -116,6 +118,7 @@ export function planGeneration(
   // asking for 2-3 each get none.
   for (const type of setTypes) {
     while ((need[type] ?? 0) > 0) {
+      if (slots.length === 0) break;
       const slot = slots.reduce((best, s) => (s.room > best.room ? s : best));
       if (slot.room === 0) break;
       const lump = Math.min(need[type], slot.room);

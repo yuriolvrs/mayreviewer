@@ -250,6 +250,9 @@ export async function seedLegacyReviewer(page: Page): Promise<void> {
 // fresh context, so attempts start empty without clearing them here.
 export async function seedReviewer(page: Page): Promise<void> {
   await page.addInitScript((reviewer) => {
-    window.localStorage.setItem("mayreviewer-reviewers", JSON.stringify([reviewer]));
+    const raw = window.localStorage.getItem("mayreviewer-reviewers");
+    const list = raw ? (JSON.parse(raw) as { id: string }[]) : [];
+    if (!list.some((r) => r.id === reviewer.id)) list.push(reviewer);
+    window.localStorage.setItem("mayreviewer-reviewers", JSON.stringify(list));
   }, seededReviewer());
 }

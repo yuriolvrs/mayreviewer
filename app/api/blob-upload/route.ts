@@ -21,7 +21,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const body = (await request.json()) as HandleUploadBody;
+  let body: HandleUploadBody;
+  try {
+    body = (await request.json()) as HandleUploadBody;
+  } catch {
+    return Response.json({ error: "Invalid request body." }, { status: 400 });
+  }
 
   try {
     const jsonResponse = await handleUpload({
@@ -39,9 +44,10 @@ export async function POST(request: Request) {
     });
     return Response.json(jsonResponse);
   } catch (err) {
-    return Response.json(
-      { error: err instanceof Error ? err.message : "Upload failed." },
-      { status: 400 },
-    );
+    // handleUpload throws for bad payloads (400s) and for server misconfig
+    // like a missing BLOB_READ_WRITE_TOKEN (500s) — don't mask the latter.
+    const message = err instanceof Error ? err.message : "Upload failed.";
+    const status = /token|environment|configuration|internal/i.test(message) ? 500 : 400;
+    return Response.json({ error: message }, { status });
   }
 }

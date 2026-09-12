@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { getQuizHistory, getReviewer, saveQuizAttempt } from "@/app/lib/storage";
 import { resolveFromList } from "@/app/lib/examFormats";
-import { useFormats } from "@/app/lib/useFormats";
+import { useFormats, useFormatsLoaded } from "@/app/lib/useFormats";
 import { shuffleOptions } from "@/app/lib/questions";
 import type { FeedbackMode, Question, QuizAttempt, Reviewer } from "@/app/types";
 import QuizTaking, { type Answers } from "@/app/components/QuizTaking";
@@ -15,6 +15,14 @@ import QuizSetup from "@/app/components/QuizSetup";
 type Stage = "setup" | "taking" | "results";
 
 export default function QuizPage() {
+  return (
+    <Suspense fallback={null}>
+      <QuizPageInner />
+    </Suspense>
+  );
+}
+
+function QuizPageInner() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   // Set when the global History screen links here to reopen one specific
@@ -39,6 +47,7 @@ export default function QuizPage() {
   const [formatId, setFormatId] = useState<string | null>(null);
   // Hook above the early returns below: hooks can't sit behind them.
   const formats = useFormats();
+  const formatsLoaded = useFormatsLoaded();
 
   useEffect(() => {
     // localStorage is a browser-only external store; one-off read on mount is intentional.
@@ -59,7 +68,7 @@ export default function QuizPage() {
     }
   }, [id, attemptId]);
 
-  if (reviewer === undefined) return null;
+  if (reviewer === undefined || !formatsLoaded) return null;
 
   if (reviewer === null) {
     return (

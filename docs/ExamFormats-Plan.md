@@ -106,9 +106,9 @@ category.)
   Language, Science, History. No new renderers: everything maps onto
   existing standalone/set × stimulusKind combos, and the prompt is compiled
   from label/guidance/examples (built-in keys keep tuned prose).
-- [ ] 3.3. Sync the plan mockup against shipped behavior. (Superseded: the
-  Desktop scratch mockup served the decision phase; the shipped builder is
-  the reference now. Left untouched deliberately.)
+- [x] 3.3. Sync the plan mockup against shipped behavior. (Won't do — closed
+  2026-09-12: the Desktop scratch mockup served the decision phase; the
+  shipped builder is the reference now.)
 
 **Done when:** a Math format can be built starting from the Language preset,
 purely through the UI, and generate a clean batch. ✅ (builder create +

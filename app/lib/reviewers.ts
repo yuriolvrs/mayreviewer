@@ -8,8 +8,11 @@ import type { Reviewer } from "@/app/types";
 // cross-store cleanup is composed here instead, and callers get one function
 // they can't half-remember.
 export async function removeReviewerCompletely(id: string): Promise<void> {
-  deleteReviewer(id);
+  // IndexedDB first: if the file delete fails, the reviewer stays and the
+  // error surfaces instead of leaving an orphaned reviewer-less file set
+  // (the old order deleted the reviewer first, then orphaned on IDB failure).
   await deleteAttachmentsForReviewer(id);
+  deleteReviewer(id);
 }
 
 // One source of truth for the delete warning: it appears on both the Home list

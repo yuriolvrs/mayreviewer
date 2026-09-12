@@ -10,7 +10,7 @@ import {
   isAllowedAttachmentUrl,
   sniffAttachmentKind,
 } from "@/app/lib/attachmentLimits";
-import { clampToLine } from "@/app/lib/promptSafety";
+import { clampToLine, stripSpoofingControls } from "@/app/lib/promptSafety";
 import type { QuestionSource } from "@/app/types";
 
 // Server-only attachment intake, shared by /api/generate and /api/infer-format.
@@ -55,8 +55,15 @@ export async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
       return await fn();
     } catch (err) {
       lastErr = err;
+      // SDK errors often carry status/code with a generic message — check
+      // those as well as the text.
+      const status = (err as { status?: unknown })?.status;
+      const code = (err as { code?: unknown })?.code;
       const message = err instanceof Error ? err.message : String(err);
-      if (!/503|429|UNAVAILABLE|RESOURCE_EXHAUSTED|deadline/i.test(message)) throw err;
+      const retryable = /503|429|UNAVAILABLE|RESOURCE_EXHAUSTED|deadline|rate.?limit|overloaded/i.test(
+        `${message} ${String(status ?? "")} ${String(code ?? "")}`,
+      );
+      if (!retryable) throw err;
     }
   }
   throw lastErr;
@@ -71,6 +78,13 @@ async function fetchAttachment(
   try {
     const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) return { error: `Couldn't fetch "${clampToLine(name, 60)}" (${response.status}).` };
+
+    // Reject before buffering: fetching 150MB to enforce a 40MB total cap
+    // wastes time and memory when the header already says it's too big.
+    const declared = Number(response.headers.get("content-length"));
+    if (Number.isFinite(declared) && declared > MAX_ATTACHMENT_BYTES) {
+      return { error: `"${clampToLine(name, 60)}" is larger than ${MAX_ATTACHMENT_BYTES / 1024 / 1024}MB.` };
+    }
 
     const buffer = await response.arrayBuffer();
     if (buffer.byteLength === 0) return { error: `"${clampToLine(name, 60)}" is empty.` };
@@ -109,12 +123,16 @@ export async function parseAttachments(
 
   const attachments: ParsedAttachment[] = [];
   let totalBytes = 0;
+  // Validated entries, in order — validation (no I/O) completes for the
+  // whole batch before the first fetch starts.
+  const validated: { name: string; mimeType: string; url: string; field: QuestionSource }[] = [];
 
   // Blobs fetched before a later entry fails validation would otherwise be
   // orphaned — the caller only learns blob URLs on success, so cleanup of a
   // failed batch happens here, not at the call site.
-  async function fail(error: string): Promise<{ error: string }> {
-    await Promise.all(attachments.map((a) => del(a.blobUrl).catch(() => {})));
+  async function fail(error: string, currentUrl?: string): Promise<{ error: string }> {
+    const urls = [...attachments.map((a) => a.blobUrl), ...(currentUrl ? [currentUrl] : [])];
+    await Promise.all(urls.map((u) => del(u).catch(() => {})));
     return { error };
   }
 
@@ -132,26 +150,59 @@ export async function parseAttachments(
       return fail(`Unsupported file type "${clampToLine(mimeType, 60)}" — PDF, JPG, PNG, or WebP only.`);
     }
     // Only ever fetch our own Blob store's URLs — otherwise this is a
-    // server-side fetch of an attacker-supplied URL (SSRF).
+    // server-side fetch of an attacker-supplied URL (SSRF). Our relays always
+    // upload under `attachments/` (generation) or `past-exam/` (inference),
+    // so anything outside those paths wasn't minted by us even if it lives
+    // on a Vercel store.
     if (!isAllowedAttachmentUrl(url)) {
       return fail("Attachment has an invalid file URL.");
     }
+    try {
+      const pathname = new URL(url).pathname;
+      if (!pathname.startsWith("/attachments/") && !pathname.startsWith("/past-exam/")) {
+        return fail("Attachment has an invalid file URL.");
+      }
+    } catch {
+      return fail("Attachment has an invalid file URL.");
+    }
+    validated.push({ name, mimeType, url, field });
+  }
 
-    const fetched = await fetchAttachment(url, name);
-    if ("error" in fetched) return fail(fetched.error);
+  // Fetched with bounded concurrency: sequential fetches (10 × 30s timeout)
+  // would blow the route's own 60s budget before generation even starts.
+  // Order is preserved by index, so the total-size accounting below still
+  // rejects in entry order.
+  const fetched: ({ data: Uint8Array<ArrayBuffer> } | { error: string })[] = new Array(validated.length);
+  let next = 0;
+  async function fetchWorker() {
+    while (next < validated.length) {
+      const i = next++;
+      fetched[i] = await fetchAttachment(validated[i].url, validated[i].name);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(3, validated.length) }, fetchWorker));
 
-    totalBytes += fetched.data.byteLength;
+  for (let i = 0; i < validated.length; i++) {
+    const { name, mimeType, url, field } = validated[i];
+    const result = fetched[i];
+    if ("error" in result) return fail(result.error, url);
+
+    totalBytes += result.data.byteLength;
     if (totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) {
-      return fail(`Files total more than ${MAX_TOTAL_ATTACHMENT_BYTES / 1024 / 1024}MB — remove some and try again.`);
+      return fail(
+        `Files total more than ${MAX_TOTAL_ATTACHMENT_BYTES / 1024 / 1024}MB — remove some and try again.`,
+        url,
+      );
     }
 
     // The name is echoed back to the client as a progress label and sent to
     // Gemini as a displayName; neither is a prompt slot, but an unbounded
-    // filename has no legitimate use.
+    // filename has no legitimate use. Spoofing controls are stripped so the
+    // human-visible name matches what the model reads.
     attachments.push({
-      name: clampToLine(name, MAX_FILENAME_CHARS) || "Untitled file",
+      name: stripSpoofingControls(clampToLine(name, MAX_FILENAME_CHARS)) || "Untitled file",
       mimeType,
-      data: fetched.data,
+      data: result.data,
       field,
       blobUrl: url,
     });
@@ -160,7 +211,18 @@ export async function parseAttachments(
   return { attachments };
 }
 
-export type ActivatedFile = { uri: string; mimeType: string };
+export type ActivatedFile = { uri: string; mimeType: string; name?: string };
+
+// Best-effort delete of Gemini File API uploads after a run — they were a
+// relay past the request size limit, and leaving them piles up File API
+// storage. Never throws: cleanup must not fail a finished generation.
+export async function deleteGeminiFiles(ai: GoogleGenAI, files: ActivatedFile[]): Promise<void> {
+  await Promise.all(
+    files
+      .filter((f) => f.name)
+      .map((f) => ai.files.delete({ name: f.name as string }).catch(() => {})),
+  );
+}
 
 // Uploads parsed attachments to Gemini's File API and waits until each is
 // ACTIVE and referenceable. One shared implementation so the generate and
@@ -203,7 +265,7 @@ export async function activateFiles(
     if (file.state !== FileState.ACTIVE || !file.uri || !file.mimeType) {
       return { error: `Gemini left this file in an unexpected state (${file.state ?? "unknown"}).` };
     }
-    files.push({ uri: file.uri, mimeType: file.mimeType });
+    files.push({ uri: file.uri, mimeType: file.mimeType, name: file.name ?? undefined });
   }
   return { files };
 }

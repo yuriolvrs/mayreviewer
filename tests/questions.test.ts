@@ -40,12 +40,13 @@ describe("isValidQuestionFields", () => {
 
   // Generated questions usually have 4 options, but a hand-written or
   // hand-edited one may have as few as 2 — rejecting those would silently
-  // drop them on import.
-  it("accepts option counts other than 4", () => {
+  // drop them on import. More than 4 is rejected: the renderer only knows
+  // option letters A–D.
+  it("accepts 2–4 options and rejects more", () => {
     expect(isValidQuestionFields(question({ options: ["A", "B"], correctIndex: 1 }))).toBe(true);
     expect(
       isValidQuestionFields(question({ options: ["A", "B", "C", "D", "E"], correctIndex: 4 })),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("accepts a Modified True/False question with numbered statements", () => {

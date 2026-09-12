@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { newId } from "@/app/lib/ids";
 import { saveReviewer } from "@/app/lib/storage";
 import {
   MAX_QUESTION_COUNT,
@@ -62,7 +63,7 @@ export default function NewReviewerPage() {
   // anything attached while filling the form is already attached to the
   // reviewer that gets saved. Abandoning the form leaves those files orphaned;
   // they're inert without a reviewer pointing at them.
-  const [draftId] = useState(() => crypto.randomUUID());
+  const [draftId] = useState(() => newId());
   // Browsers don't render text-overflow:ellipsis inside <input>, so an unfocused
   // topic is drawn as a real element on top of the (text-transparent) input.
   const [focusedTopic, setFocusedTopic] = useState<number | null>(null);
@@ -131,7 +132,13 @@ export default function NewReviewerPage() {
     setImportError("");
     setImportPending(null);
 
-    const result = await parseReviewerFile(file);
+    let result: Awaited<ReturnType<typeof parseReviewerFile>>;
+    try {
+      result = await parseReviewerFile(file);
+    } catch {
+      setImportError("Couldn't read that file.");
+      return;
+    }
     if (!result.ok) {
       setImportError(result.error);
       return;
@@ -157,7 +164,7 @@ export default function NewReviewerPage() {
           : CSOPESY_FINAL.id;
       const now = new Date().toISOString();
       const reviewer: Reviewer = {
-        id: crypto.randomUUID(),
+        id: newId(),
         reviewerName: importPending.reviewerName.trim(),
         subject: importPending.subject.trim(),
         topics: importPending.topics,
@@ -190,6 +197,8 @@ export default function NewReviewerPage() {
       }
 
       router.push(`/reviewer/${reviewer.id}`);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "Couldn't create a reviewer from that file.");
     } finally {
       setImporting(false);
     }
@@ -217,10 +226,11 @@ export default function NewReviewerPage() {
           ref={importInputRef}
           type="file"
           accept="application/json,.json,application/zip,.zip"
-          className="hidden"
+          aria-label="Import a reviewer file"
+          className="sr-only"
           onChange={(e) => {
             const file = e.target.files?.[0];
-            if (file) handleImportFileSelected(file);
+            if (file) void handleImportFileSelected(file);
             e.target.value = "";
           }}
         />
@@ -283,7 +293,7 @@ export default function NewReviewerPage() {
               e.preventDefault();
               setImportDragOver(false);
               const file = e.dataTransfer.files[0];
-              if (file) handleImportFileSelected(file);
+              if (file) void handleImportFileSelected(file);
             }}
             onClick={() => importInputRef.current?.click()}
             className={`cursor-pointer rounded-lg border-2 border-dashed p-6 text-center transition-colors ${

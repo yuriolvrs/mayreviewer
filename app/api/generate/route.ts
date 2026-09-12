@@ -32,8 +32,10 @@ import type { AnswerFormat, ExamFormat, StimulusKind, TypeShape } from "@/app/li
 import type { Question } from "@/app/types";
 import {
   activateFiles,
+  deleteGeminiFiles,
   parseAttachments,
   withRetry,
+  type ActivatedFile,
   type IncomingAttachment,
   type ParsedAttachment,
 } from "../lib/attachments";
@@ -68,6 +70,21 @@ const MISTRAL_MODEL = "mistral-small-latest";
 // timeout/failure on one source no longer takes the rest down with it.
 const SOURCE_CONCURRENCY = 3;
 const MAX_TEXT_CHARS = 60_000;
+// The three pasted fields each cap at MAX_TEXT_CHARS, but 3×60k in every
+// prompt of every chunk is ~50k tokens of deadline/cost risk. The combined
+// budget below wins: notes first, then project, then past exam.
+const MAX_TOTAL_TEXT_CHARS = 100_000;
+
+// Exported for tests — the combined budget is what keeps a 3×60k request
+// from becoming ~50k tokens in every prompt.
+export function fitTextBudget(texts: string[]): string[] {
+  let remaining = MAX_TOTAL_TEXT_CHARS;
+  return texts.map((t) => {
+    const take = Math.max(Math.min(t.length, remaining), 0);
+    remaining -= take;
+    return t.slice(0, take);
+  });
+}
 
 // One generation fans out into up to `attachments.length + 1` Gemini calls on a
 // free-tier key, so the cost of an unauthenticated caller looping this endpoint
@@ -632,7 +649,9 @@ function parseQuestionResponse(
     // The response schema still permits every type, so a model that
     // ignores the prompt's restriction gets filtered out here.
     .filter((q) => types.includes(q.type))
-    .map((q) => ({ id: crypto.randomUUID(), ...q }));
+    // Server-minted id last: a model-returned `id` must never win and cause
+    // collisions in dedupe, quiz answers, or result keys.
+    .map((q) => ({ ...q, id: crypto.randomUUID() }));
 
   if (questions.length === 0) return { error: `${providerLabel}'s response didn't contain any valid questions.` };
   return { questions };
@@ -977,9 +996,11 @@ async function processAttachmentSource(
   attachment: ParsedAttachment,
   plans: ChunkPlan[],
   context: PromptContext,
+  collectFiles?: (files: ActivatedFile[]) => void,
 ): Promise<SourceResult> {
   const activated = await activateFiles(ai, [attachment]);
   if ("error" in activated) return { error: activated.error };
+  collectFiles?.(activated.files);
   const { uri, mimeType } = activated.files[0];
 
   // The attached file's contents can't be fenced — Gemini reads it as its own
@@ -1040,14 +1061,19 @@ async function processTextSource(
   plans: ChunkPlan[],
   context: PromptContext,
 ): Promise<SourceResult> {
+  const [notesCapped, projectCapped, pastExamCapped] = fitTextBudget([
+    notes,
+    projectMaterial,
+    pastExamMaterial,
+  ]);
   const pastExamBlock =
-    pastExamMaterial.trim() || pastExamName
-      ? `\n\nIf the PAST EXAM block is not "(none)", reference that exam's format and facts in some questions, marking their source "pastexam".\n${fence("PAST_EXAM", context.fenceToken, [pastExamName ? `From: ${pastExamName}` : "", truncate(pastExamMaterial, MAX_TEXT_CHARS) || "(no pasted text — files and format record only)"].filter(Boolean).join("\n"))}`
+    pastExamCapped.trim() || pastExamName
+      ? `\n\nIf the PAST EXAM block is not "(none)", reference that exam's format and facts in some questions, marking their source "pastexam".\n${fence("PAST_EXAM", context.fenceToken, [pastExamName ? `From: ${pastExamName}` : "", truncate(pastExamCapped, MAX_TEXT_CHARS) || "(no pasted text — files and format record only)"].filter(Boolean).join("\n"))}`
       : "";
-  const materialBlock = `${fence("NOTES", context.fenceToken, truncate(notes, MAX_TEXT_CHARS) || "(none)")}
+  const materialBlock = `${fence("NOTES", context.fenceToken, truncate(notesCapped, MAX_TEXT_CHARS) || "(none)")}
 
 If the PROJECT MATERIAL block is not "(none)", reference that project in some questions.
-${fence("PROJECT_MATERIAL", context.fenceToken, truncate(projectMaterial, MAX_TEXT_CHARS) || "(none)")}${pastExamBlock}`;
+${fence("PROJECT_MATERIAL", context.fenceToken, truncate(projectCapped, MAX_TEXT_CHARS) || "(none)")}${pastExamBlock}`;
 
   const textPrompt = (header: string, batch: string) =>
     `${header}
@@ -1078,6 +1104,26 @@ async function runWithConcurrency<T>(
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
 }
 
+// Concurrent jobs share `typeRoom`/`questions` merge state. The merge must be
+// a critical section: two jobs interleaving read→take→write spend the same
+// budget twice and exceed the requested count.
+function createMutex() {
+  let tail = Promise.resolve();
+  return async function withLock<T>(fn: () => Promise<T> | T): Promise<T> {
+    const prev = tail;
+    let release!: () => void;
+    tail = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await prev;
+    try {
+      return await fn();
+    } finally {
+      release();
+    }
+  };
+}
+
 export async function POST(request: Request) {
   const startedAt = Date.now();
   const apiKey = process.env.GEMINI_API_KEY;
@@ -1106,6 +1152,14 @@ export async function POST(request: Request) {
     body = (await request.json()) as GenerateRequestBody;
   } catch {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
+  }
+  // content-length can be missing (chunked) or lied about — enforce the cap
+  // on the parsed body too.
+  if (JSON.stringify(body).length > MAX_BODY_BYTES) {
+    return Response.json(
+      { error: `Request is too large (limit ${MAX_BODY_BYTES / 1024 / 1024}MB).` },
+      { status: 413 },
+    );
   }
   if (typeof body !== "object" || body === null) {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
@@ -1216,9 +1270,19 @@ export async function POST(request: Request) {
   const jobs: { label: string; run: (plans: ChunkPlan[]) => Promise<SourceResult> }[] = attachments.map(
     (attachment) => ({
       label: attachment.name,
-      run: (plans: ChunkPlan[]) => processAttachmentSource(ai, mistral, attachment, plans, context),
+      run: (plans: ChunkPlan[]) =>
+        processAttachmentSource(ai, mistral, attachment, plans, context, (files) => {
+          geminiFiles.push(...files);
+        }),
     }),
   );
+  // Gemini File API uploads collected per source for best-effort deletion
+  // once the stream finishes — declared here so both the jobs above and the
+  // stream below close over it.
+  const geminiFiles: ActivatedFile[] = [];
+  // Set by start(), called by cancel(): errors a client-abandoned stream
+  // instead of leaving it hanging.
+  let onStreamAbort = () => {};
   if (notes.trim() || projectMaterial.trim() || pastExamText || pastExamName) {
     jobs.push({
       label: "Pasted notes/material",
@@ -1247,6 +1311,17 @@ export async function POST(request: Request) {
       function send(message: ProgressMessage | DoneMessage) {
         controller.enqueue(encoder.encode(`${JSON.stringify(message)}\n`));
       }
+      // A disconnected client must not leave the run burning quota in the
+      // background with nobody reading the stream.
+      const onAbort = () => {
+        try {
+          controller.error(new Error("Client disconnected."));
+        } catch {
+          // Already closed — nothing to do.
+        }
+      };
+      request.signal.addEventListener("abort", onAbort);
+      onStreamAbort = onAbort;
 
       let completed = 0;
       const questions: Question[] = [];
@@ -1254,11 +1329,20 @@ export async function POST(request: Request) {
       // Spent down across sources when a per-type mix was requested, so the
       // ceilings apply to the batch as a whole rather than per source.
       let typeRoom = countByType ? { ...countByType } : undefined;
+      const mergeLock = createMutex();
 
       await runWithConcurrency(jobs, SOURCE_CONCURRENCY, async (job, i) => {
         send({ type: "progress", phase: "start", label: job.label, completed, total });
-        const result = await job.run(plans[i]);
-        completed++;
+        // A throwing source must become a per-source failure, not a rejected
+        // start() that leaves the client hanging with no done frame.
+        let result: SourceResult;
+        try {
+          result = await job.run(plans[i]);
+        } catch (err) {
+          result = { error: err instanceof Error ? err.message : "Source failed." };
+        }
+        await mergeLock(async () => {
+          completed++;
         if ("questions" in result) {
           // Two ceilings: this source's own share, so one over-eager source
           // can't crowd out the others, and whatever is left of the overall
@@ -1284,6 +1368,7 @@ export async function POST(request: Request) {
           failures.push({ label: job.label, reason: result.error });
           send({ type: "progress", phase: "done", label: job.label, completed, total, ok: false, reason: result.error });
         }
+        });
       });
 
       // Bounded by whatever's left of the Function's own time limit, with a
@@ -1329,18 +1414,26 @@ export async function POST(request: Request) {
           );
           const backfilled: Question[] = [];
           let typeRoom = { ...typeCounts };
+          const backfillLock = createMutex();
 
           await withTimeout(
             runWithConcurrency(jobs, SOURCE_CONCURRENCY, async (job, i) => {
-              if (backfilled.length >= result.dropped.length) return;
-              const jobResult = await job.run(backfillPlans[i]);
+              let jobResult: SourceResult;
+              try {
+                jobResult = await job.run(backfillPlans[i]);
+              } catch {
+                return;
+              }
               if (!("questions" in jobResult)) return;
-              const fresh = dedupeQuestions([...finalQuestions, ...backfilled, ...jobResult.questions]).slice(
-                finalQuestions.length + backfilled.length,
-              );
-              const taken = takeWithinTypeBudget(fresh, typeRoom);
-              typeRoom = taken.remaining;
-              backfilled.push(...taken.kept);
+              await backfillLock(async () => {
+                if (backfilled.length >= result.dropped.length) return;
+                const fresh = dedupeQuestions([...finalQuestions, ...backfilled, ...jobResult.questions]).slice(
+                  finalQuestions.length + backfilled.length,
+                );
+                const taken = takeWithinTypeBudget(fresh, typeRoom);
+                typeRoom = taken.remaining;
+                backfilled.push(...taken.kept);
+              });
             }),
             timeLeftMs(),
             undefined,
@@ -1372,7 +1465,15 @@ export async function POST(request: Request) {
       }
 
       send({ type: "done", questions: finalQuestions, failures, verified });
+      // Uploaded Gemini files were a relay — delete them best-effort now
+      // that no prompt references them anymore. Never throws.
+      await deleteGeminiFiles(ai, geminiFiles);
+      request.signal.removeEventListener("abort", onAbort);
+      onStreamAbort = () => {};
       controller.close();
+    },
+    cancel() {
+      onStreamAbort();
     },
   });
 

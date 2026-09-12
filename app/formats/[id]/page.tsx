@@ -10,15 +10,19 @@ import {
   saveCustomFormat,
 } from "@/app/lib/examFormats";
 import { cloneFormatAttachments } from "@/app/lib/attachments";
-import { useFormats } from "@/app/lib/useFormats";
+import { useFormats, useFormatsLoaded } from "@/app/lib/useFormats";
 
 export default function EditFormatPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const formats = useFormats();
+  const formatsLoaded = useFormatsLoaded();
   const isBuiltin = getBuiltinFormats().some((b) => b.id === id);
   // Customs arrive after mount, so an unknown id reads as missing on the
   // first render either way — both server and client agree, no mismatch.
+  // Wait for the load before judging, so a custom format doesn't flash as
+  // "not found".
+  if (!formatsLoaded) return null;
   const custom = !isBuiltin ? formats.find((f) => f.id === id) ?? null : null;
 
   function cloneAndEdit() {

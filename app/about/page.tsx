@@ -1,10 +1,6 @@
-import Link from "next/link";
-
-// const FEEDBACK_EMAIL = "yuri.olivares0608@gmail.com";
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
   return (
-    <section className="border-t border-border py-6">
+    <section id={id} className="border-t border-border py-6 scroll-mt-6">
       <h2 className="text-[15px] font-medium text-text-primary">{title}</h2>
       <div className="mt-2 flex flex-col gap-2 text-[15px] text-text-secondary">{children}</div>
     </section>
@@ -21,8 +17,11 @@ export default function AboutPage() {
         <Section title="What this is">
           <p>
             May Reviewer turns your notes, handouts, and project material into a practice quiz you
-            can retake as often as you want. Still shaped around the exam it was built for — see 
-            Known limitations below
+            can retake as often as you want. Still shaped around the exam it was built for — see{" "}
+            <a href="#limitations" className="font-medium text-accent underline">
+              Known limitations
+            </a>{" "}
+            below
           </p>
         </Section>
 
@@ -36,13 +35,13 @@ export default function AboutPage() {
             on a server and nothing is shared between devices. Clearing your browser data deletes
             them. Uploaded material is sent out once, during generation, so the model can read it:
             text files are read in the browser and sent as text, while PDFs are uploaded to
-            temporary storage, read by the model, then deleted right after the questions come back.
-            No third parties beyond that are involved, and nothing is used for training or
+            temporary storage so the model can read them, then deleted right after the questions
+            come back. No third parties beyond that are involved, and nothing is used for training or
             advertising.
           </p>
         </Section>
 
-        <Section title="Known limitations">
+        <Section title="Known limitations" id="limitations">
           <ul className="flex list-disc flex-col gap-1.5 pl-5">
             <li>
             Multiple formats exist: built-ins like CSOPESY Final, Math, Language,
@@ -66,7 +65,8 @@ export default function AboutPage() {
             </li>
             <li>
               Generation is rate limited to 8 runs every 10 minutes to keep model costs in check.
-              Past-exam type inference is limited separately at the same rate.
+              Past-exam type inference has its own separate 8-per-10-minutes bucket, and file
+              uploads are limited to 30 per 10 minutes.
             </li>
             <li>
               A past exam can be attached to a reviewer or kept on a format. The AI drafts
@@ -88,19 +88,6 @@ export default function AboutPage() {
                 so it depends on how the free tier holds up once more people are using it.</li>
           </ul>
         </Section>
-
-        {/* <Section title="Feedback">
-          <p>
-            Found a bug or have a suggestion?{" "}
-            <a
-              href={`mailto:${FEEDBACK_EMAIL}?subject=May%20Reviewer%20feedback`}
-              className="font-medium text-accent underline"
-            >
-              Send feedback
-            </a>
-            .
-          </p>
-        </Section> */}
 
         <Section title="Credits">
           <p>

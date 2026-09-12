@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated / test-output folders this repo produces:
+    "playwright-report/**",
+    "test-results/**",
+    "coverage/**",
+    "*.tsbuildinfo",
   ]),
 ]);
 

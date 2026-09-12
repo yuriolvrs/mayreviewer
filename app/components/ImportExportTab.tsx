@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { zipSync, strToU8 } from "fflate";
 import { updateReviewer } from "@/app/lib/storage";
 import { getAttachments, addAttachment } from "@/app/lib/attachments";
-import { parseReviewerFile, type AttachmentManifestEntry, type ParsedAttachment } from "@/app/lib/reviewerFile";
+import { parseReviewerFile, sanitizeFilename, type AttachmentManifestEntry, type ParsedAttachment } from "@/app/lib/reviewerFile";
 import {
   getBuiltinFormats,
   resolveFormat,
@@ -46,6 +46,7 @@ type PendingImport = {
   newQuestions: Question[];
   totalAttachments: number;
   newAttachments: ParsedAttachment[];
+  skippedAttachments: number;
   topics: string[];
   newTopics: string[];
   questionCount: number;
@@ -93,7 +94,7 @@ export default function ImportExportTab({
       createdAt: reviewer.createdAt,
       format: resolveFormat(reviewer.examFormatId),
     };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });    download(blob, `${reviewer.reviewerName || "reviewer"}.json`);
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });    download(blob, `${sanitizeFilename(reviewer.reviewerName)}.json`);
   }
 
   async function handleExportWithMaterials() {
@@ -134,7 +135,7 @@ export default function ImportExportTab({
       // fflate's output buffer is always a plain ArrayBuffer in the browser;
       // its type is widened to ArrayBufferLike, which BlobPart doesn't accept.
       const blob = new Blob([zipped.buffer as ArrayBuffer], { type: "application/zip" });
-      download(blob, `${reviewer.reviewerName || "reviewer"}.zip`);
+      download(blob, `${sanitizeFilename(reviewer.reviewerName)}.zip`);
     } finally {
       setExporting(false);
     }
@@ -144,12 +145,18 @@ export default function ImportExportTab({
     setMessage(null);
     setPending(null);
 
-    const result = await parseReviewerFile(file);
+    let result: Awaited<ReturnType<typeof parseReviewerFile>>;
+    try {
+      result = await parseReviewerFile(file);
+    } catch {
+      setMessage({ text: "Couldn't read that file.", isError: true });
+      return;
+    }
     if (!result.ok) {
       setMessage({ text: result.error, isError: true });
       return;
     }
-    const { fileName, isArchive, questions, topics, attachments, questionCount, format } = result.data;
+    const { fileName, isArchive, questions, topics, attachments, skippedAttachments, questionCount, format } = result.data;
 
     const existingIds = new Set(reviewer.questions.map((q) => q.id));
     const newQuestions = questions.filter((q) => !existingIds.has(q.id));
@@ -170,6 +177,7 @@ export default function ImportExportTab({
       newQuestions,
       totalAttachments: attachments.length,
       newAttachments,
+      skippedAttachments,
       topics,
       newTopics,
       questionCount,
@@ -279,10 +287,11 @@ export default function ImportExportTab({
             ref={fileInputRef}
             type="file"
             accept="application/json,.json,application/zip,.zip"
-            className="hidden"
+            aria-label="Import a reviewer file"
+            className="sr-only"
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) handleFileSelected(file);
+              if (file) void handleFileSelected(file);
               e.target.value = "";
             }}
           />
@@ -345,6 +354,9 @@ export default function ImportExportTab({
                     <dt className="text-text-secondary">Files in archive</dt>
                     <dd className="text-text-primary">
                       {pending.totalAttachments} ({pending.newAttachments.length} new)
+                      {pending.skippedAttachments > 0
+                        ? ` — ${pending.skippedAttachments} skipped (missing or invalid)`
+                        : ""}
                     </dd>
                   </div>
                 )}

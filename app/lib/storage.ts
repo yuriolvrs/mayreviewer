@@ -1,5 +1,6 @@
 import { DEFAULT_QUESTION_COUNT, splitCountEvenly, sumCounts } from "@/app/lib/questions";
 import { CSOPESY_FINAL, formatTypeKeys, resolveFormat } from "@/app/lib/examFormats";
+import { newId } from "@/app/lib/ids";
 import type { Question, QuizAttempt, Reviewer } from "@/app/types";
 
 // The ONLY file that touches localStorage. Swapping to Supabase later means
@@ -18,9 +19,63 @@ function readJson<T>(key: string): T[] {
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as T[]) : [];
+    if (!Array.isArray(parsed)) throw new Error("not an array");
+    corruptKeys.delete(key);
+    return parsed as T[];
   } catch {
+    // One bad byte must never silently wipe the store: stash the raw value
+    // under a backup key and mark this key corrupt so writers refuse to
+    // overwrite it until the user recovers or clears it.
+    corruptKeys.add(key);
+    try {
+      window.localStorage.setItem(`${key}-corrupt-${Date.now()}`, raw);
+    } catch {
+      // Backup is best-effort; the corrupt flag above still blocks writes.
+    }
     return [];
+  }
+}
+
+// Keys whose stored JSON failed to parse since load. Writers check this to
+// avoid overwriting corrupt data with a fresh single-entry array.
+const corruptKeys = new Set<string>();
+
+export function isStorageCorrupt(key: string = STORAGE_KEY): boolean {
+  return corruptKeys.has(key);
+}
+
+// Clears the corrupt flag after the user recovers or discards the backup.
+// Also used by tests to reset module state between cases.
+export function dismissStorageCorruption(key: string = STORAGE_KEY): void {
+  corruptKeys.delete(key);
+}
+
+export function storageCorruptionBackupKeys(key: string = STORAGE_KEY): string[] {  if (typeof window === "undefined") return [];
+  const found: string[] = [];
+  for (let i = 0; i < window.localStorage.length; i++) {
+    const k = window.localStorage.key(i);
+    if (k?.startsWith(`${key}-corrupt-`)) found.push(k);
+  }
+  return found;
+}
+
+function assertNotCorrupt(key: string): void {
+  if (corruptKeys.has(key)) {
+    throw new Error(
+      "Stored data looks corrupt — a backup was kept and nothing was overwritten. Export what you can, then clear the corrupt key to continue.",
+    );
+  }
+}
+
+function writeJson(key: string, value: unknown): void {
+  assertNotCorrupt(key);
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch (err) {
+    if (err instanceof DOMException && (err.name === "QuotaExceededError" || err.code === 22)) {
+      throw new Error("Storage is full — export a reviewer and delete old quiz history to free space.");
+    }
+    throw err;
   }
 }
 
@@ -80,7 +135,7 @@ export function saveReviewer(reviewer: Reviewer): void {
   } else {
     reviewers[index] = stamped;
   }
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(reviewers));
+  writeJson(STORAGE_KEY, reviewers);
 }
 
 // Re-reads before writing, so a caller holding a stale copy of the Reviewer
@@ -97,7 +152,7 @@ export function updateReviewer(id: string, patch: Partial<Reviewer>): Reviewer |
 
 export function deleteReviewer(id: string): void {
   const reviewers = getReviewers().filter((r) => r.id !== id);
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(reviewers));
+  writeJson(STORAGE_KEY, reviewers);
   // A deleted Reviewer's attempts would otherwise linger and reappear if its
   // id were ever reused — and the delete dialog promises the history goes too.
   deleteQuizHistory(id);
@@ -182,7 +237,7 @@ export function saveQuizAttempt(
 ): QuizAttempt {
   const format = resolveFormat(reviewer.examFormatId);
   const attempt: QuizAttempt = {
-    id: crypto.randomUUID(),
+    id: newId(),
     reviewerId: reviewer.id,
     takenAt: new Date().toISOString(),
     score: questions.filter((q) => answers[q.id] === q.correctIndex).length,
@@ -194,11 +249,11 @@ export function saveQuizAttempt(
     examFormatId: format.id,
     examFormatName: format.name,
   };
-  window.localStorage.setItem(ATTEMPTS_KEY, JSON.stringify([...getAllAttempts(), attempt]));
+  writeJson(ATTEMPTS_KEY, [...getAllAttempts(), attempt]);
   return attempt;
 }
 
 export function deleteQuizHistory(reviewerId: string): void {
   const remaining = getAllAttempts().filter((a) => a.reviewerId !== reviewerId);
-  window.localStorage.setItem(ATTEMPTS_KEY, JSON.stringify(remaining));
+  writeJson(ATTEMPTS_KEY, remaining);
 }

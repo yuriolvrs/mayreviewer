@@ -59,6 +59,18 @@ export default function GenerationModal({
     ref.current?.querySelector<HTMLButtonElement>(FOCUSABLE)?.focus();
   }, [state]);
 
+  // Lock background scroll while open and return focus to the trigger on
+  // unmount, so keyboard users land back where they started.
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = overflow;
+      previouslyFocused?.focus?.();
+    };
+  }, []);
+
   // The dialog owns the keyboard while it's up: Tab cycles within it and Escape
   // does nothing, so the only ways out are Cancel and Done.
   function handleKeyDown(e: React.KeyboardEvent) {

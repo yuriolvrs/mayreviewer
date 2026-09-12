@@ -41,6 +41,10 @@ export default function QuestionCountControl({
   // the fields be re-seeded — otherwise clearing one would immediately refill
   // it with the 0 we just reported.
   const [lastReported, setLastReported] = useState(value);
+  // Adjusting state during render is the sanctioned pattern for syncing
+  // props into state (React docs: "storing information from previous
+  // renders") — an effect here would cost an extra render and trip the
+  // set-state-in-effect rule. The guard keeps it a no-op most renders.
   if (!types.every((t) => value[t] === lastReported[t])) {
     setLastReported(value);
     setText(toText(value, types));

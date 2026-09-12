@@ -22,6 +22,13 @@ export type GenerationFailure = { label: string; reason: string };
 export type AvoidedQuestion = { question: string; answer: string };
 export type VerificationSummary = { corrected: number; dropped: number };
 
+// Blob keys can't carry raw filenames: slashes would nest paths, `..`
+// would escape the owner folder, and huge names bloat the key.
+export function sanitizeBlobName(name: string): string {
+  const base = name.split(/[\\/]/).pop()?.trim() || "file";
+  return base.replace(/[^\w.\-]+/g, "_").slice(0, 100) || "file";
+}
+
 type StreamMessage =
   | {
       type: "progress";
@@ -37,6 +44,16 @@ type StreamMessage =
       failures: GenerationFailure[];
       verified: VerificationSummary;
     };
+
+// Exported for tests: one truncated NDJSON line must not kill the run.
+export function parseStreamLine(line: string): StreamMessage | null {
+  if (!line.trim()) return null;
+  try {
+    return JSON.parse(line) as StreamMessage;
+  } catch {
+    return null;
+  }
+}
 
 export async function generateQuestions(
   reviewer: Reviewer,
@@ -54,21 +71,37 @@ export async function generateQuestions(
   // Uploaded straight to Blob storage from the browser — Vercel Functions cap
   // request bodies at 4.5MB, far below what a PDF set can reach, so the
   // generate request carries a blob URL per file instead of its bytes.
+  // allSettled (not Promise.all): one failed upload must report which file
+  // failed instead of dropping the whole batch's successes silently.
   async function relay(
     files: { id: string; name: string; mimeType: string; data: ArrayBuffer; field?: string }[],
     owner: string,
     fieldOverride?: string,
   ) {
-    return Promise.all(
+    const results = await Promise.allSettled(
       files.map(async (a) => {
+        const safeName = sanitizeBlobName(a.name);
         const blob = await upload(
-          `attachments/${owner}/${a.id}-${a.name}`,
+          `attachments/${owner}/${a.id}-${safeName}`,
           new Blob([a.data], { type: a.mimeType }),
           { access: "public", handleUploadUrl: "/api/blob-upload" },
         );
         return { name: a.name, mimeType: a.mimeType, url: blob.url, field: fieldOverride ?? a.field };
       }),
     );
+    const ok = results.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+    const failed = results.flatMap((r, i) =>
+      r.status === "rejected" ? [files[i].name] : [],
+    );
+    // Blobs uploaded before a sibling failed stay in the store — the browser
+    // has no delete token, so the server deletes what it receives and these
+    // orphans are noted in the error rather than hidden.
+    if (failed.length > 0) {
+      throw new Error(
+        `Couldn't upload ${failed.map((n) => `"${n}"`).join(", ")}. ${ok.length > 0 ? `${ok.length} other file(s) uploaded but were not sent — try again.` : "Nothing was sent."}`,
+      );
+    }
+    return ok;
   }
 
   const rawAttachments = await getAttachments(reviewer.id);
@@ -125,8 +158,8 @@ export async function generateQuestions(
     buffer = lines.pop() ?? "";
 
     for (const line of lines) {
-      if (!line.trim()) continue;
-      const message: StreamMessage = JSON.parse(line);
+      const message = parseStreamLine(line);
+      if (!message) continue;
       if (message.type === "progress") {
         onProgress({
           completed: message.completed,

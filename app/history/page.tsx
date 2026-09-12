@@ -78,6 +78,7 @@ export default function HistoryPage() {
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <button
               onClick={() => setFilterId(null)}
+              aria-pressed={filterId === null}
               className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
                 filterId === null
                   ? "bg-accent text-white"

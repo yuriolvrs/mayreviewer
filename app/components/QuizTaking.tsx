@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import ConfirmDialog from "@/app/components/ConfirmDialog";
 import { groupQuestions, isPreformatted, optionLetter } from "@/app/lib/questions";
 import { isMonoKind, stimulusKindOf, type ExamFormat } from "@/app/lib/examFormats";
 import StimulusBlock from "@/app/components/StimulusBlock";
@@ -278,10 +279,9 @@ export default function QuizTaking({
                   <span className="flex items-baseline gap-2 font-mono text-[14px] font-bold tracking-wide text-text-primary">
                     {numbering.get(question.id)}.
                     {hasProblemBlock && (
-                      <a
-                        href={`#stimulus-${group.key}`}
-                        onClick={(e) => {
-                          e.preventDefault();
+                      <button
+                        type="button"
+                        onClick={() => {
                           document
                             .getElementById(`stimulus-${group.key}`)
                             ?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -289,7 +289,7 @@ export default function QuizTaking({
                         className="font-sans text-[13px] font-normal text-text-tertiary underline decoration-dotted underline-offset-2 hover:text-text-secondary"
                       >
                         ↑ Back to problem
-                      </a>
+                      </button>
                     )}
                   </span>
                   {/* Both buttons never fit beside the number on a phone, and
@@ -317,7 +317,7 @@ export default function QuizTaking({
                       aria-pressed={isUnsure}
                       className={`rounded-lg border px-2.5 py-1 text-[14px] font-medium ${
                         isUnsure
-                          ? "border-error bg-error-subtle text-error"
+                          ? "border-warning bg-warning-subtle text-warning"
                           : "border-border text-text-secondary hover:border-border-strong hover:text-text-primary"
                       }`}
                     >
@@ -395,6 +395,7 @@ export default function QuizTaking({
                         </span>
                         {showFeedback && isConfirmed && isSelected && (
                           <span
+                            aria-live="polite"
                             className={`ml-auto shrink-0 self-center text-[14px] font-medium ${
                               isCorrectOption ? "text-success" : "text-error"
                             }`}
@@ -403,7 +404,7 @@ export default function QuizTaking({
                           </span>
                         )}
                         {revealAnswer && !isSelected && isCorrectOption && (
-                          <span className="ml-auto shrink-0 self-center text-[14px] font-medium text-success">
+                          <span aria-live="polite" className="ml-auto shrink-0 self-center text-[14px] font-medium text-success">
                             Correct answer
                           </span>
                         )}
@@ -429,7 +430,7 @@ export default function QuizTaking({
                 {showFeedback &&
                   isConfirmed &&
                   (question.explanation || question.whyOthersWrong) && (
-                    <div className="mt-3 space-y-2 rounded-lg bg-surface-alt px-3.5 py-2.5 text-[14px] leading-relaxed text-text-secondary">
+                    <div aria-live="polite" className="mt-3 space-y-2 rounded-lg bg-surface-alt px-3.5 py-2.5 text-[14px] leading-relaxed text-text-secondary">
                       {question.explanation && <p>{question.explanation}</p>}
                       {question.whyOthersWrong && <p>{question.whyOthersWrong}</p>}
                     </div>
@@ -472,54 +473,26 @@ export default function QuizTaking({
       </aside>
 
       {confirmCancelOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-6 shadow-menu">
-            <h2 className="text-[19px] font-semibold text-text-primary">Cancel this quiz?</h2>
-            <p className="mt-2 text-[15px] text-text-secondary">
-              Your progress will be lost. Nothing is saved to your attempts.
-            </p>
-            <div className="mt-5 flex justify-end gap-3">
-              <button
-                onClick={() => setConfirmCancelOpen(false)}
-                className="rounded-lg px-4 py-2 text-[15px] font-medium text-text-secondary hover:bg-surface-alt"
-              >
-                Keep working
-              </button>
-              <button
-                onClick={onCancel}
-                className="rounded-lg bg-error px-4 py-2 text-[15px] font-medium text-white hover:opacity-90"
-              >
-                Confirm
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="Cancel this quiz?"
+          body="Your progress will be lost. Nothing is saved to your attempts."
+          confirmLabel="Confirm"
+          cancelLabel="Keep working"
+          destructive
+          onConfirm={onCancel}
+          onCancel={() => setConfirmCancelOpen(false)}
+        />
       )}
 
       {confirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-6 shadow-menu">
-            <h2 className="text-[19px] font-semibold text-text-primary">Submit with blanks?</h2>
-            <p className="mt-2 text-[15px] text-text-secondary">
-              {unansweredCount} question{unansweredCount === 1 ? " is" : "s are"} still unanswered.
-              Unanswered questions count as incorrect.
-            </p>
-            <div className="mt-5 flex justify-end gap-3">
-              <button
-                onClick={() => setConfirmOpen(false)}
-                className="rounded-lg px-4 py-2 text-[15px] font-medium text-text-secondary hover:bg-surface-alt"
-              >
-                Keep working
-              </button>
-              <button
-                onClick={() => onSubmit(answers, unsureIds)}
-                className="rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-white hover:bg-accent-hover"
-              >
-                Submit anyway
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="Submit with blanks?"
+          body={`${unansweredCount} question${unansweredCount === 1 ? " is" : "s are"} still unanswered. Unanswered questions count as incorrect.`}
+          confirmLabel="Submit anyway"
+          cancelLabel="Keep working"
+          onConfirm={() => onSubmit(answers, unsureIds)}
+          onCancel={() => setConfirmOpen(false)}
+        />
       )}
     </div>
   );

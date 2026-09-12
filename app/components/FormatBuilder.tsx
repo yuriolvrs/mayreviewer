@@ -34,6 +34,7 @@ import {
   type FormatAttachment,
 } from "@/app/lib/attachments";
 import { MAX_QUESTION_COUNT } from "@/app/lib/questions";
+import { newId } from "@/app/lib/ids";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
 
 // One row of the builder: everything about a single question type. Counts
@@ -160,14 +161,14 @@ export default function FormatBuilder({
         ),
     );
 
-    for (const file of native) {
-      const attachment = await addFormatAttachment(formatId, file);
-      setStoredFiles((prev) => [...prev, attachment]);
-    }
+    // Uploaded in parallel: a sequential await chain makes N files take N
+    // round trips to Blob storage.
+    const added = await Promise.all(native.map((file) => addFormatAttachment(formatId, file)));
+    setStoredFiles((prev) => [...prev, ...added]);
     for (const file of textables) {
       try {
         const text = await extractTextFromFile(file);
-        setExtracted((prev) => [...prev, { id: crypto.randomUUID(), name: file.name, text }]);
+        setExtracted((prev) => [...prev, { id: newId(), name: file.name, text }]);
       } catch {
         // A HEIC rejection above stays put — one unreadable text file must
         // not erase the more actionable message.
@@ -359,27 +360,23 @@ export default function FormatBuilder({
             onChange={(e) => setPastText(e.target.value)}
             rows={3}
             placeholder="Paste a past exam here…"
+            aria-label="Paste a past exam"
             className="rounded-lg border border-border px-3 py-2 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
           />
           <div
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                pastInputRef.current?.click();
-              }
-            }}
             onClick={() => pastInputRef.current?.click()}
             className="cursor-pointer rounded-lg border-2 border-dashed border-border p-5 text-center text-[14px] text-text-secondary hover:border-border-strong"
           >
             <p>Drop PDF or image pages here, or click to browse. DOCX/TXT are read as text.</p>
+            {/* Visually hidden but focusable: keyboard users get a native
+                file input, not a div pretending to be one. */}
             <input
               ref={pastInputRef}
               type="file"
               accept={ACCEPTED_UPLOAD_EXTENSIONS}
               multiple
-              className="hidden"
+              aria-label="Upload past-exam files"
+              className="sr-only"
               onChange={(e) => {
                 if (e.target.files) void addPastFiles(Array.from(e.target.files));
                 e.target.value = "";
@@ -433,7 +430,11 @@ export default function FormatBuilder({
             >
               {inferState === "running" ? "Reading exam…" : "Infer question types"}
             </button>
-            {inferError && <span className="text-[14px] text-error">{inferError}</span>}
+            {inferError && (
+              <span role="alert" className="text-[14px] text-error">
+                {inferError}
+              </span>
+            )}
           </div>
 
           {unsupported.length > 0 && (
@@ -553,7 +554,7 @@ export default function FormatBuilder({
                 <button
                   type="button"
                   onClick={() => patch(i, { examples: t.examples.filter((_, k) => k !== j) })}
-                  aria-label="Remove example"
+                  aria-label={`Remove example ${j + 1} from ${t.label.trim() || `type ${i + 1}`}`}
                   className="mt-2 shrink-0 text-text-tertiary hover:text-error"
                 >
                   ✕
@@ -589,7 +590,9 @@ export default function FormatBuilder({
         <button
           type="button"
           onClick={() => setTypes((prev) => [...prev, blankDraft()])}
-          className="flex h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong text-[15px] font-medium text-text-secondary hover:border-accent hover:text-accent"
+          disabled={types.length >= MAX_FORMAT_TYPES}
+          title={types.length >= MAX_FORMAT_TYPES ? `At most ${MAX_FORMAT_TYPES} types per format` : undefined}
+          className="flex h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong text-[15px] font-medium text-text-secondary enabled:hover:border-accent enabled:hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
         >
           + Add question type
         </button>
@@ -603,7 +606,11 @@ export default function FormatBuilder({
         </p>
       </div>
 
-      {error && <p className="text-[15px] text-error">{error}</p>}
+      {error && (
+        <p role="alert" className="text-[15px] text-error">
+          {error}
+        </p>
+      )}
 
       <div className="flex justify-end border-t border-border py-6">
         <button

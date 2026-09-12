@@ -15,7 +15,7 @@ const FEEDBACK_OPTIONS: { value: FeedbackMode; label: string; hint: string }[] =
   {
     value: "immediate",
     label: "Show correct/incorrect immediately",
-    hint: "Feedback appears as you answer. You can still change an answer afterward.",
+    hint: "Feedback appears as you answer. Confirm locks the answer; explanations show immediately.",
   },
   {
     value: "end-only",
@@ -170,6 +170,7 @@ export default function QuizSetup({
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
             onClick={() => applyScope([])}
+            aria-pressed={scopeTypes.length === 0}
             className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
               scopeTypes.length === 0
                 ? "bg-accent text-white"
@@ -201,9 +202,11 @@ export default function QuizSetup({
               type="number"
               min={1}
               max={available}
+              inputMode="numeric"
               value={countInput}
               onChange={(e) => setCountInput(e.target.value)}
               onBlur={() => setCountInput(String(count))}
+              aria-describedby={overAsked ? "quiz-count-note" : undefined}
               className="h-10 w-20 rounded-lg border border-border bg-surface px-2 text-[15px] text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
             />
           </label>
@@ -211,7 +214,7 @@ export default function QuizSetup({
         </div>
 
         {overAsked && (
-          <p className="mt-2 text-[14px] text-text-secondary">
+          <p id="quiz-count-note" className="mt-2 text-[14px] text-text-secondary">
             Only {available} question{available === 1 ? " is" : "s are"} available in this scope —
             the quiz will use {count}.
           </p>

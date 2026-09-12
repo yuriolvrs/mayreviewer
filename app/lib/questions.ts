@@ -147,6 +147,18 @@ function isOptionalString(value: unknown): boolean {
 export function isValidQuestionFields(value: unknown): value is Omit<Question, "id"> {
   if (typeof value !== "object" || value === null) return false;
   const q = value as Record<string, unknown>;
+  // Generated questions usually have 4 options (the built-in prompt blocks
+  // ask for 4), but the schema allows 2–4 and a hand-written or hand-edited
+  // one may have as few as 2 — rejecting those would silently drop them on
+  // import. More than 4 breaks the A-D renderer, blanks aren't options, and
+  // duplicates are never valid in multiple choice.
+  const options = q.options;
+  const optionsOk =
+    Array.isArray(options) &&
+    options.length >= 2 &&
+    options.length <= 4 &&
+    options.every((o) => typeof o === "string" && o.trim().length > 0 && o.length <= 5000) &&
+    new Set(options.map((o) => (o as string).trim().toLowerCase())).size === options.length;
   return (
     isOptionalString(q.groupId) &&
     isOptionalString(q.groupTitle) &&
@@ -156,17 +168,12 @@ export function isValidQuestionFields(value: unknown): value is Omit<Question, "
     typeof q.type === "string" &&
     q.type.length > 0 &&
     typeof q.question === "string" &&
-    Array.isArray(q.options) &&
-  // Generated questions usually have 4 options (the built-in prompt blocks
-  // ask for 4), but the schema allows 2–4 and a hand-written or hand-edited
-  // one may have as few as 2 — rejecting those would silently drop them on
-  // import.
-    q.options.length >= 2 &&
-    q.options.every((o) => typeof o === "string") &&
+    q.question.trim().length > 0 &&
+    optionsOk &&
     typeof q.correctIndex === "number" &&
     Number.isInteger(q.correctIndex) &&
     q.correctIndex >= 0 &&
-    q.correctIndex < q.options.length &&
+    q.correctIndex < (options as unknown[]).length &&
     typeof q.source === "string" &&
     QUESTION_SOURCES.includes(q.source as QuestionSource)
   );

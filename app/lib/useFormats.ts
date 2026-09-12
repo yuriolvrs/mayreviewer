@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   getBuiltinFormats,
   getCustomFormats,
@@ -20,4 +20,15 @@ export function useFormats(): ExamFormat[] {
     setCustoms(getCustomFormats());
   }, []);
   return useMemo(() => mergeFormats(getBuiltinFormats(), customs), [customs]);
+}
+
+// True once the client has hydrated (when localStorage customs are
+// readable). Gates UI that resolves a format id, so a custom format doesn't
+// flash as missing/built-in on the first render.
+export function useFormatsLoaded(): boolean {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 }

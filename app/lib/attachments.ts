@@ -1,4 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
+import { newId } from "@/app/lib/ids";
 
 // PDFs and images stay as-is (native vision on both providers — text,
 // diagrams, charts, photos) instead of being flattened to extracted text.
@@ -85,16 +86,26 @@ export async function addAttachment(
   file: File,
 ): Promise<Attachment> {
   const db = await getDb();
+  let data: ArrayBuffer;
+  try {
+    data = await file.arrayBuffer();
+  } catch {
+    throw new Error(`Couldn't read "${file.name}" — the file may be locked or corrupted.`);
+  }
   const attachment: Attachment = {
-    id: crypto.randomUUID(),
+    id: newId(),
     reviewerId,
     field,
     name: file.name,
     mimeType: file.type || "application/pdf",
-    data: await file.arrayBuffer(),
+    data,
     addedAt: new Date().toISOString(),
   };
-  await db.put("attachments", attachment);
+  try {
+    await db.put("attachments", attachment);
+  } catch {
+    throw new Error("Couldn't save that file — browser storage may be full.");
+  }
   return attachment;
 }
 
@@ -120,15 +131,25 @@ export async function getFormatAttachments(formatId: string): Promise<FormatAtta
 
 export async function addFormatAttachment(formatId: string, file: File): Promise<FormatAttachment> {
   const db = await getDb();
+  let data: ArrayBuffer;
+  try {
+    data = await file.arrayBuffer();
+  } catch {
+    throw new Error(`Couldn't read "${file.name}" — the file may be locked or corrupted.`);
+  }
   const attachment: FormatAttachment = {
-    id: crypto.randomUUID(),
+    id: newId(),
     formatId,
     name: file.name,
     mimeType: file.type || "application/pdf",
-    data: await file.arrayBuffer(),
+    data,
     addedAt: new Date().toISOString(),
   };
-  await db.put("format-attachments", attachment);
+  try {
+    await db.put("format-attachments", attachment);
+  } catch {
+    throw new Error("Couldn't save that file — browser storage may be full.");
+  }
   return attachment;
 }
 
@@ -150,15 +171,27 @@ export async function deleteFormatAttachments(formatId: string): Promise<void> {
 // Copies a format's past-exam files under a new id (used when cloning: the
 // record clone alone would leave the copy generating from text only, with no
 // indication its files stayed behind).
-export async function cloneFormatAttachments(sourceId: string, newId: string): Promise<void> {
+export async function cloneFormatAttachments(sourceId: string, targetId: string): Promise<void> {
   const db = await getDb();
   const source = await db.getAllFromIndex("format-attachments", "by-format", sourceId);
-  for (const a of source) {
-    await db.put("format-attachments", {
-      ...a,
-      id: crypto.randomUUID(),
-      formatId: newId,
-      addedAt: new Date().toISOString(),
-    });
+  // Guarded: cloning doubles stored bytes, and a mid-clone quota failure
+  // would otherwise leave a half-cloned format behind.
+  const totalBytes = source.reduce((sum, a) => sum + a.data.byteLength, 0);
+  if (source.length > 10 || totalBytes > 40 * 1024 * 1024) {
+    throw new Error("That format's files are too large to clone — re-attach them instead.");
+  }
+  try {
+    for (const a of source) {
+      await db.put("format-attachments", {
+        ...a,
+        id: newId(),
+        formatId: targetId,
+        addedAt: new Date().toISOString(),
+      });
+    }
+  } catch {
+    // Roll back the partial copy so the clone never points at half its files.
+    await deleteFormatAttachments(targetId).catch(() => {});
+    throw new Error("Couldn't clone those files — browser storage may be full.");
   }
 }

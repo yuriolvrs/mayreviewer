@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   deleteReviewer,
+  dismissStorageCorruption,
   getQuizHistory,
   getReviewer,
   getReviewers,
@@ -53,6 +54,8 @@ const asked = [question("q1"), question("q2")];
 
 beforeEach(() => {
   localStorage.clear();
+  dismissStorageCorruption("mayreviewer-reviewers");
+  dismissStorageCorruption("mayreviewer-quiz-attempts");
 });
 
 describe("getReviewers", () => {

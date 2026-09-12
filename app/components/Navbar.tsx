@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -8,6 +9,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -19,6 +21,11 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  function closeMenu() {
+    setMenuOpen(false);
+    menuButtonRef.current?.focus();
+  }
+
   const reviewersActive = pathname === "/" || pathname.startsWith("/reviewer");
   const formatsActive = pathname.startsWith("/formats");
   const historyActive = pathname.startsWith("/history");
@@ -26,7 +33,7 @@ export default function Navbar() {
   return (
     <header className="flex h-auto shrink-0 flex-wrap items-center justify-between gap-y-3 border-b border-border bg-surface px-4 py-3 md:h-16 md:flex-nowrap md:px-16 md:py-0">
       <Link href="/" className="flex items-center gap-2 hover:opacity-70">
-        <img src="/icon.svg" alt="" className="h-6 w-6" />
+        <Image src="/icon.svg" alt="" width={24} height={24} className="h-6 w-6" aria-hidden="true" />
         <span className="flex flex-col leading-none text-text-primary">
           <span className="mb-[-2px] text-[11px] font-normal">pre,</span>
           <span className="text-xl font-bold tracking-tight">May Reviewer</span>
@@ -34,7 +41,7 @@ export default function Navbar() {
         </span>
       </Link>
 
-      <nav className="flex flex-wrap items-center gap-3 md:gap-6">
+      <nav aria-label="Primary" className="flex flex-wrap items-center gap-3 md:gap-6">
         <Link
           href="/"
           className={`text-[14px] md:text-[15px] ${
@@ -66,18 +73,31 @@ export default function Navbar() {
           History
         </Link>
 
-        <div className="relative" ref={menuRef}>
+        <div
+          className="relative"
+          ref={menuRef}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.preventDefault();
+              closeMenu();
+            }
+          }}
+        >
           <button
+            ref={menuButtonRef}
             onClick={() => setMenuOpen((v) => !v)}
             aria-label="Account menu"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-[13px] font-semibold text-white"
           >
             U
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-11 w-40 rounded-lg border border-border bg-surface py-1 shadow-menu">
+            <div role="menu" className="absolute right-0 top-11 w-40 rounded-lg border border-border bg-surface py-1 shadow-menu">
               <Link
                 href="/about"
+                role="menuitem"
                 onClick={() => setMenuOpen(false)}
                 className="block px-3 py-2 text-left text-[15px] text-text-primary hover:bg-surface-alt"
               >
@@ -85,12 +105,14 @@ export default function Navbar() {
               </Link>
               <button
                 disabled
+                title="Coming soon"
                 className="block w-full px-3 py-2 text-left text-[15px] text-text-tertiary disabled:cursor-not-allowed"
               >
                 Settings
               </button>
               <button
                 disabled
+                title="Coming soon"
                 className="block w-full px-3 py-2 text-left text-[15px] text-text-tertiary disabled:cursor-not-allowed"
               >
                 Log out

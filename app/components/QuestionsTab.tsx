@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { updateReviewer } from "@/app/lib/storage";
 import {
   QUESTION_SOURCES,
@@ -24,6 +24,7 @@ import {
   type VerificationSummary,
 } from "@/app/lib/generate";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
+import { newId } from "@/app/lib/ids";
 import GenerationModal from "@/app/components/GenerationModal";
 import StimulusQuote from "@/app/components/StimulusQuote";
 import type { Question, QuestionSource, Reviewer } from "@/app/types";
@@ -419,7 +420,7 @@ function startCreate() {
 
     if (draft.id === NEW_ID) {
       updateReviewer(reviewer.id, {
-        questions: [...reviewer.questions, { ...draft, id: crypto.randomUUID() }],
+        questions: [...reviewer.questions, { ...draft, id: newId() }],
       });
     } else {
       // The problem text is shared by every question in the set, so an edit to it
@@ -534,6 +535,14 @@ function startCreate() {
   const allVisibleSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selected.includes(id));
   const someVisibleSelected = visibleIds.some((id) => selected.includes(id));
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  // Set outside render: mutating the DOM node during render is a side effect.
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = !allVisibleSelected && someVisibleSelected;
+    }
+  }, [allVisibleSelected, someVisibleSelected]);
 
   function toggleSelectAllVisible() {
     setConfirmBulkDelete(false);
@@ -688,9 +697,7 @@ function startCreate() {
             <input
               type="checkbox"
               checked={allVisibleSelected}
-              ref={(el) => {
-                if (el) el.indeterminate = !allVisibleSelected && someVisibleSelected;
-              }}
+              ref={selectAllRef}
               onChange={toggleSelectAllVisible}
               aria-label={`Select all ${visible.length} question${visible.length === 1 ? "" : "s"}`}
               className="h-4 w-4 shrink-0 accent-accent"

@@ -9,14 +9,14 @@ This document maps every screen, state, and transition for Claude Code to build 
 There is **no global tab bar**. Structure is now:
 
 - **Home** — a flat list of all your Reviewers (this is the app's root page)
-- **Reviewer Space** — clicking into a Reviewer takes you to its own page, which has **its own local tab bar scoped to that Reviewer only**: `Upload` | `Edit Questions` | `Import/Export`
+- **Reviewer Space** — clicking into a Reviewer takes you to its own page, which has **its own local tab bar scoped to that Reviewer only**: `Details` | `Questions` | `Import/Export` (sources live inside Details; generation lives in Questions)
 - **Quiz** — reached from inside a Reviewer's space via a button, but is its **own separate page**, not one of the three local tabs (since taking a quiz is a focused, full-screen task)
 
 ```
 Home (Reviewer list)
   └─ Reviewer Space (/reviewer/[id])
-       ├─ Tab: Upload
-       ├─ Tab: Edit Questions
+       ├─ Tab: Details (info + source material)
+       ├─ Tab: Questions (pool, generate, edit)
        ├─ Tab: Import/Export
        └─ [Quiz button] → Quiz Page (/reviewer/[id]/quiz) — separate page
 ```
@@ -147,7 +147,7 @@ Added after this doc's first draft; reachable from the persistent nav rather tha
 
 - Rolls up quiz attempts across **all** Reviewers — the per-Reviewer list on Screen 4 stays where it is
 - Reads through `getQuizHistory()` in `lib/storage.ts` like every other screen; attempts are already stored globally under one key and filtered per Reviewer, so a cross-Reviewer roll-up needs no new storage shape
-- **Status: placeholder only.** The route and nav link exist; the page still shows "coming in Phase 6" copy that's now stale, and no attempts are listed yet.
+- **Status: shipped.** Lists every attempt across all reviewers, newest first, grouped by reviewer with a reviewer filter. Attempts carrying their question set reopen in the quiz results screen via `?attempt=`.
 
 ---
 

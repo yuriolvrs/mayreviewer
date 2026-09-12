@@ -249,7 +249,7 @@ export default function SettingsPage() {
                   aria-pressed={settings.theme === t.value}
                   className={`flex min-h-8 flex-1 items-center justify-center rounded-md px-2 py-1.5 text-[15px] ${
                     settings.theme === t.value
-                      ? "bg-accent font-semibold text-white"
+                      ? "bg-accent font-semibold text-on-accent"
                       : "text-text-secondary hover:text-text-primary"
                   }`}
                 >
@@ -333,15 +333,21 @@ export default function SettingsPage() {
           >
             About May Reviewer
           </Link>
-          <p className="border-b border-border py-3 text-[14px] text-text-secondary">
-            Privacy and Terms arrive in Phase 2.
-          </p>
-          <a
-            href="mailto:support@example.com?subject=May%20Reviewer%20feedback"
+          <div className="flex min-h-[44px] flex-wrap items-center gap-x-2 border-b border-border py-2 text-[15px]">
+            <Link href="/privacy" className="font-medium text-accent underline">
+              Privacy Policy
+            </Link>
+            <span className="text-text-tertiary">and</span>
+            <Link href="/terms" className="font-medium text-accent underline">
+              Terms of Use
+            </Link>
+          </div>
+          <Link
+            href="/about#feedback"
             className="flex min-h-[44px] items-center border-b border-border py-2 text-[15px] font-medium text-accent underline"
           >
-            Send feedback by email
-          </a>
+            Send feedback
+          </Link>
           <p className="py-3 text-[14px] text-text-secondary">Version 0.1.0</p>
         </Section>
       </div>

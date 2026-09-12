@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Link from "next/link";
 import { Libre_Franklin, Space_Mono } from "next/font/google";
 import BottomBar from "@/app/components/BottomBar";
 import Navbar from "@/app/components/Navbar";
@@ -57,6 +58,34 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <main id="main" className="flex flex-1 flex-col pb-16 md:pb-0">
           {children}
         </main>
+        <footer className="border-t border-border px-4 py-2 md:px-16">
+          <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-5">
+            <Link
+              href="/about"
+              className="inline-block py-2 text-[13px] text-text-secondary hover:text-text-primary"
+            >
+              About
+            </Link>
+            <Link
+              href="/privacy"
+              className="inline-block py-2 text-[13px] text-text-secondary hover:text-text-primary"
+            >
+              Privacy
+            </Link>
+            <Link
+              href="/terms"
+              className="inline-block py-2 text-[13px] text-text-secondary hover:text-text-primary"
+            >
+              Terms
+            </Link>
+            <Link
+              href="/about#feedback"
+              className="inline-block py-2 text-[13px] text-text-secondary hover:text-text-primary"
+            >
+              Feedback
+            </Link>
+          </nav>
+        </footer>
         <BottomBar />
         <ThemeInit />
       </body>

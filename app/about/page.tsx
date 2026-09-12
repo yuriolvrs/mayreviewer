@@ -1,3 +1,6 @@
+import FeedbackForm from "@/app/components/FeedbackForm";
+import { APP_VERSION } from "@/app/lib/feedback";
+
 function Section({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
   return (
     <section id={id} className="border-t border-border py-6 scroll-mt-6">
@@ -89,6 +92,11 @@ export default function AboutPage() {
           </ul>
         </Section>
 
+        <Section title="Feedback" id="feedback">
+          <p>Found a bug or want something? Tell me below — it opens your mail app.</p>
+          <FeedbackForm />
+        </Section>
+
         <Section title="Credits">
           <p>
             Question generation is powered by Google Gemini. Built with Next.js, React, and Tailwind
@@ -97,6 +105,7 @@ export default function AboutPage() {
             <span className="font-mono">fflate</span> for zip import/export, and{" "}
             <span className="font-mono">idb</span> for storing uploaded files in the browser.
           </p>
+          <p className="text-[14px] text-text-tertiary">May Reviewer v{APP_VERSION}.</p>
         </Section>
 
         <section className="border-t border-border py-6">

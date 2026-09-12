@@ -51,6 +51,25 @@ export type Question = {
 
 export type FeedbackMode = "immediate" | "end-only";
 
+// Phase 1 (Mobile-Gaps-Plan): user-level preferences stored in
+// `mayreviewer-settings` via `app/lib/settings.ts`. The only file that
+// touches that key — same seam as `storage.ts` for a future Supabase swap.
+export type ThemePreference = "system" | "light" | "dark";
+export type FontSizePreference = "normal" | "large";
+
+export type UserSettings = {
+  feedbackMode: FeedbackMode;
+  defaultCount: number;
+  shuffle: boolean;
+  theme: ThemePreference;
+  fontSize: FontSizePreference;
+  reduceMotion: boolean;
+  remindersEnabled: boolean;
+  reminderTime: string;
+  // Reserved for later monetization. Always "free" in v1 — nothing gates on it.
+  proTier: "free";
+};
+
 // One completed quiz attempt, listed in the Quiz History section and reopenable
 // from there. It's a snapshot rather than a pointer: the questions asked are
 // copied in beside the answers and unsure flags, so an old attempt still shows

@@ -9,7 +9,9 @@ describe("createRateLimiter hardening", () => {
     expect(check("USER").allowed).toBe(false);
   });
 
-  it("caps bucket growth under spoofed-IP floods", () => {
+  // 20k iterations take ~4s alone and exceed the 5s default under parallel
+  // load — wall-clock only, no behavior change.
+  it("caps bucket growth under spoofed-IP floods", { timeout: 30_000 }, () => {
     const check = createRateLimiter(1, 60_000);
     for (let i = 0; i < 20_000; i++) check(`ip-${i}`);
     // Still functional after the flood: fresh keys get a bucket, old ones roll.

@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { newId } from "@/app/lib/ids";
 import { useTopicList } from "@/app/lib/useTopics";
 import { saveReviewer } from "@/app/lib/storage";
+import { getSettings } from "@/app/lib/settings";
 import {
   MAX_QUESTION_COUNT,
   MIN_QUESTION_COUNT,
@@ -20,17 +21,14 @@ import QuestionCountControl from "@/app/components/QuestionCountControl";
 import SourceSections from "@/app/components/SourceSections";
 import type { Reviewer } from "@/app/types";
 
-// Reasonable starting point for a reviewer with no questions yet — matches
-// what most first generations ask for, without forcing the max every time.
-const DEFAULT_NEW_QUESTION_COUNT = 20;
-
 export default function NewReviewerPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
   const topicList = useTopicList([]);
   const [countByType, setCountByType] = useState<Record<string, number>>(() =>
-    splitCountEvenly(DEFAULT_NEW_QUESTION_COUNT),
+    // Seeded from Settings so the user's default count carries into new reviewers.
+    splitCountEvenly(getSettings().defaultCount),
   );
   // Customs arrive after mount (see useFormats): the first render is
   // built-ins-only on both server and client, so hydration always agrees.

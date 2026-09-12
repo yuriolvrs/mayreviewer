@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Libre_Franklin, Space_Mono } from "next/font/google";
+import BottomBar from "@/app/components/BottomBar";
 import Navbar from "@/app/components/Navbar";
+import ThemeInit from "@/app/components/ThemeInit";
 import "./globals.css";
 
 const libreFranklin = Libre_Franklin({
@@ -25,6 +27,11 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f7f6" },
+    { media: "(prefers-color-scheme: dark)", color: "#171716" },
+  ],
   // The Details tab's unsaved-changes bar is `position: fixed; bottom: 0`.
   // Under the browser default the layout viewport doesn't shrink when the
   // on-screen keyboard opens, so that bar ends up behind the keyboard exactly
@@ -47,9 +54,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           Skip to content
         </a>
         <Navbar />
-        <main id="main" className="flex flex-1 flex-col">
+        <main id="main" className="flex flex-1 flex-col pb-16 md:pb-0">
           {children}
         </main>
+        <BottomBar />
+        <ThemeInit />
       </body>
     </html>
   );

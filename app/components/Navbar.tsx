@@ -29,6 +29,7 @@ export default function Navbar() {
   const reviewersActive = pathname === "/" || pathname.startsWith("/reviewer");
   const formatsActive = pathname.startsWith("/formats");
   const historyActive = pathname.startsWith("/history");
+  const settingsActive = pathname.startsWith("/settings");
 
   return (
     <header className="flex h-auto shrink-0 flex-wrap items-center justify-between gap-y-3 border-b border-border bg-surface px-4 py-3 md:h-16 md:flex-nowrap md:px-16 md:py-0">
@@ -89,7 +90,7 @@ export default function Navbar() {
             aria-label="Account menu"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-[13px] font-semibold text-white"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-[13px] font-semibold text-white"
           >
             U
           </button>
@@ -99,21 +100,24 @@ export default function Navbar() {
                 href="/about"
                 role="menuitem"
                 onClick={() => setMenuOpen(false)}
-                className="block px-3 py-2 text-left text-[15px] text-text-primary hover:bg-surface-alt"
+                className="block min-h-[44px] px-3 py-2 text-left text-[15px] text-text-primary hover:bg-surface-alt"
               >
                 About
+              </Link>
+              <Link
+                href="/settings"
+                role="menuitem"
+                onClick={() => setMenuOpen(false)}
+                className={`block min-h-[44px] px-3 py-2 text-left text-[15px] hover:bg-surface-alt ${
+                  settingsActive ? "font-semibold text-text-primary" : "text-text-primary"
+                }`}
+              >
+                Settings
               </Link>
               <button
                 disabled
                 title="Coming soon"
-                className="block w-full px-3 py-2 text-left text-[15px] text-text-tertiary disabled:cursor-not-allowed"
-              >
-                Settings
-              </button>
-              <button
-                disabled
-                title="Coming soon"
-                className="block w-full px-3 py-2 text-left text-[15px] text-text-tertiary disabled:cursor-not-allowed"
+                className="block min-h-[44px] w-full px-3 py-2 text-left text-[15px] text-text-tertiary disabled:cursor-not-allowed"
               >
                 Log out
               </button>

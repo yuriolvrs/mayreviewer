@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { getQuizHistory, getReviewer, saveQuizAttempt } from "@/app/lib/storage";
+import { getSettings } from "@/app/lib/settings";
 import { resolveFromList } from "@/app/lib/examFormats";
 import { useFormats, useFormatsLoaded } from "@/app/lib/useFormats";
 import { shuffleOptions } from "@/app/lib/questions";
@@ -53,6 +54,7 @@ function QuizPageInner() {
     // localStorage is a browser-only external store; one-off read on mount is intentional.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setReviewer(getReviewer(id) ?? null);
+    setFeedbackMode(getSettings().feedbackMode);
     const attempts = getQuizHistory(id);
     setHistory(attempts);
 
@@ -122,8 +124,9 @@ function QuizPageInner() {
           onRetake={() => {
             // Fresh attempt: QuizTaking is remounted by the stage switch, so
             // answers and unsure flags both start empty again. Reopened from
-            // history, this re-serves that attempt's question set, reshuffled.
-            setQuizQuestions((prev) => prev.map(shuffleOptions));
+            // history, this re-serves that attempt's question set, reshuffled
+            // unless the user turned shuffle off in Settings.
+            setQuizQuestions((prev) => (getSettings().shuffle ? prev.map(shuffleOptions) : prev));
             setSubmitted(null);
             setReviewedAt(null);
             setStage("taking");
@@ -171,7 +174,8 @@ function QuizPageInner() {
           feedbackMode={feedbackMode}
           onFeedbackModeChange={setFeedbackMode}
           onStart={(questions) => {
-            setQuizQuestions(questions.map(shuffleOptions));
+            const served = getSettings().shuffle ? questions.map(shuffleOptions) : questions;
+            setQuizQuestions(served);
             setFormatId(reviewer.examFormatId);
             setStage("taking");
             window.scrollTo({ top: 0 });

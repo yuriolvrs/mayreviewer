@@ -173,7 +173,7 @@ export default function QuizSetup({
             aria-pressed={scopeTypes.length === 0}
             className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
               scopeTypes.length === 0
-                ? "bg-accent text-white"
+                ? "bg-accent text-on-accent"
                 : "border border-border-strong text-text-secondary hover:text-text-primary"
             }`}
           >
@@ -186,7 +186,7 @@ export default function QuizSetup({
               aria-pressed={scopeTypes.includes(type)}
               className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
                 scopeTypes.includes(type)
-                  ? "bg-accent text-white"
+                  ? "bg-accent text-on-accent"
                   : "border border-border-strong text-text-secondary hover:text-text-primary"
               }`}
             >
@@ -256,7 +256,7 @@ export default function QuizSetup({
           onClick={() => onStart(sampleProportionally(pool, count))}
           disabled={available === 0}
           title={available === 0 ? "No questions in this scope" : undefined}
-          className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-white enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
         >
           Start quiz
         </button>

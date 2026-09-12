@@ -275,7 +275,7 @@ export default function NewReviewerPage() {
                 type="button"
                 onClick={confirmImportCreate}
                 disabled={importing}
-                className="rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-on-accent hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {importing ? "Creating…" : "Create from file"}
               </button>
@@ -488,7 +488,7 @@ export default function NewReviewerPage() {
         <div className="flex justify-end border-t border-border py-6">
           <button
             type="submit"
-            className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-white hover:bg-accent-hover"
+            className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-on-accent hover:bg-accent-hover"
           >
             Create Reviewer
           </button>

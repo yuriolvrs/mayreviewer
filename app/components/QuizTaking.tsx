@@ -494,7 +494,7 @@ export default function QuizTaking({
         <div className="mt-8 flex justify-end">
           <button
             onClick={handleSubmit}
-            className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-white hover:bg-accent-hover"
+            className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-on-accent hover:bg-accent-hover"
           >
             Submit quiz
           </button>

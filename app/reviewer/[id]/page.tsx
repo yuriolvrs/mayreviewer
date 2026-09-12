@@ -109,7 +109,7 @@ function ReviewerSpace() {
             {hasQuestions ? (
               <Link
                 href={`/reviewer/${reviewer.id}/quiz`}
-                className="rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-white hover:bg-accent-hover"
+                className="rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-on-accent hover:bg-accent-hover"
               >
                 Take Quiz
               </Link>
@@ -119,7 +119,7 @@ function ReviewerSpace() {
                 disabled
                 title="Generate questions first"
                 aria-disabled="true"
-                className="cursor-not-allowed rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-white opacity-40"
+                className="cursor-not-allowed rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-on-accent opacity-40"
               >
                 Take Quiz
               </button>

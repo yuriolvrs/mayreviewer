@@ -15,6 +15,10 @@
   --color-accent: #a8681f;
   --color-accent-hover: #8f5416;
   --color-accent-subtle: #f3e6d3;
+  /* Text on accent/error fills. White passes in light mode but fails on the
+     brighter dark variants, so the ink flips to near-black in dark mode. */
+  --color-on-accent: #ffffff;
+  --color-on-error: #ffffff;
   /* Informational blue, deliberately outside the warm accent family — used to
      mark the fill-in blanks inside a code listing without reading as either
      correct/incorrect (green/red) or needs-attention (warning). */
@@ -60,6 +64,8 @@
   --color-success-subtle: #1e3a28;
   --color-error: #e08a7d;
   --color-error-subtle: #452522;
+  --color-on-accent: #1c150a;
+  --color-on-error: #2b1210;
 }
 
 /* Large-text preference. Proportional bump only — layout stays the same. */

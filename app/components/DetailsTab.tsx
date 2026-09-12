@@ -387,7 +387,7 @@ export default function DetailsTab({
         </div>
         <button
           onClick={onDeleteRequest}
-          className="shrink-0 rounded-lg border border-error px-4 py-2 text-[15px] font-medium text-error hover:bg-error hover:text-white"
+          className="shrink-0 rounded-lg border border-error px-4 py-2 text-[15px] font-medium text-error hover:bg-error hover:text-on-error"
         >
           Delete reviewer
         </button>
@@ -423,7 +423,7 @@ export default function DetailsTab({
                     onClick={handleSave}
                     disabled={!name.trim()}
                     title={name.trim() ? undefined : "Reviewer name is required"}
-                    className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-white enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Save details
                   </button>

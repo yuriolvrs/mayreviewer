@@ -204,7 +204,7 @@ function QuestionEditor({
             onClick={onSave}
             disabled={!canSave}
             title={saveHint()}
-            className="rounded-lg bg-accent px-3 py-1.5 font-medium text-white enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-lg bg-accent px-3 py-1.5 font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             Save
           </button>
@@ -620,7 +620,7 @@ function startCreate() {
           onClick={handleGenerateClick}
           disabled={generating}
           title={`Generate ${reviewer.questionCount} questions from this reviewer's sources`}
-          className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 text-[15px] font-medium text-white enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:shrink-0"
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 text-[15px] font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:shrink-0"
         >
           <SparkleIcon />
           {generating ? "Generating…" : "Generate"}
@@ -668,7 +668,7 @@ function startCreate() {
               onClick={() => setTypeFilter(t)}
               className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
                 typeFilter === t
-                  ? "bg-accent text-white"
+                  ? "bg-accent text-on-accent"
                   : "border border-border-strong text-text-secondary hover:text-text-primary"
               }`}
             >

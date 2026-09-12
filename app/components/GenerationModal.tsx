@@ -134,7 +134,7 @@ export default function GenerationModal({
           <button
             type="button"
             onClick={onDone}
-            className="mt-2 rounded-lg bg-accent px-5 py-2 text-[15px] font-medium text-white hover:bg-accent-hover"
+            className="mt-2 rounded-lg bg-accent px-5 py-2 text-[15px] font-medium text-on-accent hover:bg-accent-hover"
           >
             Done
           </button>

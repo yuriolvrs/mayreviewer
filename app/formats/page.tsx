@@ -148,7 +148,7 @@ export default function FormatsPage() {
         </div>
         <Link
           href="/formats/new"
-          className="shrink-0 rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-white hover:bg-accent-hover"
+          className="shrink-0 rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-on-accent hover:bg-accent-hover"
         >
           + New format
         </Link>

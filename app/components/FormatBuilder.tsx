@@ -428,7 +428,7 @@ export default function FormatBuilder({
                   ? "Paste or upload a past exam first"
                   : undefined
               }
-              className="rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-white enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
             >
               {inferState === "running" ? "Reading exam…" : "Infer question types"}
             </button>
@@ -618,7 +618,7 @@ export default function FormatBuilder({
         <button
           type="button"
           onClick={handleSave}
-          className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-white hover:bg-accent-hover"
+          className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-on-accent hover:bg-accent-hover"
         >
           {saveLabel}
         </button>

@@ -343,7 +343,7 @@ export default function QuizResults({
       <div className="mt-6 flex justify-center">
         <button
           onClick={onRetake}
-          className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-white hover:bg-accent-hover"
+          className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-on-accent hover:bg-accent-hover"
         >
           Retake quiz
         </button>
@@ -365,7 +365,7 @@ export default function QuizResults({
                     onClick={() => setMissedType(t)}
                     className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
                       missedType === t
-                        ? "bg-accent text-white"
+                        ? "bg-accent text-on-accent"
                         : "border border-border-strong text-text-secondary hover:text-text-primary"
                     }`}
                   >

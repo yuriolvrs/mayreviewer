@@ -81,7 +81,7 @@ export default function HistoryPage() {
               aria-pressed={filterId === null}
               className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
                 filterId === null
-                  ? "bg-accent text-white"
+                  ? "bg-accent text-on-accent"
                   : "border border-border-strong text-text-secondary hover:text-text-primary"
               }`}
             >
@@ -94,7 +94,7 @@ export default function HistoryPage() {
                 aria-pressed={filterId === group.reviewerId}
                 className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
                   filterId === group.reviewerId
-                    ? "bg-accent text-white"
+                    ? "bg-accent text-on-accent"
                     : "border border-border-strong text-text-secondary hover:text-text-primary"
                 }`}
               >

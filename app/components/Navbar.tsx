@@ -90,7 +90,7 @@ export default function Navbar() {
             aria-label="Account menu"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-[13px] font-semibold text-white"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-[13px] font-semibold text-on-accent"
           >
             U
           </button>

@@ -380,7 +380,7 @@ export default function ImportExportTab({
                 </button>
                 <button
                   onClick={confirmMerge}
-                  className="rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-white hover:bg-accent-hover"
+                  className="rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-on-accent hover:bg-accent-hover"
                 >
                   Merge
                 </button>

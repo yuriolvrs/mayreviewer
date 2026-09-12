@@ -11,6 +11,21 @@ import { newId } from "@/app/lib/ids";
 
 export type AttachmentField = "notes" | "project" | "pastexam";
 
+// Extensionless or OS-mislabeled files arrive with an empty mimeType —
+// guessing from the extension beats mislabeling everything application/pdf,
+// which the server's byte-sniff then rejects after upload.
+function inferMimeType(name: string): string {
+  const lower = name.toLowerCase();
+  if (lower.endsWith(".pdf")) return "application/pdf";
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+  if (lower.endsWith(".png")) return "image/png";
+  if (lower.endsWith(".webp")) return "image/webp";
+  if (lower.endsWith(".txt") || lower.endsWith(".cpp")) return "text/plain";
+  if (lower.endsWith(".docx")) {
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  }
+  return "application/pdf";
+}
 export type Attachment = {
   id: string;
   reviewerId: string;
@@ -66,6 +81,11 @@ function getDb(): Promise<IDBPDatabase<AttachmentsDB>> {
           formats.createIndex("by-format", "formatId");
         }
       },
+      // A v1→v2 upgrade with another tab open blocks indefinitely otherwise —
+      // surfacing it beats a silent hang.
+      blocked() {
+        console.warn("May Reviewer: attachment database upgrade blocked by another open tab. Close other tabs and reload.");
+      },
     });
   }
   return dbPromise;
@@ -97,7 +117,7 @@ export async function addAttachment(
     reviewerId,
     field,
     name: file.name,
-    mimeType: file.type || "application/pdf",
+    mimeType: file.type || inferMimeType(file.name),
     data,
     addedAt: new Date().toISOString(),
   };
@@ -141,7 +161,7 @@ export async function addFormatAttachment(formatId: string, file: File): Promise
     id: newId(),
     formatId,
     name: file.name,
-    mimeType: file.type || "application/pdf",
+    mimeType: file.type || inferMimeType(file.name),
     data,
     addedAt: new Date().toISOString(),
   };

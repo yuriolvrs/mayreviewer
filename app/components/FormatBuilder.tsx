@@ -292,7 +292,7 @@ export default function FormatBuilder({
       ...(pastText
         ? {
             pastExam: {
-              fileName: storedFiles[0]?.name ?? "pasted text",
+              fileName: storedFiles[0]?.name ?? extracted[0]?.name ?? "past exam text",
               text: pastText,
               addedAt: new Date().toISOString(),
             },
@@ -393,6 +393,7 @@ export default function FormatBuilder({
                   <button
                     type="button"
                     onClick={() => void removeStoredFile(a.id)}
+                    aria-label={`Remove ${a.name}`}
                     className="shrink-0 text-text-secondary hover:text-error"
                   >
                     Remove
@@ -407,6 +408,7 @@ export default function FormatBuilder({
                   <button
                     type="button"
                     onClick={() => setExtracted((prev) => prev.filter((x) => x.id !== f.id))}
+                    aria-label={`Remove ${f.name}`}
                     className="shrink-0 text-text-secondary hover:text-error"
                   >
                     Remove

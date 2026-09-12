@@ -418,7 +418,10 @@ export default function ImportExportTab({
           </p>
 
           {message && (
-            <p className={`mt-2 text-[15px] ${message.isError ? "text-error" : "text-success"}`}>
+            <p
+              role={message.isError ? "alert" : "status"}
+              className={`mt-2 text-[15px] ${message.isError ? "text-error" : "text-success"}`}
+            >
               {message.text}
             </p>
           )}

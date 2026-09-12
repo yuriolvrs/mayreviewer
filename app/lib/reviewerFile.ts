@@ -23,7 +23,9 @@ function isAttachmentManifestEntry(value: unknown): value is AttachmentManifestE
   const v = value as Record<string, unknown>;
   return (
     typeof v.id === "string" &&
-    (v.field === "notes" || v.field === "project") &&
+    // Past-exam files predate the field split — old exports carry them, so
+    // they import rather than count as skipped.
+    (v.field === "notes" || v.field === "project" || v.field === "pastexam") &&
     typeof v.name === "string" &&
     typeof v.mimeType === "string" &&
     typeof v.path === "string" &&
@@ -89,8 +91,15 @@ export async function parseReviewerFile(
   }
 
   if (isArchive) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    // Extension-only detection misroutes: a renamed .json would unzip-fail
+    // confusingly, and a real zip with a wrong extension skips the archive
+    // path. The PK magic decides.
+    if (bytes.length < 4 || bytes[0] !== 0x50 || bytes[1] !== 0x4b || bytes[2] !== 0x03 || bytes[3] !== 0x04) {
+      return { ok: false, error: "That file isn't a valid .zip archive." };
+    }
     try {
-      zipEntries = unzipSync(new Uint8Array(await file.arrayBuffer()));
+      zipEntries = unzipSync(bytes);
     } catch {
       return { ok: false, error: "Couldn't read that file as a valid .zip archive." };
     }

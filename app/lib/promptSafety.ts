@@ -74,12 +74,18 @@ export function clampTopics(topics: string[]): string[] {
 // reads. Newlines, tabs, and emoji joiners are deliberately kept — they carry
 // visible meaning. Written as code-point ranges on purpose: literal escapes
 // in source would be exactly the invisible characters this removes.
+//
+// The zero-width space (200B) is stripped too: unlike the joiner (200D) and
+// variation selectors (FE00–FE0F), which emoji need and the test pins as
+// kept, it has no visible role anywhere — in filenames and labels it only
+// hides spoofing.
 const SPOOFING_RANGES: [number, number][] = [
   [0x00, 0x08],
   [0x0b, 0x0c],
   [0x0e, 0x1f],
   [0x7f, 0x9f],
   [0xd800, 0xdfff],
+  [0x200b, 0x200b],
   [0x200e, 0x200f],
   [0x202a, 0x202e],
   [0x2066, 0x2069],

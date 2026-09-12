@@ -77,7 +77,7 @@ export default function Home() {
         </div>
         <Link
           href="/reviewer/new"
-          className="shrink-0 rounded-lg bg-accent px-4 py-2.5 text-[18px] font-medium text-white hover:bg-accent-hover"
+          className="shrink-0 rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-white hover:bg-accent-hover"
         >
           + New Reviewer
         </Link>
@@ -163,7 +163,11 @@ export default function Home() {
                     <p className="mt-1 text-[15px] text-text-secondary">
                       {reviewer.questions.length} question
                       {reviewer.questions.length === 1 ? "" : "s"} ·{" "}
-                      {new Date(reviewer.updatedAt).toLocaleDateString()}
+                      {new Date(reviewer.updatedAt).toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
                     </p>
                   </div>
                   <span className="shrink-0 text-text-tertiary group-hover:text-text-primary">

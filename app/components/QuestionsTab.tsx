@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { updateReviewer } from "@/app/lib/storage";
 import {
   QUESTION_SOURCES,
@@ -337,16 +338,45 @@ export default function QuestionsTab({
   reviewer: Reviewer;
   onChanged: () => void;
 }) {
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<Sort>("number");
-  const [typeFilter, setTypeFilter] = useState<"all" | string>("all");
+  // Filters and sort ride the URL (?q=&sort=&type=&source=) so a filtered
+  // view survives reloads and deep links. Seeded lazily from the URL;
+  // invalid values fall back to defaults rather than sticking.
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
+  const [sort, setSort] = useState<Sort>(() => {
+    const s = searchParams.get("sort");
+    return s === "newest" || s === "oldest" || s === "type" || s === "number" ? s : "number";
+  });
+  const [typeFilter, setTypeFilter] = useState<"all" | string>(
+    () => searchParams.get("type") ?? "all",
+  );
   // Filters, sort order, and the add-form type list follow the reviewer's
   // format rather than the global type list.
   const formats = useFormats();
   const format = resolveFromList(formats, reviewer.examFormatId);
   const typeKeys = formatTypeKeys(format);
   const typeFilters: ("all" | string)[] = ["all", ...typeKeys];
-  const [sourceFilter, setSourceFilter] = useState<"all" | QuestionSource>("all");
+  const [sourceFilter, setSourceFilter] = useState<"all" | QuestionSource>(() => {
+    const src = searchParams.get("source");
+    return src === "all" || (QUESTION_SOURCES as readonly string[]).includes(src ?? "")
+      ? (src as "all" | QuestionSource)
+      : "all";
+  });
+
+  // Written back on change with replace: no history spam, no scroll jump.
+  // Only non-default values are kept, so a plain view stays a clean URL.
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (search.trim()) params.set("q", search.trim());
+    if (sort !== "number") params.set("sort", sort);
+    if (typeFilter !== "all") params.set("type", typeFilter);
+    if (sourceFilter !== "all") params.set("source", sourceFilter);
+    const query = params.toString();
+    router.replace(`/reviewer/${reviewer.id}?tab=questions${query ? `&${query}` : ""}`, {
+      scroll: false,
+    });
+  }, [search, sort, typeFilter, sourceFilter, reviewer.id, router]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Question | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
 import { groupQuestions, isPreformatted, optionLetter } from "@/app/lib/questions";
 import { isMonoKind, stimulusKindOf, type ExamFormat } from "@/app/lib/examFormats";
@@ -48,6 +48,69 @@ export default function QuizTaking({
   const unansweredCount = questions.length - answeredCount;
   const showFeedback = feedbackMode === "immediate";
 
+  // Navigating away mid-quiz loses everything — the confirm dialogs only
+  // guard in-app buttons, not reloads or tab closes.
+  useEffect(() => {
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      if (Object.keys(answers).length > 0) e.preventDefault();
+    }
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [answers]);
+
+  // Stable callbacks: the keyboard-shortcuts effect lists them as deps, so
+  // they must not change identity every render.
+  const selectOption = useCallback(
+    (questionId: string, optionIndex: number) => {
+      if (confirmedIds.includes(questionId)) return;
+      setAnswers((prev) => ({ ...prev, [questionId]: optionIndex }));
+    },
+    [confirmedIds],
+  );
+
+  const toggleUnsure = useCallback((questionId: string) => {
+    setUnsureIds((prev) =>
+      prev.includes(questionId) ? prev.filter((id) => id !== questionId) : [...prev, questionId],
+    );
+  }, []);
+
+  const jumpTo = useCallback((questionId: string) => {
+    document.getElementById(`question-${questionId}`)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, []);
+
+  // Keyboard shortcuts: 1–4 answer the question in view, u flags it unsure,
+  // n/p move between questions. Ignored while typing or with modifiers held.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input,textarea,select") || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (!activeId || confirmOpen || confirmCancelOpen) return;
+      const question = questions.find((q) => q.id === activeId);
+      if (!question) return;
+      if (e.key >= "1" && e.key <= "9") {
+        const index = Number(e.key) - 1;
+        if (index < question.options.length && !confirmedIds.includes(activeId)) {
+          e.preventDefault();
+          selectOption(activeId, index);
+        }
+      } else if (e.key === "u") {
+        e.preventDefault();
+        toggleUnsure(activeId);
+      } else if (e.key === "n" || e.key === "p") {
+        e.preventDefault();
+        const ids = questions.map((q) => q.id);
+        const at = ids.indexOf(activeId);
+        const next = e.key === "n" ? ids[Math.min(at + 1, ids.length - 1)] : ids[Math.max(at - 1, 0)];
+        jumpTo(next);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [activeId, questions, confirmedIds, confirmOpen, confirmCancelOpen, selectOption, toggleUnsure, jumpTo]);
+
   // Which question the reader is actually on, so the grid can show position
   // independently of answered/unsure status. The band ignores anything below
   // the upper third of the viewport, so "active" tracks what's being read
@@ -77,11 +140,6 @@ export default function QuizTaking({
     };
   }, [questions]);
 
-  function selectOption(questionId: string, optionIndex: number) {
-    if (confirmedIds.includes(questionId)) return;
-    setAnswers((prev) => ({ ...prev, [questionId]: optionIndex }));
-  }
-
   function clearSelection(questionId: string) {
     if (confirmedIds.includes(questionId)) return;
     setAnswers((prev) => {
@@ -93,19 +151,6 @@ export default function QuizTaking({
 
   function confirmAnswer(questionId: string) {
     setConfirmedIds((prev) => (prev.includes(questionId) ? prev : [...prev, questionId]));
-  }
-
-  function toggleUnsure(questionId: string) {
-    setUnsureIds((prev) =>
-      prev.includes(questionId) ? prev.filter((id) => id !== questionId) : [...prev, questionId],
-    );
-  }
-
-  function jumpTo(questionId: string) {
-    document.getElementById(`question-${questionId}`)?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
   }
 
   function handleSubmit() {
@@ -155,7 +200,7 @@ export default function QuizTaking({
             key={question.id}
             onClick={() => jumpTo(question.id)}
             title={`Question ${index + 1} — ${state}${isActive ? ", currently viewing" : ""}`}
-            aria-current={isActive ? "true" : undefined}
+            aria-current={isActive ? "location" : undefined}
             className={`rounded border py-1 font-mono text-[13px] ${stateClass} ${
               isActive ? "ring-2 ring-text-secondary ring-offset-1" : ""
             }`}
@@ -223,6 +268,9 @@ export default function QuizTaking({
           <div className="px-4 pb-4">
             {jumpGrid}
             <div className="mt-4">{legend}</div>
+            <p className="mt-3 text-[13px] text-text-tertiary">
+              Keys 1–4 answer the question in view, u flags it unsure, n/p move between questions.
+            </p>
           </div>
         </details>
 
@@ -470,6 +518,10 @@ export default function QuizTaking({
         <div className="mt-3">{jumpGrid}</div>
 
         <div className="mt-4">{legend}</div>
+
+        <p className="mt-3 text-[13px] text-text-tertiary">
+          Keys 1–4 answer the question in view, u flags it unsure, n/p move between questions.
+        </p>
       </aside>
 
       {confirmCancelOpen && (

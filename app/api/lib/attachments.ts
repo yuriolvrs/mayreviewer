@@ -18,6 +18,12 @@ import type { QuestionSource } from "@/app/types";
 // the generate route so both routes validate, fetch, and activate files
 // identically — a file one route accepts can never be one the other rejects.
 
+// `del()` needs a server token: without one every cleanup is a silent no-op
+// and the store accrues orphans. Fail loud at boot, not per request.
+if (!process.env.BLOB_READ_WRITE_TOKEN) {
+  console.warn("May Reviewer: BLOB_READ_WRITE_TOKEN is missing — Blob cleanup will silently no-op.");
+}
+
 export type IncomingAttachment = {
   name: string;
   mimeType: string;

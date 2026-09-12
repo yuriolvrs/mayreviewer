@@ -9,7 +9,8 @@
     "lint": "eslint app e2e tests",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "clean": "git clean -fdX -- .next test-results playwright-report coverage tsconfig.tsbuildinfo"
   },
   "dependencies": {
     "@google/genai": "^2.16.0",

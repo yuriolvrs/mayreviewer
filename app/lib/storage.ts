@@ -212,17 +212,18 @@ export function hasQuizHistory(id: string): boolean {
   return getQuizHistory(id).length > 0;
 }
 
-// Newest first — the history list reads top-down.
+// Newest first — the history list reads top-down. ISO timestamps compare
+// lexicographically, so a plain string comparison beats localeCompare.
 export function getQuizHistory(reviewerId: string): QuizAttempt[] {
   return getAllAttempts()
     .filter((a) => a.reviewerId === reviewerId)
-    .sort((a, b) => b.takenAt.localeCompare(a.takenAt));
+    .sort((a, b) => (a.takenAt < b.takenAt ? 1 : a.takenAt > b.takenAt ? -1 : 0));
 }
 
 // The one cross-Reviewer read in the app, backing the global /history screen.
 // Newest first, same as the per-Reviewer list.
 export function getAllQuizHistory(): QuizAttempt[] {
-  return getAllAttempts().sort((a, b) => b.takenAt.localeCompare(a.takenAt));
+  return getAllAttempts().sort((a, b) => (a.takenAt < b.takenAt ? 1 : a.takenAt > b.takenAt ? -1 : 0));
 }
 
 // Scored here rather than by the caller so the stored score can never drift

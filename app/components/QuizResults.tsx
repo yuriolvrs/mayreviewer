@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   groupQuestions,
   isPreformatted,
@@ -111,7 +111,10 @@ function ResultRow({
             {given === undefined ? (
               <span className="text-text-tertiary">Left blank</span>
             ) : (
-              `${optionLetter(given)}. ${question.options[given]}`
+              <>
+                <span aria-hidden="true">{given === question.correctIndex ? "✓ " : "✕ "}</span>
+                {optionLetter(given)}. {question.options[given]}
+              </>
             )}
           </dd>
         </div>
@@ -265,7 +268,7 @@ export default function QuizResults({
 }) {
   const [missedType, setMissedType] = useState<"all" | string>("all");
 
-  const numbering = new Map(questions.map((q, i) => [q.id, i + 1]));
+  const numbering = useMemo(() => new Map(questions.map((q, i) => [q.id, i + 1])), [questions]);
   const missed = questions.filter((q) => answers[q.id] !== q.correctIndex);
   const correct = questions.filter((q) => answers[q.id] === q.correctIndex);
   const unsure = questions.filter((q) => unsureIds.includes(q.id));
@@ -301,7 +304,14 @@ export default function QuizResults({
       <h1 className="mt-4 text-[26px] font-semibold text-text-primary">Quiz results</h1>
       <p className="mt-1 text-[15px] text-text-secondary">
         {reviewerName}
-        {takenAt && ` · taken ${new Date(takenAt).toLocaleString()}`}
+        {takenAt &&
+          ` · taken ${new Date(takenAt).toLocaleString(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          })}`}
       </p>
 
       <p className={`mt-6 text-[34px] font-bold tracking-tight ${scoreTone(percent)}`}>
@@ -309,7 +319,7 @@ export default function QuizResults({
         <span className="ml-2 text-[19px] font-medium">({percent}%)</span>
       </p>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:flex sm:flex-wrap">
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {typesPresent.map((type) => {
           const ofType = questions.filter((q) => q.type === type);
           const right = ofType.filter((q) => answers[q.id] === q.correctIndex).length;

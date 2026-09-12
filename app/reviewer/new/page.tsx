@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { newId } from "@/app/lib/ids";
+import { useTopicList } from "@/app/lib/useTopics";
 import { saveReviewer } from "@/app/lib/storage";
 import {
   MAX_QUESTION_COUNT,
@@ -27,7 +28,7 @@ export default function NewReviewerPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
-  const [topics, setTopics] = useState<string[]>([""]);
+  const topicList = useTopicList([]);
   const [countByType, setCountByType] = useState<Record<string, number>>(() =>
     splitCountEvenly(DEFAULT_NEW_QUESTION_COUNT),
   );
@@ -66,7 +67,7 @@ export default function NewReviewerPage() {
   const [draftId] = useState(() => newId());
   // Browsers don't render text-overflow:ellipsis inside <input>, so an unfocused
   // topic is drawn as a real element on top of the (text-transparent) input.
-  const [focusedTopic, setFocusedTopic] = useState<number | null>(null);
+  const [focusedTopic, setFocusedTopic] = useState<string | null>(null);
 
   const importInputRef = useRef<HTMLInputElement>(null);
   const [importDragOver, setImportDragOver] = useState(false);
@@ -74,16 +75,16 @@ export default function NewReviewerPage() {
   const [importError, setImportError] = useState("");
   const [importing, setImporting] = useState(false);
 
-  function updateTopic(index: number, value: string) {
-    setTopics((prev) => prev.map((t, i) => (i === index ? value : t)));
+  function updateTopic(id: string, value: string) {
+    topicList.update(id, value);
   }
 
-  function removeTopic(index: number) {
-    setTopics((prev) => prev.filter((_, i) => i !== index));
+  function removeTopic(id: string) {
+    topicList.remove(id);
   }
 
   function addTopic() {
-    setTopics((prev) => [...prev, ""]);
+    topicList.add();
   }
 
   function handleCreate(e: React.FormEvent) {
@@ -110,7 +111,7 @@ export default function NewReviewerPage() {
       id: draftId,
       reviewerName: trimmed,
       subject: subject.trim(),
-      topics: topics.map((t) => t.trim()).filter(Boolean),
+      topics: topicList.values().map((t) => t.trim()).filter(Boolean),
       notes,
       projectMaterial,
       pastExamMaterial,
@@ -308,7 +309,11 @@ export default function NewReviewerPage() {
           </div>
         )}
 
-        {importError && <p className="mt-2 text-[14px] text-error">{importError}</p>}
+        {importError && (
+          <p role="alert" className="mt-2 text-[14px] text-error">
+            {importError}
+          </p>
+        )}
       </div>
 
       <div className="my-6 flex items-center gap-4">
@@ -366,16 +371,16 @@ export default function NewReviewerPage() {
             </p>
           </div>
           <div className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2">
-            {topics.map((topic, index) => {
-              const showOverlay = Boolean(topic) && focusedTopic !== index;
+            {topicList.rows.map((row) => {
+              const showOverlay = Boolean(row.value) && focusedTopic !== row.id;
               return (
-                <div key={index} className="relative">
+                <div key={row.id} className="relative">
                   <input
                     type="text"
-                    value={topic}
-                    title={topic}
-                    onChange={(e) => updateTopic(index, e.target.value)}
-                    onFocus={() => setFocusedTopic(index)}
+                    value={row.value}
+                    title={row.value}
+                    onChange={(e) => updateTopic(row.id, e.target.value)}
+                    onFocus={() => setFocusedTopic(row.id)}
                     onBlur={() => setFocusedTopic(null)}
                     placeholder="e.g. Paging"
                     className={`h-11 w-full truncate rounded-lg border border-border pl-3 pr-8 outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 ${
@@ -387,14 +392,14 @@ export default function NewReviewerPage() {
                       aria-hidden="true"
                       className="pointer-events-none absolute inset-y-0 left-0 right-8 flex items-center truncate pl-3 text-text-primary"
                     >
-                      {topic}
+                      {row.value}
                     </span>
                   )}
                   <button
                     type="button"
-                    onClick={() => removeTopic(index)}
+                    onClick={() => removeTopic(row.id)}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-error"
-                    aria-label="Remove topic"
+                    aria-label={row.value ? `Remove topic ${row.value}` : "Remove topic"}
                   >
                     ✕
                   </button>
@@ -476,7 +481,11 @@ export default function NewReviewerPage() {
           onPastExamChange={setPastExamMaterial}
         />
 
-        {error && <p className="pb-2 text-[15px] text-error">{error}</p>}
+        {error && (
+          <p role="alert" className="pb-2 text-[15px] text-error">
+            {error}
+          </p>
+        )}
 
         <div className="flex justify-end border-t border-border py-6">
           <button

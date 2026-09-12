@@ -344,6 +344,7 @@ export default function ContentField({
                     <button
                       type="button"
                       onClick={() => removeFileAttachment(a.id)}
+                      aria-label={`Remove ${a.name}`}
                       className="text-[15px] text-text-secondary hover:text-error"
                     >
                       Remove
@@ -373,6 +374,7 @@ export default function ContentField({
                     <button
                       type="button"
                       onClick={() => removeTextFile(f.id)}
+                      aria-label={`Remove ${f.name}`}
                       className="text-[15px] text-text-secondary hover:text-error"
                     >
                       Remove

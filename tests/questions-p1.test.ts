@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { isValidQuestionFields, shuffleOptions } from "@/app/lib/questions";
+import {
+  isValidQuestionFields,
+  sampleProportionally,
+  shuffleOptions,
+  sumCounts,
+  takeWithinBudget,
+} from "@/app/lib/questions";
+import type { Question } from "@/app/types";
 
 function base(overrides: Record<string, unknown> = {}) {
   return {
@@ -59,5 +66,64 @@ describe("shuffleOptions", () => {
       slots.add(shuffleOptions({ ...seed, options: [...seed.options] }).correctIndex);
     }
     expect(slots.size).toBeGreaterThan(1);
+  });
+
+  it("keeps the original order when correctIndex points nowhere", () => {
+    const corrupt = { ...seed, options: [...seed.options], correctIndex: 9 };
+    const result = shuffleOptions(corrupt);
+    expect(result.options).toEqual(seed.options);
+  });
+});
+
+describe("sumCounts", () => {
+  it("ignores non-finite values instead of concatenating", () => {
+    expect(sumCounts({ a: 2, b: 3 })).toBe(5);
+    expect(sumCounts({ a: 2, b: "5" as unknown as number })).toBe(2);
+    expect(sumCounts({ a: 2, b: NaN })).toBe(2);
+  });
+});
+
+describe("sampleProportionally", () => {
+  function pool(n: number): Question[] {
+    return Array.from({ length: n }, (_, i) => ({
+      id: `q${i}`,
+      type: "identification",
+      question: `q${i}?`,
+      options: ["A", "B"],
+      correctIndex: 0,
+      source: "notes" as const,
+    }));
+  }
+
+  it("returns a copy, not the live pool", () => {
+    const p = pool(3);
+    const out = sampleProportionally(p, 3);
+    expect(out).toEqual(p);
+    expect(out).not.toBe(p);
+  });
+});
+
+describe("takeWithinBudget partial fill", () => {
+  function standalone(id: string): Question {
+    return {
+      id,
+      type: "identification",
+      question: `${id}?`,
+      options: ["A", "B"],
+      correctIndex: 0,
+      source: "notes",
+    };
+  }
+
+  function setQuestion(id: string, groupId: string): Question {
+    return { ...standalone(id), type: "code", groupId, stimulus: "listing" };
+  }
+
+  it("fills from a standalone question rather than slicing a set", () => {
+    // Budget 1 with only an oversized set and one standalone available:
+    // slicing the set would corrupt its blank numbering.
+    const questions = [setQuestion("c1", "g"), setQuestion("c2", "g"), standalone("s1")];
+    const out = takeWithinBudget(questions, 1);
+    expect(out.map((q) => q.id)).toEqual(["s1"]);
   });
 });

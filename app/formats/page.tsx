@@ -32,9 +32,11 @@ function FormatCard({
     <li className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-6">
       <div>
         <p className="text-[19px] font-semibold text-text-primary">{format.name}</p>
-        <p className="mt-1 text-[15px] text-text-secondary">
-          {format.description || (custom ? "Custom format." : "")}
-        </p>
+        {(format.description || custom) && (
+          <p className="mt-1 text-[15px] text-text-secondary">
+            {format.description || "Custom format."}
+          </p>
+        )}
       </div>
       <ul className="flex flex-col gap-1.5">
         {format.types.map((t) => (
@@ -48,7 +50,7 @@ function FormatCard({
       </ul>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
         <Link
-          href={`/reviewer/new?format=${format.id}`}
+          href={`/reviewer/new?format=${encodeURIComponent(format.id)}`}
           className="text-[14px] font-medium text-accent hover:underline"
         >
           New reviewer with this format

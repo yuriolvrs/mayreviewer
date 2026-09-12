@@ -51,7 +51,7 @@ export function splitCountEvenly(total: number, keys: string[] = QUESTION_TYPES)
 }
 
 export function sumCounts(byType: Record<string, number>): number {
-  return Object.values(byType).reduce((sum, n) => sum + (n || 0), 0);
+  return Object.values(byType).reduce((sum, n) => sum + (typeof n === "number" && Number.isFinite(n) ? n : 0), 0);
 }
 
 export const TYPE_LABELS: Record<QuestionType, string> = {
@@ -198,10 +198,14 @@ function shuffle<T>(items: T[]): T[] {
 // answer isn't always sitting in the same slot on a retake.
 export function shuffleOptions(question: Question): Question {
   const order = shuffle(question.options.map((_, i) => i));
+  const correctIndex = order.indexOf(question.correctIndex);
+  // Corrupt data (a correctIndex pointing nowhere) keeps its original order
+  // rather than collapsing to slot -1.
+  if (correctIndex === -1) return { ...question, options: [...question.options] };
   return {
     ...question,
     options: order.map((i) => question.options[i]),
-    correctIndex: order.indexOf(question.correctIndex),
+    correctIndex,
   };
 }
 
@@ -212,7 +216,7 @@ export function shuffleOptions(question: Question): Question {
 // and count doesn't serve the identical subset.
 export function sampleProportionally(pool: Question[], count: number): Question[] {
   if (count <= 0) return [];
-  if (count >= pool.length) return pool;
+  if (count >= pool.length) return [...pool];
 
   const order = new Map(pool.map((q, i) => [q.id, i]));
   const byType = new Map<string, Question[]>();
@@ -378,7 +382,11 @@ export function takeWithinTypeBudget(
 
   // Second pass, same rule as `takeWithinBudget`: only when nothing of a type
   // fit whole is a set taken partially, since none of that type is worse.
-  for (const group of groups) {
+  // Standalone questions sort first so a set is never split while a single
+  // question of the same type is available — splitting corrupts blank
+  // numbering, which counts the set's total.
+  const singlesFirst = [...groups].sort((a, b) => a.questions.length - b.questions.length);
+  for (const group of singlesFirst) {
     const type = group.questions[0].type;
     if (!empty.has(type)) continue;
     kept.push(...group.questions.slice(0, remaining[type]));
@@ -404,7 +412,12 @@ export function takeWithinBudget(questions: Question[], budget: number): Questio
 
   // Only when nothing fit whole would we return an empty batch — take a
   // partial set instead, since no questions at all is the worse outcome.
-  if (kept.length === 0) return groups[0]?.questions.slice(0, budget) ?? [];
+  // A standalone question is preferred for the fill: slicing a set corrupts
+  // its blank numbering.
+  if (kept.length === 0) {
+    const standalone = groups.find((g) => g.questions.length === 1);
+    return (standalone ?? groups[0])?.questions.slice(0, budget) ?? [];
+  }
 
   return kept;
 }

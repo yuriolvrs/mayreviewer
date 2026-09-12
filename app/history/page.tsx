@@ -140,14 +140,18 @@ export default function HistoryPage() {
 
                     // Attempts recorded before answers were kept, or whose
                     // reviewer was deleted, have nothing to reopen — they stay
-                    // as a plain score line.
+                    // as a disabled row matching the reopenable rows' box model.
                     return (
                       <li key={attempt.id} className="border-t border-border last:border-b">
                         {attempt.questions.length === 0 || !group.reviewer ? (
-                          <div className="flex items-center gap-3 py-3">
+                          <button
+                            type="button"
+                            disabled
+                            className="flex w-full cursor-default items-center gap-3 rounded-lg px-2 py-3 text-left"
+                          >
                             {summary}
                             <span aria-hidden="true" className="w-4 shrink-0" />
-                          </div>
+                          </button>
                         ) : (
                           <Link
                             href={`/reviewer/${attempt.reviewerId}/quiz?attempt=${attempt.id}`}

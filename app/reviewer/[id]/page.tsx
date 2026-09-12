@@ -161,7 +161,11 @@ function ReviewerSpace() {
               <p className="mb-4 text-[15px] text-text-secondary">
                 {reviewer.questions.length} question
                 {reviewer.questions.length === 1 ? "" : "s"} ·{" "}
-                {new Date(reviewer.createdAt).toLocaleDateString()}
+                {new Date(reviewer.createdAt).toLocaleDateString(undefined, {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                })}
               </p>
               {!hasQuestions && (
                 <p className="mb-4 text-[15px] text-text-secondary">

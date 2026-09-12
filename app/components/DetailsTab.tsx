@@ -11,6 +11,7 @@ import {
 } from "@/app/lib/questions";
 import QuestionCountControl from "@/app/components/QuestionCountControl";
 import SourceSections, { type SaveStatus } from "@/app/components/SourceSections";
+import { useTopicList } from "@/app/lib/useTopics";
 import type { Reviewer } from "@/app/types";
 
 // Long enough that a burst of typing is one write, short enough that switching
@@ -38,7 +39,9 @@ export default function DetailsTab({
 }) {
   const [name, setName] = useState(reviewer.reviewerName);
   const [subject, setSubject] = useState(reviewer.subject);
-  const [topics, setTopics] = useState<string[]>(reviewer.topics.length ? reviewer.topics : [""]);
+  const topicList = useTopicList(reviewer.topics);
+  const { reset: resetTopics } = topicList;
+  const topics = topicList.values();
   const [countByType, setCountByType] = useState(reviewer.questionCountByType);
   const [error, setError] = useState("");
   const [nameError, setNameError] = useState(false);
@@ -46,7 +49,7 @@ export default function DetailsTab({
   const savedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // Browsers don't render text-overflow:ellipsis inside <input>, so an unfocused
   // topic is drawn as a real element on top of the (text-transparent) input.
-  const [focusedTopic, setFocusedTopic] = useState<number | null>(null);
+  const [focusedTopic, setFocusedTopic] = useState<string | null>(null);
 
   // The source fields autosave on their own debounce rather than waiting for
   // "Save details" — they're the two fields a generation reads, and the old
@@ -66,7 +69,7 @@ export default function DetailsTab({
   function resetFields() {
     setName(reviewer.reviewerName);
     setSubject(reviewer.subject);
-    setTopics(reviewer.topics.length ? reviewer.topics : [""]);
+    resetTopics(reviewer.topics);
     setCountByType(reviewer.questionCountByType);
     setNameError(false);
     setError("");
@@ -80,7 +83,7 @@ export default function DetailsTab({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setName(reviewer.reviewerName);
     setSubject(reviewer.subject);
-    setTopics(reviewer.topics.length ? reviewer.topics : [""]);
+    resetTopics(reviewer.topics);
     setCountByType(reviewer.questionCountByType);
   }, [
     reviewer.id,
@@ -88,6 +91,7 @@ export default function DetailsTab({
     reviewer.subject,
     reviewer.topics,
     reviewer.questionCountByType,
+    resetTopics,
   ]);
 
   useEffect(() => {
@@ -186,16 +190,16 @@ export default function DetailsTab({
     // questions across types still counts as a change worth saving.
     !sameCountByType(countByType, reviewer.questionCountByType, typeKeys);
 
-  function updateTopic(index: number, value: string) {
-    setTopics((prev) => prev.map((t, i) => (i === index ? value : t)));
+  function updateTopic(id: string, value: string) {
+    topicList.update(id, value);
   }
 
-  function removeTopic(index: number) {
-    setTopics((prev) => prev.filter((_, i) => i !== index));
+  function removeTopic(id: string) {
+    topicList.remove(id);
   }
 
   function addTopic() {
-    setTopics((prev) => [...prev, ""]);
+    topicList.add();
   }
 
   function handleSave() {
@@ -283,16 +287,16 @@ export default function DetailsTab({
           </p>
         </div>
         <div className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2">
-          {topics.map((topic, index) => {
-            const showOverlay = Boolean(topic) && focusedTopic !== index;
+          {topicList.rows.map((row) => {
+            const showOverlay = Boolean(row.value) && focusedTopic !== row.id;
             return (
-            <div key={index} className="relative">
+            <div key={row.id} className="relative">
               <input
                 type="text"
-                value={topic}
-                title={topic}
-                onChange={(e) => updateTopic(index, e.target.value)}
-                onFocus={() => setFocusedTopic(index)}
+                value={row.value}
+                title={row.value}
+                onChange={(e) => updateTopic(row.id, e.target.value)}
+                onFocus={() => setFocusedTopic(row.id)}
                 onBlur={() => setFocusedTopic(null)}
                 placeholder="e.g. Paging"
                 className={`h-11 w-full truncate rounded-lg border border-border pl-3 pr-8 outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 ${
@@ -304,14 +308,14 @@ export default function DetailsTab({
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-y-0 left-0 right-8 flex items-center truncate pl-3 text-text-primary"
                 >
-                  {topic}
+                  {row.value}
                 </span>
               )}
               <button
                 type="button"
-                onClick={() => removeTopic(index)}
+                onClick={() => removeTopic(row.id)}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-error"
-                aria-label="Remove topic"
+                aria-label={row.value ? `Remove topic ${row.value}` : "Remove topic"}
               >
                 ✕
               </button>

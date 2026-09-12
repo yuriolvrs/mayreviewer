@@ -1,6 +1,7 @@
 ﻿import { MAX_QUESTION_COUNT, QUESTION_TYPES, TYPE_LABELS } from "@/app/lib/questions";
 import { MAX_FILENAME_CHARS } from "@/app/lib/attachmentLimits";
 import { clampToLine, stripSpoofingControls } from "@/app/lib/promptSafety";
+import { newId } from "@/app/lib/ids";
 import type { QuestionType } from "@/app/types";
 
 // An exam format is a named set of question types: the thing that makes one
@@ -387,7 +388,6 @@ function isValidTypeDef(value: unknown): value is FormatTypeDef {
     // enums, so anything outside this set is rejected rather than escaped.
     /^[A-Za-z0-9_-]{1,40}$/.test(t.key) &&
     typeof t.label === "string" &&
-    typeof t.label === "string" &&
     t.label.trim().length > 0 &&
     t.label.length <= MAX_LABEL_CHARS &&
     typeof t.format === "string" &&
@@ -503,7 +503,8 @@ export function composePastExamText(parts: string[]): string {
 
 // Opaque custom keys: slug of the label plus a short random tail, so two
 // "Vocabulary" types in different formats never collide and renames never
-// orphan a reviewer's counts.
+// orphan a reviewer's counts. Tail comes from crypto, not Math.random —
+// rapid adds must not collide.
 export function newTypeKey(label: string): string {
   const slug =
     label
@@ -511,11 +512,11 @@ export function newTypeKey(label: string): string {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "")
       .slice(0, 24) || "type";
-  return `${slug}-${Math.random().toString(36).slice(2, 8)}`;
+  return `${slug}-${newId().replace(/-/g, "").slice(0, 6)}`;
 }
 
 export function newFormatId(): string {
-  return `custom-${Math.random().toString(36).slice(2, 10)}`;
+  return `custom-${newId().replace(/-/g, "").slice(0, 8)}`;
 }
 
 // Cloning preserves type keys: a clone is the same shape under a new id, so
@@ -530,6 +531,8 @@ export function cloneFormat(source: ExamFormat): ExamFormat {
     id: newFormatId(),
     name: name.length > MAX_ID_CHARS ? name.slice(0, MAX_ID_CHARS).trimEnd() : name,
     pastExam: source.pastExam ? { ...source.pastExam } : undefined,
-    types: source.types.map((t) => ({ ...t })),
+    // Examples get their own array: a shared reference would let editing the
+    // copy's examples rewrite the original's.
+    types: source.types.map((t) => ({ ...t, examples: [...(t.examples ?? [])] })),
   };
 }

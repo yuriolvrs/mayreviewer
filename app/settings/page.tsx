@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
 import { useAuth } from "@/app/components/AuthProvider";
@@ -350,37 +349,6 @@ export default function SettingsPage() {
               Storage is over 80% full — export a backup, then delete old reviewers to free space.
             </p>
           )}
-        </Section>
-
-        <Section title="Plan">
-          <p className="border-b border-border py-3 text-[15px] text-text-secondary">
-            Free plan. Paid options may arrive later — nothing is gated now.
-          </p>
-        </Section>
-
-        <Section title="About and legal">
-          <Link
-            href="/about"
-            className="flex min-h-[44px] items-center border-b border-border py-2 text-[15px] font-medium text-accent underline"
-          >
-            About May Reviewer
-          </Link>
-          <div className="flex min-h-[44px] flex-wrap items-center gap-x-2 border-b border-border py-2 text-[15px]">
-            <Link href="/privacy" className="font-medium text-accent underline">
-              Privacy Policy
-            </Link>
-            <span className="text-text-tertiary">and</span>
-            <Link href="/terms" className="font-medium text-accent underline">
-              Terms of Use
-            </Link>
-          </div>
-          <Link
-            href="/about#feedback"
-            className="flex min-h-[44px] items-center border-b border-border py-2 text-[15px] font-medium text-accent underline"
-          >
-            Send feedback
-          </Link>
-          <p className="py-3 text-[14px] text-text-secondary">Version 0.1.0</p>
         </Section>
       </div>
 

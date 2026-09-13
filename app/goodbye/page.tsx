@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-// Landing page after Settings > Delete account. Confirms the wipe and gives
+// Landing page after Account > Delete account. Confirms the wipe and gives
 // the returning user one clear next step — it also reserves the URL the
 // future Play "delete your account on the web" rule will point at.
 export default function GoodbyePage() {

@@ -23,7 +23,7 @@ import { getSupabaseClient } from "@/app/lib/supabase";
 
 export type SyncResult = {
   ok: boolean;
-  // Human-readable; surfaced in Settings > Account.
+  // Human-readable; surfaced on the Account page.
   error?: string;
 };
 

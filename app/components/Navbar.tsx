@@ -32,6 +32,7 @@ export default function Navbar() {
   const formatsActive = pathname.startsWith("/formats");
   const historyActive = pathname.startsWith("/history");
   const settingsActive = pathname.startsWith("/settings");
+  const accountActive = pathname.startsWith("/account");
 
   return (
     <header className="flex h-auto shrink-0 flex-wrap items-center justify-between gap-y-3 border-b border-border bg-surface px-4 py-3 md:h-16 md:flex-nowrap md:px-16 md:py-0">
@@ -101,9 +102,11 @@ export default function Navbar() {
                 aria-label="Account menu"
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-[13px] font-semibold text-on-accent"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-on-accent"
               >
-                {(user?.email?.[0] ?? "U").toUpperCase()}
+                <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                  <path d="M10 9.2a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8Zm-6.4 7.2c.5-3.1 3.2-5.2 6.4-5.2s5.9 2.1 6.4 5.2a.9.9 0 0 1-.9 1H4.5a.9.9 0 0 1-.9-1Z" />
+                </svg>
               </button>
               {menuOpen && (
                 <div role="menu" className="absolute right-0 top-11 w-56 rounded-lg border border-border bg-surface py-1 shadow-menu">
@@ -119,6 +122,16 @@ export default function Navbar() {
                     className="block min-h-[44px] px-3 py-2 text-left text-[15px] text-text-primary hover:bg-surface-alt"
                   >
                     About
+                  </Link>
+                  <Link
+                    href="/account"
+                    role="menuitem"
+                    onClick={() => setMenuOpen(false)}
+                    className={`block min-h-[44px] px-3 py-2 text-left text-[15px] hover:bg-surface-alt ${
+                      accountActive ? "font-semibold text-text-primary" : "text-text-primary"
+                    }`}
+                  >
+                    Account
                   </Link>
                   <Link
                     href="/settings"

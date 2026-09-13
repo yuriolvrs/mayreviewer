@@ -14,6 +14,7 @@ import {
 } from "@/app/lib/examFormats";
 import { cloneFormatAttachments, deleteFormatAttachments } from "@/app/lib/attachments";
 import { getReviewers } from "@/app/lib/storage";
+import { SYNC_APPLIED_EVENT } from "@/app/lib/sync";
 
 function FormatCard({
   format,
@@ -95,19 +96,25 @@ export default function FormatsPage() {
   const [loaded, setLoaded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<ExamFormat | null>(null);
 
-  useEffect(() => {
-    // localStorage is a browser-only external store; one-off read on mount is intentional.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+  // Stable across renders (setters + store reads only); the mount effect
+  // subscribes the first copy intentionally.
+  function refresh() {
     setCustoms(getCustomFormats());
     const counts: Record<string, number> = {};
     for (const r of getReviewers()) counts[r.examFormatId] = (counts[r.examFormatId] ?? 0) + 1;
     setUsage(counts);
-    setLoaded(true);
-  }, []);
-
-  function refresh() {
-    setCustoms(getCustomFormats());
   }
+
+  useEffect(() => {
+    // localStorage is a browser-only external store; one-off read on mount is intentional.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    refresh();
+    setLoaded(true);
+    // Same staleness guard as home: a background sync can land formats or
+    // reviewers (usage counts) after mount.
+    window.addEventListener(SYNC_APPLIED_EVENT, refresh);
+    return () => window.removeEventListener(SYNC_APPLIED_EVENT, refresh);
+  }, []);
 
   function handleClone(source: ExamFormat) {
     const copy = cloneFormat(source);

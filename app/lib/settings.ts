@@ -1,9 +1,17 @@
 import { DEFAULT_QUESTION_COUNT, MAX_QUESTION_COUNT, MIN_QUESTION_COUNT } from "@/app/lib/questions";
+import { notifyLocalChange } from "@/app/lib/localChange";
 import type { FeedbackMode, FontSizePreference, ThemePreference, UserSettings } from "@/app/types";
 
 // The ONLY file that touches localStorage for settings. Swapping to Supabase
 // later means rewriting the insides of these functions, not the components.
 export const SETTINGS_KEY = "mayreviewer-settings";
+// When the settings were last changed on this device. Compared against the
+// cloud row's updated_at for last-write-wins; kept beside the settings (not
+// inside them) so normalizeSettings never has to know about it.
+const SETTINGS_UPDATED_AT_KEY = "mayreviewer-settings-updated-at";
+// Fired on window whenever replaceSettings applies a cloud-winning set, so
+// live pages (Settings) re-read instead of showing stale controls.
+export const SETTINGS_CHANGED_EVENT = "mayreviewer:settings-changed";
 
 export const DEFAULT_SETTINGS: UserSettings = {
   feedbackMode: "immediate",
@@ -75,11 +83,48 @@ export function updateSettings(patch: Partial<UserSettings>): UserSettings {
   const stored = readStored();
   const base = typeof stored === "object" && stored !== null ? stored : {};
   const updated = normalizeSettings({ ...base, ...patch });
+  const stampedAt = new Date().toISOString();
   if (typeof window !== "undefined") {
     window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(updated));
+    try {
+      window.localStorage.setItem(SETTINGS_UPDATED_AT_KEY, stampedAt);
+    } catch {
+      // Best-effort: the settings themselves are already saved; only the
+      // sync comparison loses precision.
+    }
   }
   applySettingsToDocument(updated);
+  // replaceSettings (sync's own writer) deliberately does not notify.
+  notifyLocalChange();
   return updated;
+}
+
+export function getSettingsUpdatedAt(): string | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem(SETTINGS_UPDATED_AT_KEY);
+  return typeof raw === "string" && /^\d{4}-\d{2}-\d{2}T/.test(raw) ? raw : null;
+}
+
+// Sync-only writer: stores a cloud-winning set verbatim with its own stamp
+// (stamping "now" here would make the pulled set look locally newer and flip
+// the next comparison). Applies to the document and notifies live pages.
+export function replaceSettings(settings: UserSettings, updatedAt: string | null): UserSettings {
+  const normalized = normalizeSettings(settings);
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(normalized));
+    try {
+      if (updatedAt) {
+        window.localStorage.setItem(SETTINGS_UPDATED_AT_KEY, updatedAt);
+      } else {
+        window.localStorage.removeItem(SETTINGS_UPDATED_AT_KEY);
+      }
+    } catch {
+      // Best-effort (see updateSettings).
+    }
+    window.dispatchEvent(new Event(SETTINGS_CHANGED_EVENT));
+  }
+  applySettingsToDocument(normalized);
+  return normalized;
 }
 
 // Resolves "system" against the OS preference. Pure so tests can cover it.

@@ -5,7 +5,9 @@ import BottomBar from "@/app/components/BottomBar";
 import Navbar from "@/app/components/Navbar";
 import ReminderInit from "@/app/components/ReminderInit";
 import ServiceWorkerInit from "@/app/components/ServiceWorkerInit";
+import SyncInit from "@/app/components/SyncInit";
 import ThemeInit from "@/app/components/ThemeInit";
+import { AuthProvider } from "@/app/components/AuthProvider";
 import "./globals.css";
 
 const libreFranklin = Libre_Franklin({
@@ -50,7 +52,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${libreFranklin.variable} ${spaceMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-bg font-sans text-text-primary">
-        <a
+        <AuthProvider>        <a
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[60] focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2 focus:text-[15px] focus:font-medium focus:text-accent"
         >
@@ -92,6 +94,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <ThemeInit />
         <ReminderInit />
         <ServiceWorkerInit />
+        <SyncInit />
+        </AuthProvider>
       </body>
     </html>
   );

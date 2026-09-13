@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
+import { useAuth } from "@/app/components/AuthProvider";
 import { removeReviewerCompletely } from "@/app/lib/reviewers";
 import { MAX_QUESTION_COUNT, MIN_QUESTION_COUNT } from "@/app/lib/questions";
-import { DEFAULT_SETTINGS, getSettings, updateSettings } from "@/app/lib/settings";
+import { DEFAULT_SETTINGS, getSettings, SETTINGS_CHANGED_EVENT, updateSettings } from "@/app/lib/settings";
 import { getAllQuizHistory, getReviewers } from "@/app/lib/storage";
 import type { FeedbackMode, ThemePreference, UserSettings } from "@/app/types";
 
@@ -112,6 +113,7 @@ const THEMES: { value: ThemePreference; label: string }[] = [
 ];
 
 export default function SettingsPage() {
+  const { user } = useAuth();
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [storageUsed, setStorageUsed] = useState<string | null>(null);
   const [storageFull, setStorageFull] = useState(false);
@@ -123,6 +125,12 @@ export default function SettingsPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSettings(getSettings());
+    // A background sync can apply a cloud-winning settings set while this
+    // page is open — re-read so the controls never show a stale value.
+    function onSettingsChanged() {
+      setSettings(getSettings());
+    }
+    window.addEventListener(SETTINGS_CHANGED_EVENT, onSettingsChanged);
     if (typeof navigator !== "undefined" && navigator.storage?.estimate) {
       navigator.storage
         .estimate()
@@ -139,6 +147,7 @@ export default function SettingsPage() {
         .catch(() => {});
     }
     if (typeof Notification !== "undefined") setPermission(Notification.permission);
+    return () => window.removeEventListener(SETTINGS_CHANGED_EVENT, onSettingsChanged);
   }, []);
 
   function patch(p: Partial<UserSettings>) {
@@ -173,7 +182,13 @@ export default function SettingsPage() {
       await removeReviewerCompletely(r.id);
     }
     setConfirmingDelete(false);
-    setNotice("All reviewers, questions, files, and quiz history were deleted on this device.");
+    // Tombstones from the deletes above carry this to the cloud on next sync,
+    // so signed-in devices converge on empty instead of resurrecting rows.
+    setNotice(
+      user
+        ? "All reviewers, questions, files, and quiz history were deleted. They'll also clear from your other devices on next sync."
+        : "All reviewers, questions, files, and quiz history were deleted on this device.",
+    );
   }
 
   async function enableReminders() {
@@ -310,7 +325,11 @@ export default function SettingsPage() {
 
         <Section
           title="Data"
-          note={`${storageUsed ?? "Storage use is unknown in this browser."} Reviewers, questions, and history live on this device only.`}
+          note={`${storageUsed ?? "Storage use is unknown in this browser."} ${
+            user
+              ? "A copy syncs to your account; uploaded files stay on each device."
+              : "Reviewers, questions, and history live on this device only."
+          }`}
         >
           <div className="flex flex-wrap gap-3 py-4">
             <button

@@ -2,6 +2,8 @@
 import { MAX_FILENAME_CHARS } from "@/app/lib/attachmentLimits";
 import { clampToLine, stripSpoofingControls } from "@/app/lib/promptSafety";
 import { newId } from "@/app/lib/ids";
+import { notifyLocalChange } from "@/app/lib/localChange";
+import { markDeleted } from "@/app/lib/tombstones";
 import type { QuestionType } from "@/app/types";
 
 // An exam format is a named set of question types: the thing that makes one
@@ -51,6 +53,10 @@ export type ExamFormat = {
   // PDFs/images live in the format-attachments store, same local-only rule
   // as reviewer attachments.
   pastExam?: PastExam;
+  // Stamped by saveCustomFormat on every save, not by callers — sync compares
+  // on it for last-write-wins. Missing on formats saved before sync existed,
+  // which merge as epoch (any edited copy wins over an untouched one).
+  updatedAt?: string;
 };
 
 // Cap keeps one format's record small against localStorage's ~5MB quota.
@@ -272,15 +278,26 @@ export function getCustomFormats(): ExamFormat[] {
 }
 
 export function saveCustomFormat(format: ExamFormat): void {
+  const stamped = { ...format, updatedAt: new Date().toISOString() };
   const rest = getCustomFormats().filter((f) => f.id !== format.id);
-  window.localStorage.setItem(CUSTOM_FORMATS_KEY, JSON.stringify([...rest, format]));
+  window.localStorage.setItem(CUSTOM_FORMATS_KEY, JSON.stringify([...rest, stamped]));
+  notifyLocalChange();
 }
 
 export function deleteCustomFormat(id: string): void {
+  // Tombstoned so sync deletes the cloud copy instead of resurrecting it.
+  markDeleted("formats", id);
   window.localStorage.setItem(
     CUSTOM_FORMATS_KEY,
     JSON.stringify(getCustomFormats().filter((f) => f.id !== id)),
   );
+  notifyLocalChange();
+}
+
+// Sync-only bulk writer: stores the merged set verbatim — no stamping, which
+// would make every pulled format look locally newer and break last-write-wins.
+export function replaceCustomFormats(formats: ExamFormat[]): void {
+  window.localStorage.setItem(CUSTOM_FORMATS_KEY, JSON.stringify(formats));
 }
 
 export function getAllFormats(): ExamFormat[] {
@@ -471,6 +488,7 @@ export function sanitizeFormatDef(value: unknown): ExamFormat | undefined {
     id: clampToLine(value.id, MAX_ID_CHARS),
     name: clampToLine(value.name, MAX_ID_CHARS),
     description: stripSpoofingControls(value.description ?? ""),
+    updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : undefined,
     pastExam: value.pastExam
       ? {
           fileName: clampToLine(value.pastExam.fileName, MAX_FILENAME_CHARS),

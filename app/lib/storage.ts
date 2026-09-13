@@ -1,6 +1,8 @@
 import { DEFAULT_QUESTION_COUNT, splitCountEvenly, sumCounts } from "@/app/lib/questions";
 import { CSOPESY_FINAL, formatTypeKeys, resolveFormat } from "@/app/lib/examFormats";
 import { newId } from "@/app/lib/ids";
+import { markDeleted } from "@/app/lib/tombstones";
+import { notifyLocalChange } from "@/app/lib/localChange";
 import type { Question, QuizAttempt, Reviewer } from "@/app/types";
 
 // The ONLY file that touches localStorage. Swapping to Supabase later means
@@ -136,6 +138,8 @@ export function saveReviewer(reviewer: Reviewer): void {
     reviewers[index] = stamped;
   }
   writeJson(STORAGE_KEY, reviewers);
+  // Covers updateReviewer too — it delegates here.
+  notifyLocalChange();
 }
 
 // Re-reads before writing, so a caller holding a stale copy of the Reviewer
@@ -151,11 +155,24 @@ export function updateReviewer(id: string, patch: Partial<Reviewer>): Reviewer |
 }
 
 export function deleteReviewer(id: string): void {
+  // Tombstoned before deleting so the next sync removes the cloud copies
+  // instead of resurrecting them (see app/lib/sync.ts). Attempts go first —
+  // deleteQuizHistory below would otherwise drop the ids we need to mark.
+  markDeleted("reviewers", id);
+  for (const attempt of getQuizHistory(id)) markDeleted("attempts", attempt.id);
   const reviewers = getReviewers().filter((r) => r.id !== id);
   writeJson(STORAGE_KEY, reviewers);
   // A deleted Reviewer's attempts would otherwise linger and reappear if its
   // id were ever reused — and the delete dialog promises the history goes too.
   deleteQuizHistory(id);
+  notifyLocalChange();
+}
+
+// Bulk writers for sync only: they store an already-merged set verbatim —
+// no updatedAt stamping, no normalize — because stamping here would make
+// every pulled row look locally newer and break last-write-wins.
+export function replaceAllReviewers(reviewers: Reviewer[]): void {
+  writeJson(STORAGE_KEY, reviewers);
 }
 
 // Attempts live under their own key rather than on the Reviewer: they're
@@ -251,10 +268,17 @@ export function saveQuizAttempt(
     examFormatName: format.name,
   };
   writeJson(ATTEMPTS_KEY, [...getAllAttempts(), attempt]);
+  notifyLocalChange();
   return attempt;
 }
 
 export function deleteQuizHistory(reviewerId: string): void {
   const remaining = getAllAttempts().filter((a) => a.reviewerId !== reviewerId);
   writeJson(ATTEMPTS_KEY, remaining);
+  notifyLocalChange();
+}
+
+// Sync-only bulk writer — see replaceAllReviewers.
+export function replaceAllAttempts(attempts: QuizAttempt[]): void {
+  writeJson(ATTEMPTS_KEY, attempts);
 }

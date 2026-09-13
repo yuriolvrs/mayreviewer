@@ -49,3 +49,11 @@ notes/
 /playwright-report/
 /blob-report/
 /.playwright/
+
+# local agent harness dirs (impeccable skill + session helpers, not committed)
+/.agents/
+/.claude/
+/.codex/
+/.cursor/
+/.openchamber/
+/.opencode/

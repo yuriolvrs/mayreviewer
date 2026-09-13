@@ -4,9 +4,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useAuth } from "@/app/components/AuthProvider";
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { user, loading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -84,47 +86,77 @@ export default function Navbar() {
             }
           }}
         >
-          <button
-            ref={menuButtonRef}
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-label="Account menu"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-[13px] font-semibold text-on-accent"
-          >
-            U
-          </button>
-          {menuOpen && (
-            <div role="menu" className="absolute right-0 top-11 w-40 rounded-lg border border-border bg-surface py-1 shadow-menu">
-              <Link
-                href="/about"
-                role="menuitem"
-                onClick={() => setMenuOpen(false)}
-                className="block min-h-[44px] px-3 py-2 text-left text-[15px] text-text-primary hover:bg-surface-alt"
-              >
-                About
-              </Link>
-              <Link
-                href="/settings"
-                role="menuitem"
-                onClick={() => setMenuOpen(false)}
-                className={`block min-h-[44px] px-3 py-2 text-left text-[15px] hover:bg-surface-alt ${
-                  settingsActive ? "font-semibold text-text-primary" : "text-text-primary"
-                }`}
-              >
-                Settings
-              </Link>
+          {!loading && !user ? (
+            <Link
+              href="/login"
+              className="flex min-h-[44px] items-center text-[14px] font-medium text-text-secondary hover:text-text-primary md:text-[15px]"
+            >
+              Log in
+            </Link>
+          ) : (
+            <>
               <button
-                disabled
-                title="Coming soon"
-                className="block min-h-[44px] w-full px-3 py-2 text-left text-[15px] text-text-tertiary disabled:cursor-not-allowed"
+                ref={menuButtonRef}
+                onClick={() => setMenuOpen((v) => !v)}
+                aria-label="Account menu"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-[13px] font-semibold text-on-accent"
               >
-                Log out
+                {(user?.email?.[0] ?? "U").toUpperCase()}
               </button>
-            </div>
+              {menuOpen && (
+                <div role="menu" className="absolute right-0 top-11 w-56 rounded-lg border border-border bg-surface py-1 shadow-menu">
+                  {user?.email && (
+                    <p className="truncate px-3 py-2 text-[13px] text-text-secondary" aria-hidden="true">
+                      {user.email}
+                    </p>
+                  )}
+                  <Link
+                    href="/about"
+                    role="menuitem"
+                    onClick={() => setMenuOpen(false)}
+                    className="block min-h-[44px] px-3 py-2 text-left text-[15px] text-text-primary hover:bg-surface-alt"
+                  >
+                    About
+                  </Link>
+                  <Link
+                    href="/settings"
+                    role="menuitem"
+                    onClick={() => setMenuOpen(false)}
+                    className={`block min-h-[44px] px-3 py-2 text-left text-[15px] hover:bg-surface-alt ${
+                      settingsActive ? "font-semibold text-text-primary" : "text-text-primary"
+                    }`}
+                  >
+                    Settings
+                  </Link>
+                  <AccountMenuLogout onDone={() => setMenuOpen(false)} />
+                </div>
+              )}
+            </>
           )}
         </div>
       </nav>
     </header>
+  );
+}
+
+// Split out so the menu can stay server-renderable in shape while only the
+// sign-out action subscribes to auth. Sign-out flushes to the cloud, then
+// empties the device — the next login pulls everything back down.
+function AccountMenuLogout({ onDone }: { onDone: () => void }) {
+  const { user, signOut } = useAuth();
+  if (!user) return null;
+  return (
+    <button
+      role="menuitem"
+      onClick={() => {
+        onDone();
+        void signOut();
+      }}
+      className="block min-h-[44px] w-full px-3 py-2 text-left text-[15px] text-text-primary hover:bg-surface-alt"
+    >
+      Log out
+    </button>
   );
 }

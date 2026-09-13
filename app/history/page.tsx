@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatTakenAt, scoreTone } from "@/app/lib/questions";
 import { getAllQuizHistory, getReviewers } from "@/app/lib/storage";
+import { SYNC_APPLIED_EVENT } from "@/app/lib/sync";
 import type { QuizAttempt, Reviewer } from "@/app/types";
 
 function ChevronRightIcon() {
@@ -53,6 +54,14 @@ export default function HistoryPage() {
     setAttempts(getAllQuizHistory());
     setReviewers(Object.fromEntries(getReviewers().map((r) => [r.id, r])));
     setLoaded(true);
+    // Same staleness guard as home: a background sync can land attempts
+    // after mount.
+    function onSyncApplied() {
+      setAttempts(getAllQuizHistory());
+      setReviewers(Object.fromEntries(getReviewers().map((r) => [r.id, r])));
+    }
+    window.addEventListener(SYNC_APPLIED_EVENT, onSyncApplied);
+    return () => window.removeEventListener(SYNC_APPLIED_EVENT, onSyncApplied);
   }, []);
 
   if (!loaded) return null;

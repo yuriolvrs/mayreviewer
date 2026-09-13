@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { getReviewers } from "@/app/lib/storage";
+import { SYNC_APPLIED_EVENT } from "@/app/lib/sync";
 import { removeReviewerCompletely } from "@/app/lib/reviewers";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
 import type { Reviewer } from "@/app/types";
@@ -29,6 +30,7 @@ export default function Home() {
   const [selected, setSelected] = useState<string[]>([]);
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [showWelcome, setShowWelcome] = useState(false);
   const selectAllRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -36,6 +38,23 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setReviewers(getReviewers());
     setLoaded(true);
+    // A background sync can land reviewers after mount (second device) — the
+    // list re-reads instead of sitting stale until the next navigation.
+    function onSyncApplied() {
+      setReviewers(getReviewers());
+    }
+    window.addEventListener(SYNC_APPLIED_EVENT, onSyncApplied);
+    // One-time confirmation after account creation (?welcome=1 from /login):
+    // show the banner, then strip the param so refresh and back-navigation
+    // never re-show it.
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("welcome") === "1") {
+      setShowWelcome(true);
+      url.searchParams.delete("welcome");
+      const query = url.searchParams.toString();
+      window.history.replaceState(null, "", `${url.pathname}${query ? `?${query}` : ""}${url.hash}`);
+    }
+    return () => window.removeEventListener(SYNC_APPLIED_EVENT, onSyncApplied);
   }, []);
 
   function toggleSelected(id: string) {
@@ -79,6 +98,21 @@ export default function Home() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-12">
+      {showWelcome && (
+        <div role="status" className="flex items-center justify-between gap-3 rounded-lg bg-surface-alt px-3 py-2">
+          <p className="text-[14px] text-text-secondary">
+            <span className="font-semibold text-text-primary">Account created — you&apos;re signed in.</span>{" "}
+            Your reviewers now sync across devices.
+          </p>
+          <button
+            onClick={() => setShowWelcome(false)}
+            aria-label="Dismiss welcome message"
+            className="flex min-h-[44px] min-w-[44px] flex-none items-center justify-center rounded-md text-[18px] text-text-secondary hover:text-text-primary"
+          >
+            ×
+          </button>
+        </div>
+      )}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-[34px] font-bold leading-10 tracking-tight text-text-primary">

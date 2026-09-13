@@ -114,6 +114,7 @@ const THEMES: { value: ThemePreference; label: string }[] = [
 export default function SettingsPage() {
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [storageUsed, setStorageUsed] = useState<string | null>(null);
+  const [storageFull, setStorageFull] = useState(false);
   const [permission, setPermission] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -125,8 +126,15 @@ export default function SettingsPage() {
     if (typeof navigator !== "undefined" && navigator.storage?.estimate) {
       navigator.storage
         .estimate()
-        .then(({ usage }) => {
-          if (typeof usage === "number") setStorageUsed(`${(usage / 1024 / 1024).toFixed(1)} MB used`);
+        .then(({ usage, quota }) => {
+          if (typeof usage === "number") {
+            setStorageUsed(`${(usage / 1024 / 1024).toFixed(1)} MB used`);
+            // Warn early: hitting the quota mid-save loses the write, and the
+            // recovery is manual export-then-delete.
+            if (typeof quota === "number" && quota > 0 && usage / quota >= 0.8) {
+              setStorageFull(true);
+            }
+          }
         })
         .catch(() => {});
     }
@@ -318,6 +326,11 @@ export default function SettingsPage() {
               Delete all local data
             </button>
           </div>
+          {storageFull && (
+            <p role="alert" className="border-b border-border pb-3 text-[14px] font-medium text-warning">
+              Storage is over 80% full — export a backup, then delete old reviewers to free space.
+            </p>
+          )}
         </Section>
 
         <Section title="Plan">

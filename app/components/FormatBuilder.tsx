@@ -35,6 +35,7 @@ import {
 } from "@/app/lib/attachments";
 import { MAX_QUESTION_COUNT } from "@/app/lib/questions";
 import { newId } from "@/app/lib/ids";
+import { useOnline } from "@/app/lib/useOnline";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
 
 // One row of the builder: everything about a single question type. Counts
@@ -124,6 +125,8 @@ export default function FormatBuilder({
   const [pastFileError, setPastFileError] = useState("");
   const [inferState, setInferState] = useState<"idle" | "running" | "error">("idle");
   const [inferError, setInferError] = useState("");
+  // Inference calls the model — offline, the button explains instead of failing.
+  const online = useOnline();
   const [unsupported, setUnsupported] = useState<UnsupportedNote[]>([]);
   const [confirmReplace, setConfirmReplace] = useState<InferredType[] | null>(null);
   const pastInputRef = useRef<HTMLInputElement>(null);
@@ -422,11 +425,13 @@ export default function FormatBuilder({
             <button
               type="button"
               onClick={() => void runInference()}
-              disabled={inferState === "running" || (pastExamText().trim() === "" && storedFiles.length === 0)}
+              disabled={inferState === "running" || !online || (pastExamText().trim() === "" && storedFiles.length === 0)}
               title={
-                pastExamText().trim() === "" && storedFiles.length === 0
-                  ? "Paste or upload a past exam first"
-                  : undefined
+                !online
+                  ? "Inference needs an internet connection"
+                  : pastExamText().trim() === "" && storedFiles.length === 0
+                    ? "Paste or upload a past exam first"
+                    : undefined
               }
               className="rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
             >

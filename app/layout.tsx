@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Libre_Franklin, Space_Mono } from "next/font/google";
 import BottomBar from "@/app/components/BottomBar";
 import Navbar from "@/app/components/Navbar";
+import ReminderInit from "@/app/components/ReminderInit";
+import ServiceWorkerInit from "@/app/components/ServiceWorkerInit";
 import ThemeInit from "@/app/components/ThemeInit";
 import "./globals.css";
 
@@ -88,6 +90,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </footer>
         <BottomBar />
         <ThemeInit />
+        <ReminderInit />
+        <ServiceWorkerInit />
       </body>
     </html>
   );

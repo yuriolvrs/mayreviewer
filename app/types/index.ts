@@ -47,6 +47,9 @@ export type Question = {
   // reason, and independently so — questions stored before it existed keep
   // showing their single paragraph.
   whyOthersWrong?: string;
+  // Starred by hand in the Questions tab. Optional so older stored questions
+  // without it still validate — the UI treats missing as unstarred.
+  favorite?: boolean;
 };
 
 export type FeedbackMode = "immediate" | "end-only";

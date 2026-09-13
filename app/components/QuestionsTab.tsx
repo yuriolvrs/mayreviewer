@@ -26,6 +26,7 @@ import {
 } from "@/app/lib/generate";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
 import { newId } from "@/app/lib/ids";
+import { useOnline } from "@/app/lib/useOnline";
 import GenerationModal from "@/app/components/GenerationModal";
 import StimulusQuote from "@/app/components/StimulusQuote";
 import type { Question, QuestionSource, Reviewer } from "@/app/types";
@@ -112,6 +113,20 @@ function CheckIcon() {
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function StarIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <path
+        d="M7 1.5 8.3 5.1 11.9 6.4 8.3 7.7 7 11.3 5.7 7.7 2.1 6.4 5.7 5.1z"
+        fill={filled ? "currentColor" : "none"}
+        stroke="currentColor"
+        strokeWidth="1.5"
         strokeLinejoin="round"
       />
     </svg>
@@ -363,20 +378,29 @@ export default function QuestionsTab({
       ? (src as "all" | QuestionSource)
       : "all";
   });
+  const [favFilter, setFavFilter] = useState<"all" | "starred">(() =>
+    searchParams.get("fav") === "starred" ? "starred" : "all",
+  );
 
   // Written back on change with replace: no history spam, no scroll jump.
   // Only non-default values are kept, so a plain view stays a clean URL.
+  // Skipped when the URL already matches: a no-op replace still costs an RSC
+  // round-trip, and one in flight when the network drops makes Next fall back
+  // to a document navigation that dies offline.
   useEffect(() => {
     const params = new URLSearchParams();
     if (search.trim()) params.set("q", search.trim());
     if (sort !== "number") params.set("sort", sort);
     if (typeFilter !== "all") params.set("type", typeFilter);
     if (sourceFilter !== "all") params.set("source", sourceFilter);
+    if (favFilter !== "all") params.set("fav", "starred");
     const query = params.toString();
-    router.replace(`/reviewer/${reviewer.id}?tab=questions${query ? `&${query}` : ""}`, {
+    const target = `/reviewer/${reviewer.id}?tab=questions${query ? `&${query}` : ""}`;
+    if (window.location.pathname + window.location.search === target) return;
+    router.replace(target, {
       scroll: false,
     });
-  }, [search, sort, typeFilter, sourceFilter, reviewer.id, router]);
+  }, [search, sort, typeFilter, sourceFilter, favFilter, reviewer.id, router]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Question | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -397,6 +421,8 @@ export default function QuestionsTab({
   const cancelledRef = useRef(false);
 
   const generating = genState === "loading";
+  // Generation calls the model — offline, the button explains instead of failing.
+  const online = useOnline();
 
   const total = reviewer.questions.length;
   // Numbering follows stored order, so a question keeps its number no matter
@@ -408,6 +434,7 @@ export default function QuestionsTab({
     (q) =>
       (typeFilter === "all" || q.type === typeFilter) &&
       (sourceFilter === "all" || q.source === sourceFilter) &&
+      (favFilter === "all" || q.favorite === true) &&
       matchesSearch(q, term),
   );
 
@@ -469,6 +496,17 @@ function startCreate() {
 
     onChanged();
     cancelEdit();
+  }
+
+  // Same write-then-notify pattern as the edit and delete paths above: the
+  // parent re-reads the reviewer on onChanged, so the star flips immediately.
+  function toggleFavorite(question: Question) {
+    updateReviewer(reviewer.id, {
+      questions: reviewer.questions.map((q) =>
+        q.id === question.id ? { ...q, favorite: !q.favorite } : q,
+      ),
+    });
+    onChanged();
   }
 
   function deleteQuestions(ids: string[]) {
@@ -618,14 +656,24 @@ function startCreate() {
         <button
           type="button"
           onClick={handleGenerateClick}
-          disabled={generating}
-          title={`Generate ${reviewer.questionCount} questions from this reviewer's sources`}
+          disabled={generating || !online}
+          title={
+            online
+              ? `Generate ${reviewer.questionCount} questions from this reviewer's sources`
+              : "Generation needs an internet connection"
+          }
           className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 text-[15px] font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:shrink-0"
         >
           <SparkleIcon />
           {generating ? "Generating…" : "Generate"}
         </button>
       </div>
+
+      {!online && (
+        <p className="text-[14px] text-text-secondary">
+          You&apos;re offline — quizzing works, but generation needs a connection.
+        </p>
+      )}
 
       {!generating && generateError && (
         <p className="text-[15px] text-error">{generateError}</p>
@@ -675,6 +723,23 @@ function startCreate() {
               {t === "all" ? "All" : typeLabelOf(format, t)}
             </button>
           ))}
+        </div>
+
+        <div className="mx-2 hidden h-6 w-px bg-border-strong sm:block" />
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setFavFilter(favFilter === "starred" ? "all" : "starred")}
+            aria-pressed={favFilter === "starred"}
+            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[14px] font-medium ${
+              favFilter === "starred"
+                ? "bg-accent text-on-accent"
+                : "border border-border-strong text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            <StarIcon filled={favFilter === "starred"} />
+            Starred
+          </button>
         </div>
 
         <div className="mx-2 hidden h-6 w-px bg-border-strong sm:block" />
@@ -843,6 +908,19 @@ function startCreate() {
                             </>
                           ) : (
                             <>
+                              <button
+                                onClick={() => toggleFavorite(question)}
+                                aria-pressed={question.favorite === true}
+                                aria-label={`${question.favorite ? "Unstar" : "Star"} question ${number}`}
+                                title={question.favorite ? "Starred" : "Star this question"}
+                                className={`flex h-11 w-11 items-center justify-center rounded-lg sm:h-auto sm:w-auto sm:rounded-none sm:p-1 ${
+                                  question.favorite
+                                    ? "text-accent"
+                                    : "text-text-tertiary hover:text-text-primary sm:text-text-secondary"
+                                }`}
+                              >
+                                <StarIcon filled={question.favorite === true} />
+                              </button>
                               <button
                                 onClick={() => startEdit(question)}
                                 className="text-text-tertiary hover:text-text-primary sm:font-medium sm:text-text-secondary"

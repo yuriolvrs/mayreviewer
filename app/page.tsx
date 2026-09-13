@@ -28,6 +28,7 @@ export default function Home() {
   const [loaded, setLoaded] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const selectAllRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -41,8 +42,20 @@ export default function Home() {
     setSelected((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
   }
 
-  const allSelected = reviewers.length > 0 && reviewers.every((r) => selected.includes(r.id));
-  const someSelected = reviewers.some((r) => selected.includes(r.id));
+  const term = search.trim().toLowerCase();
+  const visible = term
+    ? reviewers.filter(
+        (r) =>
+          r.reviewerName.toLowerCase().includes(term) ||
+          r.subject.toLowerCase().includes(term) ||
+          r.topics.some((t) => t.toLowerCase().includes(term)),
+      )
+    : reviewers;
+
+  // Selection follows the search: selecting all with a filter applied never
+  // reaches reviewers the filter is hiding.
+  const allSelected = visible.length > 0 && visible.every((r) => selected.includes(r.id));
+  const someSelected = visible.some((r) => selected.includes(r.id));
 
   // Set outside render: mutating the DOM node during render is a side effect.
   useEffect(() => {
@@ -52,7 +65,7 @@ export default function Home() {
   }, [allSelected, someSelected]);
 
   function toggleSelectAll() {
-    setSelected(allSelected ? [] : reviewers.map((r) => r.id));
+    setSelected(allSelected ? [] : visible.map((r) => r.id));
   }
 
   async function confirmBulkDelete() {
@@ -92,6 +105,25 @@ export default function Home() {
         </div>
       ) : (
         <>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search reviewers…"
+            aria-label="Search reviewers"
+            className="h-11 w-full rounded-lg border border-border bg-surface px-3 py-2 text-[15px] text-text-primary outline-none placeholder:text-text-tertiary focus:border-accent focus:ring-2 focus:ring-accent/20"
+          />
+          {term && (
+            <p className="text-[14px] text-text-secondary" role="status">
+              {visible.length} of {reviewers.length} reviewer{reviewers.length === 1 ? "" : "s"} shown
+            </p>
+          )}
+          {visible.length === 0 ? (
+            <p className="text-[15px] text-text-secondary">
+              No reviewers match “{search.trim()}”.
+            </p>
+          ) : (
+          <>
           {/* Swaps to the bulk action bar the moment anything is selected, same
               select-all/bulk-actions pattern as the Edit Questions tab. */}
           <div className="flex items-center gap-3">
@@ -100,12 +132,12 @@ export default function Home() {
               checked={allSelected}
               ref={selectAllRef}
               onChange={toggleSelectAll}
-              aria-label={`Select all ${reviewers.length} reviewer${reviewers.length === 1 ? "" : "s"}`}
+              aria-label={`Select all ${visible.length} reviewer${visible.length === 1 ? "" : "s"}`}
               className="h-4 w-4 shrink-0 accent-accent"
             />
             {selected.length === 0 ? (
               <span className="text-[15px] text-text-secondary">
-                Select all {reviewers.length} reviewer{reviewers.length === 1 ? "" : "s"}
+                Select all {visible.length} reviewer{visible.length === 1 ? "" : "s"}
               </span>
             ) : (
               <>
@@ -129,7 +161,7 @@ export default function Home() {
           </div>
 
           <ul className="flex flex-col gap-3">
-            {reviewers.map((reviewer) => (
+            {visible.map((reviewer) => (
               <li key={reviewer.id}>
                 {/* A div (not a <button>) so the selection checkbox can nest
                     inside it — a real button can't validly contain one. */}
@@ -177,6 +209,8 @@ export default function Home() {
               </li>
             ))}
           </ul>
+          </>
+          )}
         </>
       )}
 

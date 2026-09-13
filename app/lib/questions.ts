@@ -142,6 +142,10 @@ function isOptionalString(value: unknown): boolean {
   return value === undefined || typeof value === "string";
 }
 
+function isOptionalBoolean(value: unknown): boolean {
+  return value === undefined || typeof value === "boolean";
+}
+
 // Everything except `id` — the API route validates model output before it has
 // assigned ids, while the importer validates questions that already carry one.
 export function isValidQuestionFields(value: unknown): value is Omit<Question, "id"> {
@@ -165,6 +169,7 @@ export function isValidQuestionFields(value: unknown): value is Omit<Question, "
     isOptionalString(q.stimulus) &&
     isOptionalString(q.explanation) &&
     isOptionalString(q.whyOthersWrong) &&
+    isOptionalBoolean(q.favorite) &&
     typeof q.type === "string" &&
     q.type.length > 0 &&
     typeof q.question === "string" &&
@@ -207,6 +212,13 @@ export function shuffleOptions(question: Question): Question {
     options: order.map((i) => question.options[i]),
     correctIndex,
   };
+}
+
+// Ids the attempt got wrong, blanks included (an unanswered question's entry
+// is missing from `answers`, which never equals the correct index). Feeds the
+// quiz setup's "missed last time" scope.
+export function missedIds(questions: Question[], answers: Record<string, number>): string[] {
+  return questions.filter((q) => answers[q.id] !== q.correctIndex).map((q) => q.id);
 }
 
 // Picking the first N questions in stored order would skew a shortened quiz

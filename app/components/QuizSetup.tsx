@@ -3,6 +3,7 @@
 import { Fragment, useState } from "react";
 import {
   formatTakenAt,
+  missedIds,
   sampleProportionally,
   scoreTone,
 } from "@/app/lib/questions";
@@ -124,6 +125,7 @@ export default function QuizSetup({
 }) {
   // Empty means "all" — the chip row shows that as the All types chip.
   const [scopeTypes, setScopeTypes] = useState<string[]>([]);
+  const [missedOnly, setMissedOnly] = useState(false);
   const [countInput, setCountInput] = useState(String(reviewer.questions.length));
 
   function poolFor(types: string[]): Question[] {
@@ -132,7 +134,13 @@ export default function QuizSetup({
       : reviewer.questions.filter((q) => types.includes(q.type));
   }
 
-  const pool = poolFor(scopeTypes);
+  // Ids survive question edits, so the newest attempt's misses still match the
+  // current pool; questions deleted since simply fall out of the scope.
+  const missed = new Set(
+    history.length > 0 ? missedIds(history[0].questions, history[0].answers) : [],
+  );
+
+  const pool = poolFor(scopeTypes).filter((q) => !missedOnly || missed.has(q.id));
   const available = pool.length;
   const requested = parseInt(countInput, 10);
   const count = Math.min(Math.max(Number.isNaN(requested) ? available : requested, 1), available);
@@ -142,7 +150,15 @@ export default function QuizSetup({
   // never sits on a number the new pool can't satisfy.
   function applyScope(types: string[]) {
     setScopeTypes(types);
-    setCountInput(String(poolFor(types).length));
+    const base = poolFor(types);
+    setCountInput(String(missedOnly ? base.filter((q) => missed.has(q.id)).length : base.length));
+  }
+
+  function toggleMissed() {
+    const next = !missedOnly;
+    setMissedOnly(next);
+    const base = poolFor(scopeTypes);
+    setCountInput(String(next ? base.filter((q) => missed.has(q.id)).length : base.length));
   }
 
   function toggleType(type: string) {
@@ -193,6 +209,20 @@ export default function QuizSetup({
               {typeLabelOf(format, type)}
             </button>
           ))}
+          {missed.size > 0 && (
+            <button
+              onClick={toggleMissed}
+              aria-pressed={missedOnly}
+              title="Only questions the newest attempt got wrong or left blank"
+              className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
+                missedOnly
+                  ? "bg-accent text-on-accent"
+                  : "border border-border-strong text-text-secondary hover:text-text-primary"
+              }`}
+            >
+              Missed last time ({missed.size})
+            </button>
+          )}
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -217,6 +247,11 @@ export default function QuizSetup({
           <p id="quiz-count-note" className="mt-2 text-[14px] text-text-secondary">
             Only {available} question{available === 1 ? " is" : "s are"} available in this scope —
             the quiz will use {count}.
+          </p>
+        )}
+        {missedOnly && available === 0 && (
+          <p className="mt-2 text-[14px] text-text-secondary">
+            Those questions are no longer in the pool — turn the filter off for the full set.
           </p>
         )}
         {count < available && !overAsked && (

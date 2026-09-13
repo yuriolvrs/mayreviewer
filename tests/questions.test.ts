@@ -4,6 +4,7 @@ import {
   isPreformatted,
   isQuestion,
   isValidQuestionFields,
+  missedIds,
   optionLetter,
   scoreTone,
   splitCountEvenly,
@@ -420,5 +421,33 @@ describe("takeWithinTypeBudget", () => {
     const input = [...ident(2), ...timelineSet("a", 3)];
     const { kept } = takeWithinTypeBudget(input, budget({ identification: 2, timeline: 3 }));
     expect(kept.map((q) => q.id)).toEqual(input.map((q) => q.id));
+  });
+});
+
+describe("favorite", () => {
+  it("accepts a starred question and one without the field", () => {
+    expect(isValidQuestionFields(question({ favorite: true }))).toBe(true);
+    expect(isValidQuestionFields(question({ favorite: false }))).toBe(true);
+    expect(isValidQuestionFields(question())).toBe(true);
+  });
+
+  it("rejects a non-boolean favorite", () => {
+    expect(isValidQuestionFields({ ...question(), favorite: "yes" })).toBe(false);
+  });
+});
+
+describe("missedIds", () => {
+  const pool = [
+    question({ id: "q1", correctIndex: 0 }),
+    question({ id: "q2", correctIndex: 1 }),
+    question({ id: "q3", correctIndex: 2 }),
+  ];
+
+  it("returns wrong answers and blanks, in pool order", () => {
+    expect(missedIds(pool, { q1: 0, q2: 0 })).toEqual(["q2", "q3"]);
+  });
+
+  it("returns [] for a perfect attempt", () => {
+    expect(missedIds(pool, { q1: 0, q2: 1, q3: 2 })).toEqual([]);
   });
 });

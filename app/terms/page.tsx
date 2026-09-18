@@ -1,3 +1,5 @@
+import { SUPPORT_EMAIL } from "@/app/lib/feedback";
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="border-t border-border py-6">
@@ -65,8 +67,8 @@ export default function TermsPage() {
         <Section title="Contact">
           <p>
             Questions about these terms:{" "}
-            <a href="mailto:support@example.com?subject=May%20Reviewer%20terms" className="font-medium text-accent underline">
-              support@example.com
+            <a href={`mailto:${SUPPORT_EMAIL}?subject=May%20Reviewer%20terms`} className="font-medium text-accent underline">
+              {SUPPORT_EMAIL}
             </a>
             .
           </p>

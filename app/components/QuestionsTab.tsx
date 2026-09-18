@@ -235,7 +235,7 @@ function QuestionEditor({
             value={draft.stimulus}
             onChange={(e) => setDraft({ ...draft, stimulus: e.target.value })}
             rows={10}
-            className="w-full rounded-lg border border-border bg-surface p-3 font-mono text-[14px] text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+            className="w-full rounded-lg border border-border bg-surface p-3 font-mono text-[14px] text-text-primary outline-none focus:border-accent"
           />
         </label>
       )}
@@ -247,7 +247,7 @@ function QuestionEditor({
         rows={2}
         placeholder="Type your question…"
         aria-label="Question text"
-        className={`w-full resize-y rounded-lg border border-border bg-surface p-3 text-[15px] text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 ${
+        className={`w-full resize-y rounded-lg border border-border bg-surface p-3 text-[15px] text-text-primary outline-none focus:border-accent ${
           isPreformatted(draft.type) ? "font-mono" : ""
         }`}
       />
@@ -282,7 +282,7 @@ function QuestionEditor({
               }
               placeholder={`Option ${optionLetter(i)}`}
               aria-label={`Option ${optionLetter(i)}`}
-              className="h-10 flex-1 rounded-lg border border-border bg-surface px-3 text-[15px] text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+              className="h-10 flex-1 rounded-lg border border-border bg-surface px-3 text-[15px] text-text-primary outline-none focus:border-accent"
             />
             {isCorrect(i) && (
               <span className="shrink-0 text-success">
@@ -326,7 +326,7 @@ function QuestionEditor({
           onChange={(e) => setDraft({ ...draft, explanation: e.target.value })}
           rows={2}
           placeholder="Optional, but shown alongside the answer in results and immediate feedback…"
-          className="w-full resize-y rounded-lg border border-border bg-surface p-3 text-[15px] text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+          className="w-full resize-y rounded-lg border border-border bg-surface p-3 text-[15px] text-text-primary outline-none focus:border-accent"
         />
       </label>
 
@@ -339,7 +339,7 @@ function QuestionEditor({
           onChange={(e) => setDraft({ ...draft, whyOthersWrong: e.target.value })}
           rows={2}
           placeholder="Optional, shown as a second paragraph under the explanation…"
-          className="w-full resize-y rounded-lg border border-border bg-surface p-3 text-[15px] text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+          className="w-full resize-y rounded-lg border border-border bg-surface p-3 text-[15px] text-text-primary outline-none focus:border-accent"
         />
       </label>
     </div>
@@ -631,7 +631,7 @@ function startCreate() {
           placeholder="Search questions…"
           aria-label="Search questions"
           disabled={generating}
-          className="h-11 w-full rounded-lg border border-border bg-surface px-3 text-[15px] text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:min-w-[220px] sm:flex-1"
+          className="h-11 w-full rounded-lg border border-border bg-surface px-3 text-[15px] text-text-primary outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:min-w-[220px] sm:flex-1"
         />
         <select
           value={sort}

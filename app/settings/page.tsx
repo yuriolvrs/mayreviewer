@@ -5,6 +5,7 @@ import ConfirmDialog from "@/app/components/ConfirmDialog";
 import { useAuth } from "@/app/components/AuthProvider";
 import { removeReviewerCompletely } from "@/app/lib/reviewers";
 import { MAX_QUESTION_COUNT, MIN_QUESTION_COUNT } from "@/app/lib/questions";
+import { MAX_DAILY_GOAL, MIN_DAILY_GOAL } from "@/app/lib/streaks";
 import { DEFAULT_SETTINGS, getSettings, SETTINGS_CHANGED_EVENT, updateSettings } from "@/app/lib/settings";
 import { getAllQuizHistory, getReviewers } from "@/app/lib/storage";
 import type { FeedbackMode, ThemePreference, UserSettings } from "@/app/types";
@@ -255,6 +256,18 @@ export default function SettingsPage() {
             checked={settings.shuffle}
             onChange={(shuffle) => patch({ shuffle })}
           />
+          <Row label="Daily goal" hint={`1–${MAX_DAILY_GOAL} questions a day. Tracked on the home screen.`}>
+            <input
+              type="number"
+              min={MIN_DAILY_GOAL}
+              max={MAX_DAILY_GOAL}
+              inputMode="numeric"
+              value={settings.dailyGoal}
+              onChange={(e) => patch({ dailyGoal: Number(e.target.value) })}
+              aria-label="Daily goal"
+              className="h-11 w-full rounded-lg border border-border bg-surface px-2 py-2 text-[15px] text-text-primary outline-none focus:border-accent"
+            />
+          </Row>
         </Section>
 
         <Section title="Appearance">

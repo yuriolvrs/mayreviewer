@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   FEEDBACK_TYPES,
+  SUPPORT_EMAIL,
   buildFeedbackMailto,
   isFeedbackMessageValid,
   type FeedbackType,
@@ -69,7 +70,7 @@ export default function FeedbackForm() {
       </div>
       {sent && (
         <p role="status" className="text-[14px] text-text-secondary">
-          Mail app opened. If nothing happened, email support@example.com directly.
+          Mail app opened. If nothing happened, email {SUPPORT_EMAIL} directly.
         </p>
       )}
     </form>

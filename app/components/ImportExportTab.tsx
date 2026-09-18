@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import UploadIcon from "@/app/components/UploadIcon";
 import { zipSync, strToU8 } from "fflate";
 import { updateReviewer } from "@/app/lib/storage";
 import { getAttachments, addAttachment } from "@/app/lib/attachments";
@@ -400,10 +401,11 @@ export default function ImportExportTab({
                 if (file) handleFileSelected(file);
               }}
               onClick={() => fileInputRef.current?.click()}
-              className={`cursor-pointer rounded-lg border-2 border-dashed p-9 text-center text-text-secondary ${
+              className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed p-9 text-center text-text-secondary ${
                 dragOver ? "border-accent bg-accent-subtle" : "border-border"
               }`}
             >
+              <UploadIcon />
               <p>
                 Drop a <span className="font-mono">.json</span> or{" "}
                 <span className="font-mono">.zip</span> file here, or click to browse.

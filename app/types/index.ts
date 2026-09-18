@@ -69,6 +69,9 @@ export type UserSettings = {
   reduceMotion: boolean;
   remindersEnabled: boolean;
   reminderTime: string;
+  // Questions per day the home strip counts toward. Purely motivational —
+  // nothing gates on it.
+  dailyGoal: number;
   // Reserved for later monetization. Always "free" in v1 — nothing gates on it.
   proTier: "free";
 };
@@ -99,6 +102,12 @@ export type QuizAttempt = {
   // above.
   examFormatId: string;
   examFormatName: string;
+  // Wall-clock seconds from quiz start to submit, timed or not. Backfilled
+  // as 0 for attempts recorded before timing existed.
+  durationSec?: number;
+  // True when the countdown hit zero and submitted automatically with
+  // whatever was answered. Backfilled as false.
+  timedOut?: boolean;
 };
 
 export type Reviewer = {

@@ -33,11 +33,6 @@ function FormatCard({
     <li className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-6">
       <div>
         <p className="text-[19px] font-semibold text-text-primary">{format.name}</p>
-        {(format.description || custom) && (
-          <p className="mt-1 text-[15px] text-text-secondary">
-            {format.description || "Custom format."}
-          </p>
-        )}
       </div>
       <ul className="flex flex-col gap-1.5">
         {format.types.map((t) => (
@@ -150,7 +145,7 @@ export default function FormatsPage() {
             Exam formats
           </h1>
           <p className="mt-1 text-[15px] text-text-secondary">
-            The question formats a reviewer can generate. Pick one when creating a reviewer.
+            Pick a question format for your reviewers.
           </p>
         </div>
         <Link
@@ -179,8 +174,9 @@ export default function FormatsPage() {
         </>
       )}
 
-      <h2 className="text-[15px] font-semibold text-text-primary">Built-in formats</h2>
-      <ul className="flex flex-col gap-3">
+      <div>
+        <h2 className="text-[15px] font-semibold text-text-primary">Built-in formats</h2>
+        <ul className="mt-2 flex flex-col gap-3">
         {builtins.map((format) => (
           <FormatCard
             key={format.id}
@@ -191,7 +187,8 @@ export default function FormatsPage() {
             onDeleteRequest={null}
           />
         ))}
-      </ul>
+        </ul>
+      </div>
 
       {confirmDelete && (
         <ConfirmDialog

@@ -284,6 +284,25 @@ describe("quiz history", () => {
     expect(hasQuizHistory("r2")).toBe(true);
   });
 
+  it("records timing and defaults it for older attempts", () => {
+    const attempt = saveQuizAttempt(reviewer(), asked, { q1: 0 }, [], { durationSec: 95, timedOut: true });
+    expect(attempt.durationSec).toBe(95);
+    expect(attempt.timedOut).toBe(true);
+
+    const untimed = saveQuizAttempt(reviewer(), asked, { q1: 0 }, []);
+    expect(untimed.durationSec).toBe(0);
+    expect(untimed.timedOut).toBe(false);
+
+    // Rows written before timing existed carry neither field.
+    const legacy: Record<string, unknown> = { ...attempt };
+    delete legacy.durationSec;
+    delete legacy.timedOut;
+    localStorage.setItem(ATTEMPTS_KEY, JSON.stringify([legacy]));
+    const reread = getQuizHistory("r1")[0];
+    expect(reread.durationSec).toBe(0);
+    expect(reread.timedOut).toBe(false);
+  });
+
   it("reads attempts stored before answers were kept", () => {
     localStorage.setItem(
       ATTEMPTS_KEY,

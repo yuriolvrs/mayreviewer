@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
+import PasswordInput from "@/app/components/PasswordInput";
 import { useAuth } from "@/app/components/AuthProvider";
 import { getSupabaseClient } from "@/app/lib/supabase";
 import { getSyncMeta, syncNow, wipeAccountData } from "@/app/lib/sync";
@@ -53,6 +54,8 @@ export default function AccountPage() {
   const [savingName, setSavingName] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [pwError, setPwError] = useState<string | null>(null);
   const [changingPw, setChangingPw] = useState(false);
 
@@ -212,23 +215,25 @@ export default function AccountPage() {
               <div className="text-[15px] font-medium text-text-primary">Change password</div>
               <p className="mt-px text-[13px] text-text-secondary">At least 6 characters.</p>
               <div className="mt-2 grid max-w-sm gap-2">
-                <input
-                  type="password"
+                <PasswordInput
+                  autoComplete="new-password"
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  onChange={setNewPassword}
+                  shown={showNewPassword}
+                  onToggleShown={() => setShowNewPassword((v) => !v)}
+                  toggleNoun="new password"
                   placeholder="New password"
-                  aria-label="New password"
-                  autoComplete="new-password"
-                  className="h-11 w-full rounded-lg border border-border bg-surface px-2 py-2 text-[15px] text-text-primary outline-none focus:border-accent"
+                  ariaLabel="New password"
                 />
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm new password"
-                  aria-label="Confirm new password"
+                <PasswordInput
                   autoComplete="new-password"
-                  className="h-11 w-full rounded-lg border border-border bg-surface px-2 py-2 text-[15px] text-text-primary outline-none focus:border-accent"
+                  value={confirmPassword}
+                  onChange={setConfirmPassword}
+                  shown={showConfirmPassword}
+                  onToggleShown={() => setShowConfirmPassword((v) => !v)}
+                  toggleNoun="confirm new password"
+                  placeholder="Confirm new password"
+                  ariaLabel="Confirm new password"
                 />
                 {pwError && (
                   <p role="alert" className="text-[14px] font-medium text-error">

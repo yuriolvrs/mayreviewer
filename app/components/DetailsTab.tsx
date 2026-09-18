@@ -260,7 +260,7 @@ export default function DetailsTab({
                 if (nameError) setNameError(false);
               }}
               placeholder="e.g. CPU Scheduling"
-              className={`h-11 rounded-lg border px-3 text-text-primary outline-none focus:ring-2 focus:ring-accent/20 ${
+              className={`h-11 rounded-lg border px-3 text-text-primary outline-none ${
                 nameError ? "border-error focus:border-error" : "border-border focus:border-accent"
               }`}
             />
@@ -273,7 +273,7 @@ export default function DetailsTab({
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="e.g. Intro to Operating Systems"
-              className="h-11 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+              className="h-11 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent"
             />
           </label>
         </div>
@@ -299,7 +299,7 @@ export default function DetailsTab({
                 onFocus={() => setFocusedTopic(row.id)}
                 onBlur={() => setFocusedTopic(null)}
                 placeholder="e.g. Paging"
-                className={`h-11 w-full truncate rounded-lg border border-border pl-3 pr-8 outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 ${
+                className={`h-11 w-full truncate rounded-lg border border-border pl-3 pr-8 outline-none focus:border-accent ${
                   showOverlay ? "text-transparent" : "text-text-primary"
                 }`}
               />
@@ -346,7 +346,7 @@ export default function DetailsTab({
             value={reviewer.examFormatId}
             onChange={(e) => changeFormat(e.target.value)}
             aria-label="Exam format"
-            className="h-11 rounded-lg border border-border bg-surface px-3 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+            className="h-11 rounded-lg border border-border bg-surface px-3 text-text-primary outline-none focus:border-accent"
           >
             {formats.map((f) => (
               <option key={f.id} value={f.id}>

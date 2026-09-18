@@ -116,14 +116,6 @@ export default function Navbar() {
                     </p>
                   )}
                   <Link
-                    href="/about"
-                    role="menuitem"
-                    onClick={() => setMenuOpen(false)}
-                    className="block min-h-[44px] px-3 py-2 text-left text-[15px] text-text-primary hover:bg-surface-alt"
-                  >
-                    About
-                  </Link>
-                  <Link
                     href="/account"
                     role="menuitem"
                     onClick={() => setMenuOpen(false)}

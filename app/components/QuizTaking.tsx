@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
-import { groupQuestions, isPreformatted, optionLetter } from "@/app/lib/questions";
+import { formatCountdown, groupQuestions, isPreformatted, optionLetter } from "@/app/lib/questions";
 import { isMonoKind, stimulusKindOf, type ExamFormat } from "@/app/lib/examFormats";
 import StimulusBlock from "@/app/components/StimulusBlock";
 import StimulusQuote from "@/app/components/StimulusQuote";
@@ -14,6 +14,7 @@ export default function QuizTaking({
   questions,
   format,
   feedbackMode,
+  timeLimitSec,
   onSubmit,
   onCancel,
 }: {
@@ -22,7 +23,14 @@ export default function QuizTaking({
   // rules read stimulus kinds from it rather than matching type names.
   format: ExamFormat;
   feedbackMode: FeedbackMode;
-  onSubmit: (answers: Answers, unsureIds: string[]) => void;
+  // Countdown budget picked in Quiz Setup, or null for untimed. Elapsed time
+  // is recorded either way — the limit only adds the display + auto-submit.
+  timeLimitSec: number | null;
+  onSubmit: (
+    answers: Answers,
+    unsureIds: string[],
+    timing: { durationSec: number; timedOut: boolean },
+  ) => void;
   onCancel: () => void;
 }) {
   const [answers, setAnswers] = useState<Answers>({});
@@ -34,6 +42,44 @@ export default function QuizTaking({
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const visibleIds = useRef(new Set<string>());
+
+  // Wall-clock start: remaining time derives from Date.now() rather than
+  // tick counts, so a backgrounded tab (throttled intervals) still counts
+  // its hidden minutes. Remount resets it — retakes start fresh.
+  const [startedAt] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  // Latest answers for the expiry submit, which fires from an interval
+  // closure that would otherwise hold the first render's empty copies.
+  const answersRef = useRef(answers);
+  const unsureRef = useRef(unsureIds);
+  // Expiry submits exactly once; the stage switch unmounts right after, but
+  // the guard covers the tick between submit and unmount.
+  const expiredRef = useRef(false);
+  useEffect(() => {
+    answersRef.current = answers;
+    unsureRef.current = unsureIds;
+  });
+
+  const elapsedSec = Math.floor((now - startedAt) / 1000);
+  const remainingSec = timeLimitSec === null ? null : timeLimitSec - elapsedSec;
+
+  // Display ticks only when there's a countdown to show; elapsed time for
+  // untimed quizzes is computed from the start ref at submit.
+  useEffect(() => {
+    if (timeLimitSec === null) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [timeLimitSec]);
+
+  // Timeout force-submits with whatever is answered — blanks score wrong like
+  // any unanswered question would on manual submit. Bypasses the
+  // unanswered-confirm dialog: there is nothing left to deliberate.
+  useEffect(() => {
+    if (remainingSec === null || remainingSec > 0 || expiredRef.current) return;
+    expiredRef.current = true;
+    const elapsed = Math.round((Date.now() - startedAt) / 1000);
+    onSubmit(answersRef.current, unsureRef.current, { durationSec: elapsed, timedOut: true });
+  }, [remainingSec, startedAt, onSubmit]);
 
   // Timeline/Code questions arrive as contiguous sets over one shared problem;
   // the problem is rendered once at the head of the set. Numbering stays global
@@ -158,7 +204,8 @@ export default function QuizTaking({
       setConfirmOpen(true);
       return;
     }
-    onSubmit(answers, unsureIds);
+    const elapsed = Math.round((Date.now() - startedAt) / 1000);
+    onSubmit(answers, unsureIds, { durationSec: elapsed, timedOut: false });
   }
 
   // The grid and its legend are the same on both layouts — the sidebar can't
@@ -251,6 +298,13 @@ export default function QuizTaking({
         <div className="mb-4 flex items-center justify-between gap-3 lg:hidden">
           <p className="text-[14px] text-text-secondary">
             {answeredCount} of {questions.length} answered
+            {/* No live region: a per-second announcement would be noise; the
+                timeout lands on the results screen, which speaks for itself. */}
+            {remainingSec !== null && (
+              <span className={remainingSec <= 60 ? "font-medium text-error" : ""}>
+                {" "}· {formatCountdown(remainingSec)} left
+              </span>
+            )}
           </p>
           <button
             type="button"
@@ -514,6 +568,15 @@ export default function QuizTaking({
             Cancel quiz
           </button>
         </div>
+        {remainingSec !== null && (
+          <p
+            className={`mt-2 font-mono text-[15px] ${
+              remainingSec <= 60 ? "font-medium text-error" : "text-text-secondary"
+            }`}
+          >
+            {formatCountdown(remainingSec)} left
+          </p>
+        )}
 
         <div className="mt-3">{jumpGrid}</div>
 
@@ -542,7 +605,10 @@ export default function QuizTaking({
           body={`${unansweredCount} question${unansweredCount === 1 ? " is" : "s are"} still unanswered. Unanswered questions count as incorrect.`}
           confirmLabel="Submit anyway"
           cancelLabel="Keep working"
-          onConfirm={() => onSubmit(answers, unsureIds)}
+          onConfirm={() => {
+            const elapsed = Math.round((Date.now() - startedAt) / 1000);
+            onSubmit(answers, unsureIds, { durationSec: elapsed, timedOut: false });
+          }}
           onCancel={() => setConfirmOpen(false)}
         />
       )}

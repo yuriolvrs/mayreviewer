@@ -111,6 +111,19 @@ export function optionLetter(index: number): string {
   return String.fromCharCode(65 + index);
 }
 
+// Quiz countdown + durations as m:ss (h:mm:ss past an hour). Floors partial
+// seconds so the display never shows 0:00 while time remains; clamps at zero
+// so an expired timer reads 0:00 instead of going negative.
+export function formatCountdown(totalSeconds: number): string {
+  const clamped = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(clamped / 3600);
+  const minutes = Math.floor((clamped % 3600) / 60);
+  const seconds = clamped % 60;
+  const mm = hours > 0 ? String(minutes).padStart(2, "0") : String(minutes);
+  const ss = String(seconds).padStart(2, "0");
+  return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
 // Red at a failing score, easing through the warning tone and landing on green
 // once the attempt is solid — the number itself carries the verdict. Shared so
 // a score reads the same on the results screen and in the attempts list.

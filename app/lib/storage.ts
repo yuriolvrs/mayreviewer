@@ -222,6 +222,8 @@ function normalizeAttempt(
       attempt.questionSetGeneratedAt ?? generatedAtByReviewer.get(attempt.reviewerId) ?? LEGACY_QUESTION_SET,
     examFormatId: attempt.examFormatId ?? format.id,
     examFormatName: attempt.examFormatName ?? format.name,
+    durationSec: attempt.durationSec ?? 0,
+    timedOut: attempt.timedOut ?? false,
   };
 }
 
@@ -252,6 +254,7 @@ export function saveQuizAttempt(
   questions: Question[],
   answers: Record<string, number>,
   unsureIds: string[],
+  timing?: { durationSec: number; timedOut: boolean },
 ): QuizAttempt {
   const format = resolveFormat(reviewer.examFormatId);
   const attempt: QuizAttempt = {
@@ -266,6 +269,8 @@ export function saveQuizAttempt(
     questionSetGeneratedAt: reviewer.questionsGeneratedAt,
     examFormatId: format.id,
     examFormatName: format.name,
+    durationSec: Math.max(0, Math.round(timing?.durationSec ?? 0)),
+    timedOut: timing?.timedOut ?? false,
   };
   writeJson(ATTEMPTS_KEY, [...getAllAttempts(), attempt]);
   notifyLocalChange();

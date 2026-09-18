@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import UploadIcon from "@/app/components/UploadIcon";
 import { upload } from "@vercel/blob/client";
 import { extractTextFromFile } from "@/app/lib/extractText";
 import {
@@ -17,7 +18,6 @@ import {
   MAX_ID_CHARS,
   MAX_LABEL_CHARS,
   composePastExamText,
-  MAX_PAST_EXAM_CHARS,
   newTypeKey,
   type AnswerFormat,
   type ExamFormat,
@@ -37,6 +37,7 @@ import { MAX_QUESTION_COUNT } from "@/app/lib/questions";
 import { newId } from "@/app/lib/ids";
 import { useOnline } from "@/app/lib/useOnline";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
+import OptionSelect from "@/app/components/OptionSelect";
 
 // One row of the builder: everything about a single question type. Counts
 // are held as text so a field can sit empty while it's being retyped — the
@@ -59,16 +60,16 @@ const FORMAT_OPTIONS: { value: AnswerFormat; label: string; hint: string }[] = [
 ];
 
 const SHAPE_OPTIONS: { value: TypeShape; label: string; hint: string }[] = [
-  { value: "standalone", label: "Standalone", hint: "each question on its own" },
-  { value: "set", label: "Problem set", hint: "several questions share one problem" },
+  { value: "standalone", label: "Single questions", hint: "Each question on its own" },
+  { value: "set", label: "Problem set", hint: "Several questions share one problem" },
 ];
 
-const STIMULUS_OPTIONS: { value: StimulusKind; label: string }[] = [
-  { value: "none", label: "None" },
-  { value: "prose", label: "Prose passage" },
-  { value: "table", label: "Table" },
-  { value: "code", label: "Code listing" },
-  { value: "formula", label: "Formula / worked stem" },
+const STIMULUS_OPTIONS: { value: StimulusKind; label: string; hint: string }[] = [
+  { value: "none", label: "None", hint: "No attached material" },
+  { value: "prose", label: "Prose passage", hint: "A short passage to read" },
+  { value: "table", label: "Table", hint: "Rows and columns to trace" },
+  { value: "code", label: "Code listing", hint: "A program with blanks to fill" },
+  { value: "formula", label: "Formula / worked stem", hint: "Math to solve and pick from" },
 ];
 
 function toDraft(t: FormatTypeDef): TypeDraft {
@@ -85,14 +86,14 @@ function toDraft(t: FormatTypeDef): TypeDraft {
 }
 
 function blankDraft(label = ""): TypeDraft {  return {
-    key: newTypeKey(label || "type"),
-    label,
-    format: "mc",
-    shape: "standalone",
-    stimulus: "none",
-    guidance: "",
-    examples: [],
-    countText: "5",
+  key: newTypeKey(label || "type"),
+  label,
+  format: "mc",
+  shape: "standalone",
+  stimulus: "none",
+  guidance: "",
+  examples: [],
+  countText: "5",
   };
 }
 
@@ -130,6 +131,13 @@ export default function FormatBuilder({
   const [unsupported, setUnsupported] = useState<UnsupportedNote[]>([]);
   const [confirmReplace, setConfirmReplace] = useState<InferredType[] | null>(null);
   const pastInputRef = useRef<HTMLInputElement>(null);
+  // Same upload/paste tabs as the reviewer content fields: one visible mode
+  // at a time instead of a stacked textarea + dropzone. Defaults to paste
+  // when an exam is already attached, upload otherwise.
+  const [pastMode, setPastMode] = useState<"upload" | "paste">(
+    initial.pastExam?.text ? "paste" : "upload",
+  );
+  const [dragOver, setDragOver] = useState(false);
 
   useEffect(() => {
     getFormatAttachments(formatId).then(setStoredFiles);
@@ -331,7 +339,7 @@ export default function FormatBuilder({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Math 101 — my prof's format"
-            className="h-11 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+            className="h-11 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent"
           />
         </label>
         <label className="flex flex-col gap-1.5">
@@ -341,7 +349,7 @@ export default function FormatBuilder({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="What exam is this for?"
-            className="h-11 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+            className="h-11 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent"
           />
         </label>
       </div>
@@ -351,45 +359,88 @@ export default function FormatBuilder({
           Learn from a past exam <span className="font-normal text-text-tertiary">(optional)</span>
         </p>
         <p className="mt-1 text-[14px] text-text-secondary">
-          Upload or paste a past exam. The AI drafts the question types it sees — you review
-          every draft below before saving. The exam is also kept on the format as generation
-          material (past text beyond ~30k characters is trimmed; extracted DOCX text needs
-          re-adding after a reload, uploaded files persist).
+          Upload or paste a past exam. The AI suggests question types from it, and you review
+          each one before saving. The exam stays attached to the format for later.
         </p>
 
         <div className="mt-3 flex flex-col gap-2">
-          <textarea
-            value={pastText}
-            onChange={(e) => setPastText(e.target.value)}
-            rows={3}
-            placeholder="Paste a past exam here…"
-            aria-label="Paste a past exam"
-            className="rounded-lg border border-border px-3 py-2 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-          />
-          <div
-            onClick={() => pastInputRef.current?.click()}
-            className="cursor-pointer rounded-lg border-2 border-dashed border-border p-5 text-center text-[14px] text-text-secondary hover:border-border-strong"
-          >
-            <p>Drop PDF or image pages here, or click to browse. DOCX/TXT are read as text.</p>
-            {/* Visually hidden but focusable: keyboard users get a native
-                file input, not a div pretending to be one. */}
-            <input
-              ref={pastInputRef}
-              type="file"
-              accept={ACCEPTED_UPLOAD_EXTENSIONS}
-              multiple
-              aria-label="Upload past-exam files"
-              className="sr-only"
-              onChange={(e) => {
-                if (e.target.files) void addPastFiles(Array.from(e.target.files));
-                e.target.value = "";
-              }}
-            />
+          <div className="flex gap-4 border-b border-border" role="tablist" aria-label="Past exam input mode">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={pastMode === "upload"}
+              onClick={() => setPastMode("upload")}
+              className={`-mb-px border-b-2 py-2 text-[15px] font-medium ${
+                pastMode === "upload"
+                  ? "border-accent text-text-primary"
+                  : "border-transparent text-text-secondary hover:text-text-primary"
+              }`}
+            >
+              Upload files
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={pastMode === "paste"}
+              onClick={() => setPastMode("paste")}
+              className={`-mb-px border-b-2 py-2 text-[15px] font-medium ${
+                pastMode === "paste"
+                  ? "border-accent text-text-primary"
+                  : "border-transparent text-text-secondary hover:text-text-primary"
+              }`}
+            >
+              Paste text
+            </button>
           </div>
-          {pastFileError && <p className="text-[14px] text-error">{pastFileError}</p>}
 
-          {(storedFiles.length > 0 || extracted.length > 0) && (
-            <ul className="divide-y divide-border">
+          {pastMode === "paste" ? (
+            <textarea
+              value={pastText}
+              onChange={(e) => setPastText(e.target.value)}
+              rows={3}
+              placeholder="Paste a past exam here…"
+              aria-label="Paste a past exam"
+              className="rounded-lg border border-border px-3 py-2 text-text-primary outline-none focus:border-accent"
+            />
+          ) : (
+            <>
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOver(false);
+                  if (e.dataTransfer.files) void addPastFiles(Array.from(e.dataTransfer.files));
+                }}
+                onClick={() => pastInputRef.current?.click()}
+                className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed p-5 text-center text-[14px] text-text-secondary hover:border-border-strong ${
+                  dragOver ? "border-accent bg-accent-subtle" : "border-border"
+                }`}
+              >
+                <UploadIcon size={24} />
+                <p>Drop PDF or image pages here, or click to browse. DOCX/TXT are read as text.</p>
+                {/* Visually hidden but focusable: keyboard users get a native
+                    file input, not a div pretending to be one. */}
+                <input
+                  ref={pastInputRef}
+                  type="file"
+                  accept={ACCEPTED_UPLOAD_EXTENSIONS}
+                  multiple
+                  aria-label="Upload past-exam files"
+                  className="sr-only"
+                  onChange={(e) => {
+                    if (e.target.files) void addPastFiles(Array.from(e.target.files));
+                    e.target.value = "";
+                  }}
+                />
+              </div>
+              {pastFileError && <p className="text-[14px] text-error">{pastFileError}</p>}
+
+              {(storedFiles.length > 0 || extracted.length > 0) && (
+                <ul className="divide-y divide-border">
               {storedFiles.map((a) => (
                 <li key={a.id} className="flex items-center justify-between gap-3 py-2 text-[14px]">
                   <span className="break-words text-text-primary">{a.name}</span>
@@ -420,8 +471,10 @@ export default function FormatBuilder({
               ))}
             </ul>
           )}
+            </>
+          )}
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
             <button
               type="button"
               onClick={() => void runInference()}
@@ -433,7 +486,7 @@ export default function FormatBuilder({
                     ? "Paste or upload a past exam first"
                     : undefined
               }
-              className="rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-lg border border-accent bg-surface px-4 py-2 text-[15px] font-medium text-accent enabled:hover:bg-accent-subtle disabled:cursor-not-allowed disabled:opacity-40"
             >
               {inferState === "running" ? "Reading exam…" : "Infer question types"}
             </button>
@@ -481,52 +534,37 @@ export default function FormatBuilder({
               value={t.label}
               onChange={(e) => patch(i, { label: e.target.value })}
               placeholder="e.g. Formula recall"
-              className="h-11 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+              className="h-11 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent"
             />
           </label>
 
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <label className="flex flex-col gap-1.5">
               <span className="text-[14px] text-text-secondary">Answer format</span>
-              <select
+              <OptionSelect
+                label="Answer format"
+                options={FORMAT_OPTIONS}
                 value={t.format}
-                onChange={(e) => patch(i, { format: e.target.value as AnswerFormat })}
-                className="h-11 rounded-lg border border-border bg-surface px-2 text-text-primary outline-none focus:border-accent"
-              >
-                {FORMAT_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value} title={o.hint}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => patch(i, { format: v as AnswerFormat })}
+              />
             </label>
             <label className="flex flex-col gap-1.5">
-              <span className="text-[14px] text-text-secondary">Shape</span>
-              <select
+              <span className="text-[14px] text-text-secondary">Layout</span>
+              <OptionSelect
+                label="Layout"
+                options={SHAPE_OPTIONS}
                 value={t.shape}
-                onChange={(e) => patch(i, { shape: e.target.value as TypeShape })}
-                className="h-11 rounded-lg border border-border bg-surface px-2 text-text-primary outline-none focus:border-accent"
-              >
-                {SHAPE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value} title={o.hint}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => patch(i, { shape: v as TypeShape })}
+              />
             </label>
             <label className="flex flex-col gap-1.5">
-              <span className="text-[14px] text-text-secondary">Stimulus</span>
-              <select
+              <span className="text-[14px] text-text-secondary">Material</span>
+              <OptionSelect
+                label="Material"
+                options={STIMULUS_OPTIONS}
                 value={t.stimulus}
-                onChange={(e) => patch(i, { stimulus: e.target.value as StimulusKind })}
-                className="h-11 rounded-lg border border-border bg-surface px-2 text-text-primary outline-none focus:border-accent"
-              >
-                {STIMULUS_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => patch(i, { stimulus: v as StimulusKind })}
+              />
             </label>
           </div>
 
@@ -538,8 +576,8 @@ export default function FormatBuilder({
               value={t.guidance}
               onChange={(e) => patch(i, { guidance: e.target.value })}
               rows={2}
-              placeholder="e.g. Wrong options are neighboring formulas, not nonsense."
-              className="rounded-lg border border-border px-3 py-2 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+              placeholder="e.g. Ask for causes, not dates, use neighboring formulas for wrong options, keep tables to two or three rows."
+              className="rounded-lg border border-border px-3 py-2 text-text-primary outline-none focus:border-accent"
             />
           </label>
 
@@ -556,7 +594,7 @@ export default function FormatBuilder({
                   }
                   rows={2}
                   placeholder="Paste one real past-exam question…"
-                  className="flex-1 rounded-lg border border-border px-3 py-2 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                  className="flex-1 rounded-lg border border-border px-3 py-2 text-text-primary outline-none focus:border-accent"
                 />
                 <button
                   type="button"
@@ -587,7 +625,7 @@ export default function FormatBuilder({
               max={MAX_QUESTION_COUNT}
               value={t.countText}
               onChange={(e) => patch(i, { countText: e.target.value })}
-              className="h-10 w-20 rounded-lg border border-border px-2 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+              className="h-10 w-20 rounded-lg border border-border px-2 text-text-primary outline-none focus:border-accent"
             />
           </label>
         </div>
@@ -603,11 +641,6 @@ export default function FormatBuilder({
         >
           + Add question type
         </button>
-        {types.length === 0 && (
-          <p className="mt-2 text-[14px] text-text-secondary">
-            Add at least one type to save — or infer them from a past exam above.
-          </p>
-        )}
         <p className="mt-2 text-[14px] text-text-secondary">
           {totalDefault} question{totalDefault === 1 ? "" : "s"} by default.
         </p>

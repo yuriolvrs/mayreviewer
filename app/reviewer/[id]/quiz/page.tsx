@@ -42,6 +42,13 @@ function QuizPageInner() {
   // Set only while reopening an attempt from the history list; the results
   // screen uses it to label which attempt is on screen.
   const [reviewedAt, setReviewedAt] = useState<string | null>(null);
+  // Countdown budget picked in Quiz Setup (null = untimed). Survives the
+  // taking/results switches — retakes run under the same limit, and the
+  // remounted QuizTaking restarts its clock.
+  const [timeLimitSec, setTimeLimitSec] = useState<number | null>(null);
+  // Timing of the attempt on screen, for the results line. Set on submit and
+  // from the reopened attempt's snapshot; cleared on retake.
+  const [resultTiming, setResultTiming] = useState<{ durationSec: number; timedOut: boolean } | null>(null);
   // Which format the current taking/results screens render under. Fresh
   // attempts use the reviewer's; reopened ones use the attempt's own snapshot,
   // so a format edited since still reopens truthfully.
@@ -94,14 +101,16 @@ function QuizPageInner() {
           questions={quizQuestions}
           format={format}
           feedbackMode={feedbackMode}
+          timeLimitSec={timeLimitSec}
           onCancel={() => {
             setStage("setup");
             window.scrollTo({ top: 0 });
           }}
-          onSubmit={(answers, unsureIds) => {
-            saveQuizAttempt(reviewer, quizQuestions, answers, unsureIds);
+          onSubmit={(answers, unsureIds, timing) => {
+            saveQuizAttempt(reviewer, quizQuestions, answers, unsureIds, timing);
             setHistory(getQuizHistory(reviewer.id));
             setSubmitted({ answers, unsureIds });
+            setResultTiming(timing);
             setStage("results");
             window.scrollTo({ top: 0 });
           }}
@@ -121,6 +130,8 @@ function QuizPageInner() {
           answers={submitted.answers}
           unsureIds={submitted.unsureIds}
           takenAt={reviewedAt ?? undefined}
+          durationSec={resultTiming?.durationSec}
+          timedOut={resultTiming?.timedOut}
           onRetake={() => {
             // Fresh attempt: QuizTaking is remounted by the stage switch, so
             // answers and unsure flags both start empty again. Reopened from
@@ -129,6 +140,7 @@ function QuizPageInner() {
             setQuizQuestions((prev) => (getSettings().shuffle ? prev.map(shuffleOptions) : prev));
             setSubmitted(null);
             setReviewedAt(null);
+            setResultTiming(null);
             setStage("taking");
             window.scrollTo({ top: 0 });
           }}
@@ -173,10 +185,11 @@ function QuizPageInner() {
           history={history}
           feedbackMode={feedbackMode}
           onFeedbackModeChange={setFeedbackMode}
-          onStart={(questions) => {
+          onStart={(questions, opts) => {
             const served = getSettings().shuffle ? questions.map(shuffleOptions) : questions;
             setQuizQuestions(served);
             setFormatId(reviewer.examFormatId);
+            setTimeLimitSec(opts.timeLimitSec);
             setStage("taking");
             window.scrollTo({ top: 0 });
           }}
@@ -186,6 +199,7 @@ function QuizPageInner() {
             setQuizQuestions(attempt.questions);
             setSubmitted({ answers: attempt.answers, unsureIds: attempt.unsureIds });
             setReviewedAt(attempt.takenAt);
+            setResultTiming({ durationSec: attempt.durationSec ?? 0, timedOut: attempt.timedOut ?? false });
             setFormatId(attempt.examFormatId);
             setStage("results");
             window.scrollTo({ top: 0 });

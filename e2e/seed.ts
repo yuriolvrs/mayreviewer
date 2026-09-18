@@ -256,3 +256,13 @@ export async function seedReviewer(page: Page): Promise<void> {
     window.localStorage.setItem("mayreviewer-reviewers", JSON.stringify(list));
   }, seededReviewer());
 }
+
+// Attempts seed for the daily strip. Unlike reviewers this OVERWRITES on
+// every navigation (init scripts re-run), so specs using it must seed, go
+// to one page, and assert without navigating again — otherwise a recorded
+// quiz attempt would be wiped mid-test.
+export async function seedAttempts(page: Page, attempts: unknown[]): Promise<void> {
+  await page.addInitScript((list) => {
+    window.localStorage.setItem("mayreviewer-quiz-attempts", JSON.stringify(list));
+  }, attempts);
+}

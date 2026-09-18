@@ -73,7 +73,7 @@ export default function QuestionCountControl({
               value={text[type]}
               onChange={(e) => updateType(type, e.target.value)}
               aria-label={`${typeLabelOf(format, type)} questions to generate`}
-              className="h-11 w-full rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+              className="h-11 w-full rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent"
             />
           </label>
         ))}

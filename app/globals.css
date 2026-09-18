@@ -82,13 +82,15 @@
   scroll-behavior: auto !important;
 }
 
-/* Visible keyboard focus everywhere — most controls rely on Tailwind
-   focus: rings, this is the fallback for anything that doesn't set one. */
+/* Visible keyboard focus everywhere — fallback for controls without their
+   own. Text-entry elements are excluded: they already show focus with a
+   single accent border, and this outline would double it. (Text fields
+   match :focus-visible on mouse click too, not just keyboard.) */
 button:not(:disabled) {
   cursor: pointer;
 }
 
-*:focus-visible {
+*:focus-visible:not(textarea):not(select):not(input[type="text"]):not(input[type="search"]):not(input[type="email"]):not(input[type="password"]):not(input[type="number"]):not(input[type="time"]) {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }

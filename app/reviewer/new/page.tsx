@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import UploadIcon from "@/app/components/UploadIcon";
 import { newId } from "@/app/lib/ids";
 import { useTopicList } from "@/app/lib/useTopics";
 import { saveReviewer } from "@/app/lib/storage";
@@ -295,10 +296,11 @@ export default function NewReviewerPage() {
               if (file) void handleImportFileSelected(file);
             }}
             onClick={() => importInputRef.current?.click()}
-            className={`cursor-pointer rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
+            className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
               importDragOver ? "border-accent bg-accent-subtle" : "border-border-strong hover:border-accent"
             }`}
           >
+            <UploadIcon />
             <p className="text-[15px] font-semibold text-text-primary">Already have an exported reviewer?</p>
             <p className="mt-1 text-[14px] text-text-secondary">
               Drop a <span className="font-mono">.json</span> or <span className="font-mono">.zip</span> file
@@ -341,7 +343,7 @@ export default function NewReviewerPage() {
                   if (nameError) setNameError(false);
                 }}
                 placeholder="e.g. CPU Scheduling"
-                className={`h-11 rounded-lg border px-3 text-text-primary outline-none focus:ring-2 focus:ring-accent/20 ${
+                className={`h-11 rounded-lg border px-3 text-text-primary outline-none ${
                   nameError ? "border-error focus:border-error" : "border-border focus:border-accent"
                 }`}
                 autoFocus
@@ -355,7 +357,7 @@ export default function NewReviewerPage() {
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="e.g. Intro to Operating Systems"
-                className="h-11 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                className="h-11 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent"
               />
             </label>
           </div>
@@ -381,7 +383,7 @@ export default function NewReviewerPage() {
                     onFocus={() => setFocusedTopic(row.id)}
                     onBlur={() => setFocusedTopic(null)}
                     placeholder="e.g. Paging"
-                    className={`h-11 w-full truncate rounded-lg border border-border pl-3 pr-8 outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 ${
+                    className={`h-11 w-full truncate rounded-lg border border-border pl-3 pr-8 outline-none focus:border-accent ${
                       showOverlay ? "text-transparent" : "text-text-primary"
                     }`}
                   />
@@ -446,10 +448,7 @@ export default function NewReviewerPage() {
                   />
                   <span className="text-[15px] font-semibold text-text-primary">{f.name}</span>
                 </span>
-                <span className="mt-1 block pl-[26px] text-[14px] text-text-secondary">
-                  {f.description}
-                </span>
-                <span className="mt-1.5 block pl-[26px] text-[13px] text-text-tertiary">
+                <span className="mt-1 block pl-[26px] text-[13px] text-text-tertiary">
                   {f.types.map((t) => t.label).join(" · ")}
                 </span>
               </label>

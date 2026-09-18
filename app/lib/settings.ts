@@ -1,4 +1,5 @@
 import { DEFAULT_QUESTION_COUNT, MAX_QUESTION_COUNT, MIN_QUESTION_COUNT } from "@/app/lib/questions";
+import { DEFAULT_DAILY_GOAL, MAX_DAILY_GOAL, MIN_DAILY_GOAL } from "@/app/lib/streaks";
 import { notifyLocalChange } from "@/app/lib/localChange";
 import type { FeedbackMode, FontSizePreference, ThemePreference, UserSettings } from "@/app/types";
 
@@ -22,6 +23,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   reduceMotion: false,
   remindersEnabled: false,
   reminderTime: "19:00",
+  dailyGoal: DEFAULT_DAILY_GOAL,
   proTier: "free",
 };
 
@@ -43,6 +45,12 @@ function clampCount(value: unknown): number {
   return Math.min(Math.max(n, MIN_QUESTION_COUNT), MAX_QUESTION_COUNT);
 }
 
+function clampGoal(value: unknown): number {
+  const n = typeof value === "number" && Number.isFinite(value) ? Math.floor(value) : NaN;
+  if (Number.isNaN(n)) return DEFAULT_SETTINGS.dailyGoal;
+  return Math.min(Math.max(n, MIN_DAILY_GOAL), MAX_DAILY_GOAL);
+}
+
 function isTimeString(value: unknown): value is string {
   return typeof value === "string" && /^\d{2}:\d{2}$/.test(value);
 }
@@ -60,6 +68,7 @@ export function normalizeSettings(value: unknown): UserSettings {
     reduceMotion: typeof v.reduceMotion === "boolean" ? v.reduceMotion : DEFAULT_SETTINGS.reduceMotion,
     remindersEnabled: typeof v.remindersEnabled === "boolean" ? v.remindersEnabled : DEFAULT_SETTINGS.remindersEnabled,
     reminderTime: isTimeString(v.reminderTime) ? v.reminderTime : DEFAULT_SETTINGS.reminderTime,
+    dailyGoal: clampGoal(v.dailyGoal),
     proTier: "free",
   };
 }

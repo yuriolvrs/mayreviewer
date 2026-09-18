@@ -65,10 +65,12 @@ Restart `npm run dev`. Settings > Account should offer "Sign in to sync".
    back down.
 4. **Delete:** Settings > Account > Delete account — Table Editor shows zero
    rows for the user, local store is empty, you land on `/goodbye`.
-5. **RLS negative test:** with two test users, run as user B in SQL Editor
-   (or a second signed-in browser via Table Editor):
-   `select * from reviewers;` must return only B's rows — never A's. Signed
-   out, the same query returns nothing (policies require `auth.uid()`).
+5. **RLS negative test (in the app, not the dashboard):** Table Editor and
+   SQL Editor use elevated keys that bypass row-level security, so they
+   prove nothing here. Instead sign two different browsers (or profiles) in
+   as two different users, each owning a reviewer, and Sync now on both.
+   Each side must show only its own rows — never the other's. That exercises
+   the real anon-key path the app uses.
 
 ## Cost notes
 

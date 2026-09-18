@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatCountdown,
   groupQuestions,
   isPreformatted,
   isQuestion,
@@ -96,9 +97,30 @@ describe("isValidQuestionFields", () => {
   });
 });
 
+describe("formatCountdown", () => {
+  it("renders m:ss, flooring partial seconds and clamping at zero", () => {
+    expect(formatCountdown(0)).toBe("0:00");
+    expect(formatCountdown(59)).toBe("0:59");
+    expect(formatCountdown(59.9)).toBe("0:59");
+    expect(formatCountdown(60)).toBe("1:00");
+    expect(formatCountdown(65)).toBe("1:05");
+    expect(formatCountdown(600)).toBe("10:00");
+    expect(formatCountdown(-5)).toBe("0:00");
+  });
+
+  it("expands to h:mm:ss past an hour", () => {
+    expect(formatCountdown(3599)).toBe("59:59");
+    expect(formatCountdown(3600)).toBe("1:00:00");
+    expect(formatCountdown(3661)).toBe("1:01:01");
+  });
+});
+
 describe("isQuestion", () => {
   it("requires an id on top of the field checks", () => {
-    const { id: _id, ...withoutId } = question();
+    // Delete through a loose record: id is required on Question, so a
+    // rest-destructure would leave an unused binding behind.
+    const withoutId: Record<string, unknown> = { ...question() };
+    delete withoutId.id;
     expect(isQuestion(withoutId)).toBe(false);
     expect(isQuestion(question())).toBe(true);
   });

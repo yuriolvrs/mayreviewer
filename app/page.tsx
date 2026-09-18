@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { getReviewers } from "@/app/lib/storage";
+import { getAllQuizHistory, getReviewers } from "@/app/lib/storage";
+import { getSettings } from "@/app/lib/settings";
+import { DEFAULT_DAILY_GOAL, todayProgress } from "@/app/lib/streaks";
 import { SYNC_APPLIED_EVENT } from "@/app/lib/sync";
 import { removeReviewerCompletely } from "@/app/lib/reviewers";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
+import EmptyReviewers from "@/app/components/EmptyReviewers";
 import type { Reviewer } from "@/app/types";
 
 function ChevronRightIcon() {
@@ -31,17 +34,33 @@ export default function Home() {
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [showWelcome, setShowWelcome] = useState(false);
+  // Attempts + goal feed the daily strip below the header. Refreshed on the
+  // same sync-applied signal as the list — a second device's quizzes land
+  // after mount too.
+  const [attempts, setAttempts] = useState<{ takenAt: string; total: number }[]>([]);
+  const [dailyGoal, setDailyGoal] = useState(DEFAULT_DAILY_GOAL);
+  // "Now" refreshes with the same reads (mount, every sync tick) so the
+  // strip rolls over at midnight without a reload and re-renders cheaply.
+  const [now, setNow] = useState(() => new Date());
   const selectAllRef = useRef<HTMLInputElement>(null);
+
+  function refreshDaily() {
+    setAttempts(getAllQuizHistory());
+    setDailyGoal(getSettings().dailyGoal);
+    setNow(new Date());
+  }
 
   useEffect(() => {
     // localStorage is a browser-only external store; one-off read on mount is intentional.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setReviewers(getReviewers());
     setLoaded(true);
+    refreshDaily();
     // A background sync can land reviewers after mount (second device) — the
     // list re-reads instead of sitting stale until the next navigation.
     function onSyncApplied() {
       setReviewers(getReviewers());
+      refreshDaily();
     }
     window.addEventListener(SYNC_APPLIED_EVENT, onSyncApplied);
     // One-time confirmation after account creation (?welcome=1 from /login):
@@ -62,6 +81,7 @@ export default function Home() {
   }
 
   const term = search.trim().toLowerCase();
+  const progress = todayProgress(attempts, dailyGoal, now);
   const visible = term
     ? reviewers.filter(
         (r) =>
@@ -130,12 +150,15 @@ export default function Home() {
         </Link>
       </div>
 
+      {reviewers.length > 0 && (
+        <p role="status" className="text-[14px] text-text-secondary">
+          {progress.done ? "Goal met" : `Today ${progress.answered}/${progress.goal}`}
+        </p>
+      )}
+
       {reviewers.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-10 text-center">
-          <p className="text-[17px] font-semibold text-text-primary">No reviewers yet</p>
-          <p className="mt-1 text-[15px] text-text-secondary">
-            Create one to turn your notes into a practice exam.
-          </p>
+          <EmptyReviewers />
         </div>
       ) : (
         <>
@@ -145,7 +168,7 @@ export default function Home() {
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search reviewers…"
             aria-label="Search reviewers"
-            className="h-11 w-full rounded-lg border border-border bg-surface px-3 py-2 text-[15px] text-text-primary outline-none placeholder:text-text-tertiary focus:border-accent focus:ring-2 focus:ring-accent/20"
+            className="h-11 w-full rounded-lg border border-border bg-surface px-3 py-2 text-[15px] text-text-primary outline-none placeholder:text-text-tertiary focus:border-accent"
           />
           {term && (
             <p className="text-[14px] text-text-secondary" role="status">

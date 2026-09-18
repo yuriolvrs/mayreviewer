@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import {
+  formatCountdown,
   groupQuestions,
   isPreformatted,
   optionLetter,
@@ -249,6 +250,8 @@ export default function QuizResults({
   answers,
   unsureIds,
   takenAt,
+  durationSec,
+  timedOut,
   onRetake,
   onBack,
 }: {
@@ -263,6 +266,11 @@ export default function QuizResults({
   // Both set only when reopening a past attempt from the history list, so the
   // screen says which attempt this is and can get back to that list.
   takenAt?: string;
+  // Wall-clock seconds from quiz start to submit, plus whether the countdown
+  // forced the submit. Omitted (or zero) for attempts recorded before timing
+  // existed — the line simply doesn't render for those.
+  durationSec?: number;
+  timedOut?: boolean;
   onRetake: () => void;
   onBack?: () => void;
 }) {
@@ -318,6 +326,12 @@ export default function QuizResults({
         {score}/{questions.length}
         <span className="ml-2 text-[19px] font-medium">({percent}%)</span>
       </p>
+      {durationSec ? (
+        <p className="mt-1 text-[15px] text-text-secondary">
+          {timedOut ? "Time ran out — submitted automatically" : "Finished"} in{" "}
+          {formatCountdown(durationSec)}
+        </p>
+      ) : null}
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {typesPresent.map((type) => {

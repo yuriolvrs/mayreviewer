@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import UploadIcon from "@/app/components/UploadIcon";
 import { newId } from "@/app/lib/ids";
 import { extractTextFromFile } from "@/app/lib/extractText";
 import {
@@ -283,7 +284,7 @@ export default function ContentField({
           }}
           placeholder={placeholder}
           aria-label={placeholder}
-          className={`min-h-[220px] rounded-lg border border-border ${surfaceClassName} p-4 font-mono text-[16px] leading-[22px] text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20`}
+          className={`min-h-[220px] rounded-lg border border-border ${surfaceClassName} p-4 font-mono text-[16px] leading-[22px] text-text-primary outline-none focus:border-accent`}
         />
       ) : (
         <div className="flex flex-col gap-3">
@@ -299,10 +300,11 @@ export default function ContentField({
               addFiles(Array.from(e.dataTransfer.files));
             }}
             onClick={() => inputRef.current?.click()}
-            className={`cursor-pointer rounded-lg border-2 border-dashed p-9 text-center text-text-secondary ${
+            className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed p-9 text-center text-text-secondary ${
               dragOver ? "border-accent bg-accent-subtle" : "border-border"
             }`}
           >
+            <UploadIcon />
             <p>Drop PDF, image, DOCX, TXT, or CPP files here, or click to browse.</p>
             {fileError && (
               <p className="mx-auto mt-2 max-w-md text-[14px] text-error">{fileError}</p>

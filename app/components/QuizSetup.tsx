@@ -30,6 +30,11 @@ const FEEDBACK_OPTIONS: { value: FeedbackMode; label: string; hint: string }[] =
 const SECONDS_PER_QUESTION = 30;
 const SECONDS_PER_PREFORMATTED_QUESTION = 60;
 
+// User-typed timer bounds (minutes). The countdown itself runs in seconds.
+const MIN_TIMER_MINUTES = 1;
+const MAX_TIMER_MINUTES = 180;
+const DEFAULT_TIMER_MINUTES = 10;
+
 function ChevronRightIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 10 10" fill="none" aria-hidden="true">
@@ -120,13 +125,15 @@ export default function QuizSetup({
   history: QuizAttempt[];
   feedbackMode: FeedbackMode;
   onFeedbackModeChange: (mode: FeedbackMode) => void;
-  onStart: (questions: Question[]) => void;
+  onStart: (questions: Question[], opts: { timeLimitSec: number | null }) => void;
   onViewAttempt: (attempt: QuizAttempt) => void;
 }) {
   // Empty means "all" — the chip row shows that as the All types chip.
   const [scopeTypes, setScopeTypes] = useState<string[]>([]);
   const [missedOnly, setMissedOnly] = useState(false);
   const [countInput, setCountInput] = useState(String(reviewer.questions.length));
+  const [timed, setTimed] = useState(false);
+  const [minutesInput, setMinutesInput] = useState(String(DEFAULT_TIMER_MINUTES));
 
   function poolFor(types: string[]): Question[] {
     return types.length === 0
@@ -177,6 +184,13 @@ export default function QuizSetup({
     reviewer.questions.some((q) => q.type === t),
   );
   const minutes = estimatedMinutes(format, pool, count);
+
+  // Clamped the same way as the count above: garbage in, sane number out.
+  const parsedMinutes = parseInt(minutesInput, 10);
+  const timeMinutes = Math.min(
+    Math.max(Number.isNaN(parsedMinutes) ? DEFAULT_TIMER_MINUTES : parsedMinutes, MIN_TIMER_MINUTES),
+    MAX_TIMER_MINUTES,
+  );
 
   return (
     <>
@@ -237,7 +251,7 @@ export default function QuizSetup({
               onChange={(e) => setCountInput(e.target.value)}
               onBlur={() => setCountInput(String(count))}
               aria-describedby={overAsked ? "quiz-count-note" : undefined}
-              className="h-10 w-20 rounded-lg border border-border bg-surface px-2 text-[15px] text-text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+              className="h-10 w-20 rounded-lg border border-border bg-surface px-2 text-[15px] text-text-primary outline-none focus:border-accent"
             />
           </label>
           <span className="text-[14px] text-text-tertiary">~{minutes} min estimated</span>
@@ -286,9 +300,45 @@ export default function QuizSetup({
         </div>
       </div>
 
+      <div className="mt-8 border-t border-border pt-6">
+        <h2 className="text-[15px] font-semibold text-text-primary">Timer</h2>
+        <label className="mt-3 flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            checked={timed}
+            onChange={(e) => setTimed(e.target.checked)}
+            className="mt-1 h-[18px] w-[18px] flex-none cursor-pointer accent-accent"
+          />
+          <span>
+            <span className="block text-[15px] leading-tight font-semibold text-text-primary">
+              Timed quiz
+            </span>
+            <span className="mt-0.5 block text-[14px] leading-snug text-text-secondary">
+              Countdown while answering; submits automatically at zero.
+            </span>
+          </span>
+        </label>
+        {timed && (
+          <label className="mt-3 flex items-center gap-2">
+            <span className="text-[15px] text-text-secondary">Minutes</span>
+            <input
+              type="number"
+              min={MIN_TIMER_MINUTES}
+              max={MAX_TIMER_MINUTES}
+              inputMode="numeric"
+              value={minutesInput}
+              onChange={(e) => setMinutesInput(e.target.value)}
+              onBlur={() => setMinutesInput(String(timeMinutes))}
+              aria-label="Time limit in minutes"
+              className="h-10 w-20 rounded-lg border border-border bg-surface px-2 text-[15px] text-text-primary outline-none focus:border-accent"
+            />
+          </label>
+        )}
+      </div>
+
       <div className="mt-6 flex justify-center">
         <button
-          onClick={() => onStart(sampleProportionally(pool, count))}
+          onClick={() => onStart(sampleProportionally(pool, count), { timeLimitSec: timed ? timeMinutes * 60 : null })}
           disabled={available === 0}
           title={available === 0 ? "No questions in this scope" : undefined}
           className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"

@@ -3,41 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/app/components/AuthProvider";
+import PasswordInput from "@/app/components/PasswordInput";
 
-// Inline SVGs (no emoji): open eye for "show", slashed eye for "hide".
-// Same 24px stroke-icon language as the chevrons elsewhere in the app.
-function EyeIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  );
-}
-
-function EyeOffIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-// Password input with an inline show/hide toggle. The toggle sits inside the
-// field's right edge so it doesn't shift layout, and keeps a 44px hit target.
+// Labelled password row: label above, shared input + eye toggle below.
 function PasswordField({
   id,
   label,
@@ -60,27 +28,18 @@ function PasswordField({
       <label className="mt-4 block text-[15px] font-medium text-text-primary" htmlFor={id}>
         {label}
       </label>
-      <div className="relative mt-1">
-        <input
-          id={id}
-          type={shown ? "text" : "password"}
-          required
-          minLength={6}
-          autoComplete={autoComplete}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="h-12 w-full rounded-lg border border-border bg-surface py-2 pr-14 pl-3 text-[15px] text-text-primary outline-none focus:border-accent"
-        />
-        <button
-          type="button"
-          onClick={onToggleShown}
-          aria-pressed={shown}
-          aria-label={shown ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
-          className="absolute top-1/2 right-1 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-md text-text-secondary hover:text-text-primary"
-        >
-          {shown ? <EyeOffIcon /> : <EyeIcon />}
-        </button>
-      </div>
+      <PasswordInput
+        id={id}
+        autoComplete={autoComplete}
+        value={value}
+        onChange={onChange}
+        shown={shown}
+        onToggleShown={onToggleShown}
+        toggleNoun={label.toLowerCase()}
+        required
+        minLength={6}
+        className="relative mt-1"
+      />
     </>
   );
 }

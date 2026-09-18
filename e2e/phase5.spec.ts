@@ -57,11 +57,13 @@ test.describe("Timed quiz", () => {
 
   test("counts down the typed limit and records the duration", async ({ page }) => {
     await page.goto(`/reviewer/${REVIEWER_ID}/quiz`);
-    await page.getByRole("checkbox", { name: /Timed quiz/ }).check();
+    await page.getByRole("button", { name: "5 min", exact: true }).click();
     await page.getByLabel("Time limit in minutes").fill("2");
     await page.getByRole("button", { name: "Start quiz" }).click();
 
-    const timer = page.getByText(/^\d+:\d+ left$/, { exact: true });
+    // The timer renders on both the mobile and desktop surfaces with the
+    // same text; only one is visible at a time.
+    const timer = page.getByTestId("quiz-timer").filter({ visible: true });
     await expect(timer).toHaveText(/^(2:00|1:5\d) left$/);
     const before = await timer.innerText();
     await expect(timer).not.toHaveText(before, { timeout: 5000 });

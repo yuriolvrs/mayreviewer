@@ -1,4 +1,4 @@
-import type { Question, QuestionSource, QuestionType } from "@/app/types";
+import type { Question, QuestionSource, QuestionType, QuizAttempt } from "@/app/types";
 
 // Shared question presentation + validation. These were duplicated across the
 // edit/quiz/results screens and split between two divergent validators (the
@@ -122,6 +122,46 @@ export function formatCountdown(totalSeconds: number): string {
   const mm = hours > 0 ? String(minutes).padStart(2, "0") : String(minutes);
   const ss = String(seconds).padStart(2, "0");
   return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+// Cold-start per-question time costs behind the quiz-time estimate: simple
+// recall runs near measured low-stakes medians (~30s), while tracing a table
+// or listing costs a slower read (~90s).
+export const STANDALONE_QUESTION_SECONDS = 30;
+export const SET_QUESTION_SECONDS = 90;
+
+// Usable attempts needed before the estimate trusts the user's own pace over
+// the cold-start costs above.
+export const PACE_CALIBRATION_MIN_ATTEMPTS = 3;
+
+// Personal pace as a multiplier on the heuristic: total actual seconds across
+// usable attempts over total predicted seconds for those same questions.
+// Null until enough history exists. The cost function is injected so the
+// prediction uses exactly the classifier the estimate itself uses — the two
+// can never drift. Clamped so one walked-away-from quiz can't triple every
+// future estimate, and backfilled zero-duration attempts are ignored.
+export function paceCalibrationFactor(
+  attempts: QuizAttempt[],
+  costSeconds: (question: Question) => number,
+): number | null {
+  const usable = attempts.filter(
+    (attempt) => (attempt.durationSec ?? 0) > 0 && attempt.questions.length > 0,
+  );
+  if (usable.length < PACE_CALIBRATION_MIN_ATTEMPTS) return null;
+  let predicted = 0;
+  let actual = 0;
+  for (const attempt of usable) {
+    predicted += attempt.questions.reduce((sum, q) => sum + costSeconds(q), 0);
+    actual += attempt.durationSec ?? 0;
+  }
+  if (predicted <= 0) return null;
+  return Math.min(3, Math.max(0.5, actual / predicted));
+}
+
+// The countdown turns red for the last 10% of the budget, not at a fixed
+// cutoff — a 60-minute quiz deserves an earlier warning than a 2-minute one.
+export function isLowTime(remainingSec: number, timeLimitSec: number): boolean {
+  return remainingSec <= timeLimitSec * 0.1;
 }
 
 // Red at a failing score, easing through the warning tone and landing on green

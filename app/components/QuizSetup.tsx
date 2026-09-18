@@ -1,11 +1,12 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import {
-  formatTakenAt,
   missedIds,
+  paceCalibrationFactor,
   sampleProportionally,
-  scoreTone,
+  SET_QUESTION_SECONDS,
+  STANDALONE_QUESTION_SECONDS,
 } from "@/app/lib/questions";
 import { isMonoKind, formatTypeKeys, resolveFromList, stimulusKindOf, typeLabelOf } from "@/app/lib/examFormats";
 import { useFormats } from "@/app/lib/useFormats";
@@ -26,91 +27,34 @@ const FEEDBACK_OPTIONS: { value: FeedbackMode; label: string; hint: string }[] =
 ];
 
 // Timeline and Code questions mean tracing a table or reading a listing, so
-// they cost noticeably more than answering a definition.
-const SECONDS_PER_QUESTION = 30;
-const SECONDS_PER_PREFORMATTED_QUESTION = 60;
+// they cost noticeably more than answering a definition. Cold-start only —
+// once enough attempts exist the estimate calibrates to the user's own pace.
+const SECONDS_PER_QUESTION = STANDALONE_QUESTION_SECONDS;
+const SECONDS_PER_PREFORMATTED_QUESTION = SET_QUESTION_SECONDS;
 
 // User-typed timer bounds (minutes). The countdown itself runs in seconds.
 const MIN_TIMER_MINUTES = 1;
 const MAX_TIMER_MINUTES = 180;
 const DEFAULT_TIMER_MINUTES = 10;
+// One-tap budgets covering a quick drill through an exam-length sitting.
+const TIMER_PRESETS = [5, 10, 15, 30, 60];
 
-function ChevronRightIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 10 10" fill="none" aria-hidden="true">
-      <path
-        d="M4 2l3 3-3 3"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+function questionCostSeconds(format: ExamFormat, question: Question): number {
+  return isMonoKind(stimulusKindOf(format, question.type))
+    ? SECONDS_PER_PREFORMATTED_QUESTION
+    : SECONDS_PER_QUESTION;
 }
 
-function RefreshIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 10 10" fill="none" aria-hidden="true">
-      <path
-        d="M8.5 5A3.5 3.5 0 0 1 2.4 7.1M1.5 5A3.5 3.5 0 0 1 7.6 2.9M7.6 2.9V1.2M7.6 2.9H5.9M2.4 7.1v1.7M2.4 7.1h1.7"
-        stroke="currentColor"
-        strokeWidth="1"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-// Sits between two attempts in place of the normal row hairline, marking that
-// the pool was regenerated between them — so a score jump there reads as "new
-// questions" rather than "got better at the same ones."
-function NewQuestionsDivider() {
-  return (
-    <li className="flex items-center gap-3 py-3" aria-hidden="true">
-      <span className="h-px flex-1 bg-border" />
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-[12px] text-text-secondary">
-        <RefreshIcon />
-        New questions
-      </span>
-      <span className="h-px flex-1 bg-border" />
-    </li>
-  );
-}
-
-// How this attempt moved against the one before it. Compared in percent rather
-// than raw score, since attempts can be run at different question counts.
-function Delta({ change }: { change: number }) {
-  const [arrow, tone, label] =
-    change > 0
-      ? ["↑", "text-success", "up"]
-      : change < 0
-        ? ["↓", "text-error", "down"]
-        : ["–", "text-text-tertiary", "unchanged"];
-
-  return (
-    <span
-      className={`text-[14px] ${tone}`}
-      title={`${Math.abs(change)}% ${label} from the previous attempt`}
-    >
-      {arrow} {Math.abs(change)}%
-    </span>
-  );
-}
-
-function estimatedMinutes(format: ExamFormat, pool: Question[], count: number): number {
+function estimatedMinutes(
+  format: ExamFormat,
+  pool: Question[],
+  count: number,
+  paceFactor: number = 1,
+): number {
   if (pool.length === 0 || count === 0) return 0;
   const averageSeconds =
-    pool.reduce(
-      (sum, q) =>
-        sum +
-        (isMonoKind(stimulusKindOf(format, q.type))
-          ? SECONDS_PER_PREFORMATTED_QUESTION
-          : SECONDS_PER_QUESTION),
-      0,
-    ) / pool.length;
-  return Math.max(1, Math.round((averageSeconds * count) / 60));
+    pool.reduce((sum, q) => sum + questionCostSeconds(format, q), 0) / pool.length;
+  return Math.max(1, Math.round(((averageSeconds * count) / 60) * paceFactor));
 }
 
 export default function QuizSetup({
@@ -119,14 +63,12 @@ export default function QuizSetup({
   feedbackMode,
   onFeedbackModeChange,
   onStart,
-  onViewAttempt,
 }: {
   reviewer: Reviewer;
   history: QuizAttempt[];
   feedbackMode: FeedbackMode;
   onFeedbackModeChange: (mode: FeedbackMode) => void;
   onStart: (questions: Question[], opts: { timeLimitSec: number | null }) => void;
-  onViewAttempt: (attempt: QuizAttempt) => void;
 }) {
   // Empty means "all" — the chip row shows that as the All types chip.
   const [scopeTypes, setScopeTypes] = useState<string[]>([]);
@@ -183,7 +125,10 @@ export default function QuizSetup({
   const typesPresent = formatTypeKeys(format).filter((t) =>
     reviewer.questions.some((q) => q.type === t),
   );
-  const minutes = estimatedMinutes(format, pool, count);
+  // The user's own pace, once enough attempts exist — the same cost
+  // classifier as the estimate, so prediction and estimate stay consistent.
+  const paceFactor = paceCalibrationFactor(history, (q) => questionCostSeconds(format, q));
+  const minutes = estimatedMinutes(format, pool, count, paceFactor ?? 1);
 
   // Clamped the same way as the count above: garbage in, sane number out.
   const parsedMinutes = parseInt(minutesInput, 10);
@@ -193,7 +138,11 @@ export default function QuizSetup({
   );
 
   return (
-    <>
+    // Single element, not a fragment: the quiz page puts this beside the
+    // attempts rail in a grid, and fragment children would each become
+    // their own grid item. min-w-0 keeps long chip rows from blowing out
+    // the main column.
+    <div className="min-w-0">
       <div className="mt-8 border-t border-border pt-6">
         <h2 className="text-[15px] font-semibold text-text-primary">Scope</h2>
 
@@ -275,7 +224,7 @@ export default function QuizSetup({
         )}
       </div>
 
-      <div className="mt-8 border-t border-border pt-6">
+      <div className="mt-6 border-t border-border pt-4">
         <h2 className="text-[15px] font-semibold text-text-primary">Feedback mode</h2>
         <div className="mt-3 flex flex-col gap-3">
           {FEEDBACK_OPTIONS.map((option) => (
@@ -300,27 +249,77 @@ export default function QuizSetup({
         </div>
       </div>
 
-      <div className="mt-8 border-t border-border pt-6">
+      <div className="mt-6 border-t border-border pt-4">
         <h2 className="text-[15px] font-semibold text-text-primary">Timer</h2>
-        <label className="mt-3 flex cursor-pointer items-start gap-3">
-          <input
-            type="checkbox"
-            checked={timed}
-            onChange={(e) => setTimed(e.target.checked)}
-            className="mt-1 h-[18px] w-[18px] flex-none cursor-pointer accent-accent"
-          />
-          <span>
-            <span className="block text-[15px] leading-tight font-semibold text-text-primary">
-              Timed quiz
-            </span>
-            <span className="mt-0.5 block text-[14px] leading-snug text-text-secondary">
-              Countdown while answering; submits automatically at zero.
-            </span>
-          </span>
-        </label>
+        <p className="mt-1 text-[14px] leading-snug text-text-secondary">
+          Countdown while answering; submits automatically at zero.
+        </p>
+        {/* One control for one decision: Off or a duration. Picking any
+            duration turns the timer on, so there is no separate toggle to
+            keep in sync — same chip language as Scope above. */}
+        <div
+          className="mt-3 flex flex-wrap items-center gap-2"
+          role="group"
+          aria-label="Timer duration"
+        >
+          <button
+            type="button"
+            onClick={() => setTimed(false)}
+            aria-pressed={!timed}
+            className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
+              !timed
+                ? "bg-accent text-on-accent"
+                : "border border-border-strong text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            Off
+          </button>
+          {TIMER_PRESETS.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              onClick={() => {
+                setTimed(true);
+                setMinutesInput(String(preset));
+              }}
+              aria-pressed={timed && timeMinutes === preset}
+              className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
+                timed && timeMinutes === preset
+                  ? "bg-accent text-on-accent"
+                  : "border border-border-strong text-text-secondary hover:text-text-primary"
+              }`}
+            >
+              {preset} min
+            </button>
+          ))}
+          {/* The estimate already shown by the question count, offered as a
+              budget — but only when it isn't one of the presets already. */}
+          {minutes > 0 && !TIMER_PRESETS.includes(minutes) && (
+            <button
+              type="button"
+              onClick={() => {
+                setTimed(true);
+                setMinutesInput(String(minutes));
+              }}
+              aria-pressed={timed && timeMinutes === minutes}
+              title={
+                paceFactor === null
+                  ? "Matches the estimated time for this quiz"
+                  : "Matches your average pace for this quiz"
+              }
+              className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
+                timed && timeMinutes === minutes
+                  ? "bg-accent text-on-accent"
+                  : "border border-border-strong text-text-secondary hover:text-text-primary"
+              }`}
+            >
+              Suggested ~{minutes}
+            </button>
+          )}
+        </div>
         {timed && (
           <label className="mt-3 flex items-center gap-2">
-            <span className="text-[15px] text-text-secondary">Minutes</span>
+            <span className="text-[15px] text-text-secondary">Custom minutes</span>
             <input
               type="number"
               min={MIN_TIMER_MINUTES}
@@ -336,7 +335,7 @@ export default function QuizSetup({
         )}
       </div>
 
-      <div className="mt-6 flex justify-center">
+      <div className="mt-4 flex justify-center">
         <button
           onClick={() => onStart(sampleProportionally(pool, count), { timeLimitSec: timed ? timeMinutes * 60 : null })}
           disabled={available === 0}
@@ -346,90 +345,6 @@ export default function QuizSetup({
           Start quiz
         </button>
       </div>
-
-      <div className="mt-10 border-t border-border pt-6">
-        <h2 className="text-[15px] font-semibold text-text-primary">Your attempts</h2>
-        {history.length === 0 ? (
-          <p className="mt-2 text-[15px] text-text-secondary">
-            No attempts yet. Your scores for this reviewer will show up here.
-          </p>
-        ) : (
-          <ul className="mt-3 flex flex-col">
-            {/* History is newest-first, so an attempt's predecessor is the row
-                below it — and the last row has none to compare against. A
-                divider takes the place of a row's top hairline wherever the
-                pool was regenerated between it and its predecessor, and
-                breaks the delta comparison there too — a score change across
-                a regenerate isn't "better," it's a different set of questions. */}
-            {history.map((attempt, index) => {
-              const percent = Math.round((attempt.score / attempt.total) * 100);
-              const previous = history[index + 1];
-              const isGroupStart =
-                index > 0 && attempt.questionSetGeneratedAt !== history[index - 1].questionSetGeneratedAt;
-              // A regenerate sits between this attempt and `previous`, so
-              // their scores aren't comparable — same check as isGroupStart,
-              // just facing the other direction in the list.
-              const comparable =
-                previous && attempt.questionSetGeneratedAt === previous.questionSetGeneratedAt;
-              const summary = (
-                <>
-                  <span className="text-text-secondary">{formatTakenAt(attempt.takenAt)}</span>
-                  {/* Delta and score travel together on the right, so the
-                      comparison reads against the number it qualifies. */}
-                  <span className="ml-auto flex items-center gap-3">
-                    {comparable && (
-                      <Delta
-                        change={percent - Math.round((previous.score / previous.total) * 100)}
-                      />
-                    )}
-                    <span className={`font-medium ${scoreTone(percent)}`}>
-                      {attempt.score}/{attempt.total} ({percent}%)
-                    </span>
-                  </span>
-                </>
-              );
-
-              // Attempts recorded before answers were kept have nothing to
-              // reopen. Rendered as the same disabled <button> rather than a
-              // plain <div> — a second element with its own box model here
-              // previously threw off the horizontal alignment between
-              // reopenable and non-reopenable rows.
-              const reopenable = attempt.questions.length > 0;
-              return (
-                <Fragment key={attempt.id}>
-                  {isGroupStart && <NewQuestionsDivider />}
-                  <li className={`${isGroupStart ? "" : "border-t border-border"} last:border-b`}>
-                    <button
-                      type="button"
-                      disabled={!reopenable}
-                      onClick={() => onViewAttempt(attempt)}
-                      title={reopenable ? "View these results" : undefined}
-                      // No -mx-N to bleed past: unlike the auto-width buttons
-                      // elsewhere in the app, this row is already full-width, so
-                      // negative margin here only shrank the hover fill instead
-                      // of extending it — plain padding is the whole row.
-                      className={`flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left text-[15px] ${
-                        reopenable ? "group hover:bg-surface-alt" : ""
-                      }`}
-                    >
-                      {summary}
-                      {/* Slot stays a fixed w-4 whether or not the chevron
-                          renders, so the score column never shifts. */}
-                      <span
-                        className={`w-4 shrink-0 text-text-tertiary ${
-                          reopenable ? "group-hover:text-text-primary" : ""
-                        }`}
-                      >
-                        {reopenable && <ChevronRightIcon />}
-                      </span>
-                    </button>
-                  </li>
-                </Fragment>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-    </>
+    </div>
   );
 }

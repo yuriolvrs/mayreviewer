@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   formatCountdown,
   groupQuestions,
+  isLowTime,
   isPreformatted,
+  paceCalibrationFactor,
   isQuestion,
   isValidQuestionFields,
   missedIds,
@@ -13,7 +15,7 @@ import {
   takeWithinBudget,
   takeWithinTypeBudget,
 } from "@/app/lib/questions";
-import type { Question } from "@/app/types";
+import type { Question, QuizAttempt } from "@/app/types";
 
 function question(overrides: Partial<Question> = {}): Question {
   return {
@@ -112,6 +114,83 @@ describe("formatCountdown", () => {
     expect(formatCountdown(3599)).toBe("59:59");
     expect(formatCountdown(3600)).toBe("1:00:00");
     expect(formatCountdown(3661)).toBe("1:01:01");
+  });
+});
+
+describe("isLowTime", () => {
+  it("turns red only inside the last 10% of the budget", () => {
+    expect(isLowTime(61, 600)).toBe(false);
+    expect(isLowTime(60, 600)).toBe(true);
+    expect(isLowTime(360, 3600)).toBe(true);
+    expect(isLowTime(361, 3600)).toBe(false);
+  });
+
+  it("scales down to short budgets", () => {
+    expect(isLowTime(13, 120)).toBe(false);
+    expect(isLowTime(12, 120)).toBe(true);
+  });
+});
+
+describe("paceCalibrationFactor", () => {
+  const cost30 = () => 30;
+
+  function attempt(overrides: Partial<QuizAttempt> = {}): QuizAttempt {
+    return {
+      id: "a1",
+      reviewerId: "rv1",
+      takenAt: "2026-09-18T10:00:00.000Z",
+      score: 1,
+      total: 2,
+      questions: [question({ id: "q1" }), question({ id: "q2" })],
+      answers: { q1: 1, q2: 0 },
+      unsureIds: [],
+      questionSetGeneratedAt: "2026-09-18T09:00:00.000Z",
+      examFormatId: "csopesy-final",
+      examFormatName: "CSOPESY Final",
+      durationSec: 60,
+      timedOut: false,
+      ...overrides,
+    };
+  }
+
+  it("returns null until three usable attempts exist", () => {
+    expect(paceCalibrationFactor([], cost30)).toBeNull();
+    expect(paceCalibrationFactor([attempt(), attempt()], cost30)).toBeNull();
+    expect(
+      paceCalibrationFactor([attempt(), attempt(), attempt()], cost30),
+    ).toBe(1);
+  });
+
+  it("ignores backfilled zero-duration and empty attempts", () => {
+    const attempts = [
+      attempt({ durationSec: 0 }),
+      attempt({ durationSec: undefined }),
+      attempt({ questions: [] }),
+      attempt({ durationSec: 180 }),
+      attempt({ durationSec: 180 }),
+      attempt({ durationSec: 180 }),
+    ];
+    // 3 usable × 60s predicted vs 3 × 180s actual.
+    expect(paceCalibrationFactor(attempts, cost30)).toBe(3);
+  });
+
+  it("scales the prediction by the user's actual pace", () => {
+    // Predicted 60s each, actually took 120s each: twice as slow.
+    const attempts = [attempt({ durationSec: 120 }), attempt({ durationSec: 120 }), attempt({ durationSec: 120 })];
+    expect(paceCalibrationFactor(attempts, cost30)).toBe(2);
+  });
+
+  it("uses the injected costs for the prediction", () => {
+    const attempts = [attempt({ durationSec: 180 }), attempt({ durationSec: 180 }), attempt({ durationSec: 180 })];
+    // Same attempts read as 90s-a-question predict 180s, matching actual.
+    expect(paceCalibrationFactor(attempts, () => 90)).toBe(1);
+  });
+
+  it("clamps so one outlier can't warp every future estimate", () => {
+    const slow = [attempt({ durationSec: 600 }), attempt({ durationSec: 600 }), attempt({ durationSec: 600 })];
+    expect(paceCalibrationFactor(slow, cost30)).toBe(3);
+    const fast = [attempt({ durationSec: 6 }), attempt({ durationSec: 6 }), attempt({ durationSec: 6 })];
+    expect(paceCalibrationFactor(fast, cost30)).toBe(0.5);
   });
 });
 

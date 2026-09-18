@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { getQuizHistory, getReviewer, saveQuizAttempt } from "@/app/lib/storage";
+import { clearQuizProgress, getQuizProgress, saveQuizProgress } from "@/app/lib/quizProgress";
 import { getSettings } from "@/app/lib/settings";
 import { resolveFromList } from "@/app/lib/examFormats";
 import { useFormats, useFormatsLoaded } from "@/app/lib/useFormats";
@@ -12,6 +13,7 @@ import type { FeedbackMode, Question, QuizAttempt, Reviewer } from "@/app/types"
 import QuizTaking, { type Answers } from "@/app/components/QuizTaking";
 import QuizResults from "@/app/components/QuizResults";
 import QuizSetup from "@/app/components/QuizSetup";
+import QuizAttempts from "@/app/components/QuizAttempts";
 
 type Stage = "setup" | "taking" | "results";
 
@@ -44,8 +46,17 @@ function QuizPageInner() {
   const [reviewedAt, setReviewedAt] = useState<string | null>(null);
   // Countdown budget picked in Quiz Setup (null = untimed). Survives the
   // taking/results switches — retakes run under the same limit, and the
-  // remounted QuizTaking restarts its clock.
+  // remounted QuizTaking continues its clock from `startedAt`.
   const [timeLimitSec, setTimeLimitSec] = useState<number | null>(null);
+  // Wall-clock start of the attempt on screen, persisted so a refresh keeps
+  // the countdown accurate. Fresh attempts stamp it at start; restores reuse
+  // the saved value; cleared on submit/cancel.
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  // Seeded answers for the mounted QuizTaking — empty on a fresh start,
+  // restored from progress after a refresh.
+  const [initialAnswers, setInitialAnswers] = useState<Answers>({});
+  const [initialUnsureIds, setInitialUnsureIds] = useState<string[]>([]);
+  const [initialConfirmedIds, setInitialConfirmedIds] = useState<string[]>([]);
   // Timing of the attempt on screen, for the results line. Set on submit and
   // from the reopened attempt's snapshot; cleared on retake.
   const [resultTiming, setResultTiming] = useState<{ durationSec: number; timedOut: boolean } | null>(null);
@@ -74,6 +85,22 @@ function QuizPageInner() {
       setReviewedAt(attempt.takenAt);
       setFormatId(attempt.examFormatId);
       setStage("results");
+    } else {
+      // Refresh mid-quiz: resume the in-progress attempt instead of
+      // dropping back to setup. The countdown stays accurate because the
+      // saved startedAt is reused rather than restamped.
+      const progress = getQuizProgress(id);
+      if (progress) {
+        setQuizQuestions(progress.quizQuestions);
+        setFeedbackMode(progress.feedbackMode);
+        setTimeLimitSec(progress.timeLimitSec);
+        setFormatId(progress.formatId);
+        setStartedAt(progress.startedAt);
+        setInitialAnswers(progress.answers);
+        setInitialUnsureIds(progress.unsureIds);
+        setInitialConfirmedIds(progress.confirmedIds);
+        setStage("taking");
+      }
     }
   }, [id, attemptId]);
 
@@ -102,15 +129,31 @@ function QuizPageInner() {
           format={format}
           feedbackMode={feedbackMode}
           timeLimitSec={timeLimitSec}
+          reviewerId={reviewer.id}
+          formatId={formatId}
+          startedAt={startedAt ?? undefined}
+          initialAnswers={initialAnswers}
+          initialUnsureIds={initialUnsureIds}
+          initialConfirmedIds={initialConfirmedIds}
           onCancel={() => {
+            clearQuizProgress(reviewer.id);
+            setStartedAt(null);
+            setInitialAnswers({});
+            setInitialUnsureIds([]);
+            setInitialConfirmedIds([]);
             setStage("setup");
             window.scrollTo({ top: 0 });
           }}
           onSubmit={(answers, unsureIds, timing) => {
             saveQuizAttempt(reviewer, quizQuestions, answers, unsureIds, timing);
+            clearQuizProgress(reviewer.id);
             setHistory(getQuizHistory(reviewer.id));
             setSubmitted({ answers, unsureIds });
             setResultTiming(timing);
+            setStartedAt(null);
+            setInitialAnswers({});
+            setInitialUnsureIds([]);
+            setInitialConfirmedIds([]);
             setStage("results");
             window.scrollTo({ top: 0 });
           }}
@@ -136,8 +179,27 @@ function QuizPageInner() {
             // Fresh attempt: QuizTaking is remounted by the stage switch, so
             // answers and unsure flags both start empty again. Reopened from
             // history, this re-serves that attempt's question set, reshuffled
-            // unless the user turned shuffle off in Settings.
-            setQuizQuestions((prev) => (getSettings().shuffle ? prev.map(shuffleOptions) : prev));
+            // unless the user turned shuffle off in Settings. Saved as fresh
+            // progress so the retake itself survives a refresh too.
+            const next = getSettings().shuffle ? quizQuestions.map(shuffleOptions) : quizQuestions;
+            const now = Date.now();
+            setQuizQuestions(next);
+            setStartedAt(now);
+            setInitialAnswers({});
+            setInitialUnsureIds([]);
+            setInitialConfirmedIds([]);
+            saveQuizProgress({
+              reviewerId: reviewer.id,
+              quizQuestions: next,
+              answers: {},
+              unsureIds: [],
+              confirmedIds: [],
+              timeLimitSec,
+              startedAt: now,
+              formatId,
+              feedbackMode,
+              savedAt: now,
+            });
             setSubmitted(null);
             setReviewedAt(null);
             setResultTiming(null);
@@ -162,7 +224,7 @@ function QuizPageInner() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
+    <div className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
       <Link
         href={`/reviewer/${reviewer.id}`}
         className="text-[15px] text-text-secondary hover:text-text-primary"
@@ -180,31 +242,56 @@ function QuizPageInner() {
           No questions yet — generate some in the Questions tab first.
         </p>
       ) : (
-        <QuizSetup
-          reviewer={reviewer}
-          history={history}
-          feedbackMode={feedbackMode}
-          onFeedbackModeChange={setFeedbackMode}
-          onStart={(questions, opts) => {
-            const served = getSettings().shuffle ? questions.map(shuffleOptions) : questions;
-            setQuizQuestions(served);
-            setFormatId(reviewer.examFormatId);
-            setTimeLimitSec(opts.timeLimitSec);
-            setStage("taking");
-            window.scrollTo({ top: 0 });
-          }}
-          onViewAttempt={(attempt) => {
-            // The attempt carries its own copy of what it asked, so reopening
-            // it doesn't depend on those questions still being in the pool.
-            setQuizQuestions(attempt.questions);
-            setSubmitted({ answers: attempt.answers, unsureIds: attempt.unsureIds });
-            setReviewedAt(attempt.takenAt);
-            setResultTiming({ durationSec: attempt.durationSec ?? 0, timedOut: attempt.timedOut ?? false });
-            setFormatId(attempt.examFormatId);
-            setStage("results");
-            window.scrollTo({ top: 0 });
-          }}
-        />
+        // Setup flows in the main column while past attempts sit in their own
+        // rail — record beside configuration, never inside it. Stacks with
+        // the rail below Start on narrow screens.
+        <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <QuizSetup
+            reviewer={reviewer}
+            history={history}
+            feedbackMode={feedbackMode}
+            onFeedbackModeChange={setFeedbackMode}
+            onStart={(questions, opts) => {
+              const served = getSettings().shuffle ? questions.map(shuffleOptions) : questions;
+              const now = Date.now();
+              setQuizQuestions(served);
+              setFormatId(reviewer.examFormatId);
+              setTimeLimitSec(opts.timeLimitSec);
+              setStartedAt(now);
+              setInitialAnswers({});
+              setInitialUnsureIds([]);
+              setInitialConfirmedIds([]);
+              saveQuizProgress({
+                reviewerId: reviewer.id,
+                quizQuestions: served,
+                answers: {},
+                unsureIds: [],
+                confirmedIds: [],
+                timeLimitSec: opts.timeLimitSec,
+                startedAt: now,
+                formatId: reviewer.examFormatId,
+                feedbackMode,
+                savedAt: now,
+              });
+              setStage("taking");
+              window.scrollTo({ top: 0 });
+            }}
+          />
+          <QuizAttempts
+            history={history}
+            onViewAttempt={(attempt) => {
+              // The attempt carries its own copy of what it asked, so reopening
+              // it doesn't depend on those questions still being in the pool.
+              setQuizQuestions(attempt.questions);
+              setSubmitted({ answers: attempt.answers, unsureIds: attempt.unsureIds });
+              setReviewedAt(attempt.takenAt);
+              setResultTiming({ durationSec: attempt.durationSec ?? 0, timedOut: attempt.timedOut ?? false });
+              setFormatId(attempt.examFormatId);
+              setStage("results");
+              window.scrollTo({ top: 0 });
+            }}
+          />
+        </div>
       )}
     </div>
   );

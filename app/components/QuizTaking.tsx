@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
-import { formatCountdown, groupQuestions, isPreformatted, optionLetter } from "@/app/lib/questions";
+import { formatCountdown, groupQuestions, isLowTime, isPreformatted, optionLetter } from "@/app/lib/questions";
+import { saveQuizProgress } from "@/app/lib/quizProgress";
 import { isMonoKind, stimulusKindOf, type ExamFormat } from "@/app/lib/examFormats";
 import StimulusBlock from "@/app/components/StimulusBlock";
 import StimulusQuote from "@/app/components/StimulusQuote";
@@ -15,6 +16,12 @@ export default function QuizTaking({
   format,
   feedbackMode,
   timeLimitSec,
+  reviewerId,
+  formatId,
+  startedAt,
+  initialAnswers,
+  initialUnsureIds,
+  initialConfirmedIds,
   onSubmit,
   onCancel,
 }: {
@@ -26,6 +33,17 @@ export default function QuizTaking({
   // Countdown budget picked in Quiz Setup, or null for untimed. Elapsed time
   // is recorded either way — the limit only adds the display + auto-submit.
   timeLimitSec: number | null;
+  // Persistence identity: every answer/unsure/confirm change is written
+  // through to the in-progress snapshot for this reviewer.
+  reviewerId: string;
+  formatId: string | null;
+  // Wall-clock start (Date.now() epoch ms). Fresh attempts leave it
+  // undefined and stamp now on mount; restores after a refresh pass the
+  // saved value so the countdown continues instead of restarting.
+  startedAt?: number;
+  initialAnswers?: Answers;
+  initialUnsureIds?: string[];
+  initialConfirmedIds?: string[];
   onSubmit: (
     answers: Answers,
     unsureIds: string[],
@@ -33,11 +51,12 @@ export default function QuizTaking({
   ) => void;
   onCancel: () => void;
 }) {
-  const [answers, setAnswers] = useState<Answers>({});
-  const [unsureIds, setUnsureIds] = useState<string[]>([]);
+  const [answers, setAnswers] = useState<Answers>(() => initialAnswers ?? {});
+  const [unsureIds, setUnsureIds] = useState<string[]>(() => initialUnsureIds ?? []);
   // Immediate mode only: an option pick is provisional until confirmed, so
   // right/wrong doesn't flash before the reader has committed to it.
-  const [confirmedIds, setConfirmedIds] = useState<string[]>([]);
+  // Restored after a refresh so locked answers stay locked.
+  const [confirmedIds, setConfirmedIds] = useState<string[]>(() => initialConfirmedIds ?? []);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -45,8 +64,9 @@ export default function QuizTaking({
 
   // Wall-clock start: remaining time derives from Date.now() rather than
   // tick counts, so a backgrounded tab (throttled intervals) still counts
-  // its hidden minutes. Remount resets it — retakes start fresh.
-  const [startedAt] = useState(() => Date.now());
+  // its hidden minutes. The value is the persisted attempt start, so a
+  // refresh resumes the same clock instead of restarting it.
+  const [resolvedStartedAt] = useState(() => startedAt ?? Date.now());
   const [now, setNow] = useState(() => Date.now());
   // Latest answers for the expiry submit, which fires from an interval
   // closure that would otherwise hold the first render's empty copies.
@@ -60,8 +80,29 @@ export default function QuizTaking({
     unsureRef.current = unsureIds;
   });
 
-  const elapsedSec = Math.floor((now - startedAt) / 1000);
+  // Write-through persistence: every change lands in localStorage, so a
+  // refresh restores answers, unsure flags, and confirm locks. Runs on mount
+  // too, which records the entry for quizzes refreshed before answering.
+  useEffect(() => {
+    saveQuizProgress({
+      reviewerId,
+      quizQuestions: questions,
+      answers,
+      unsureIds,
+      confirmedIds,
+      timeLimitSec,
+      startedAt: resolvedStartedAt,
+      formatId,
+      feedbackMode,
+      savedAt: Date.now(),
+    });
+  }, [reviewerId, questions, answers, unsureIds, confirmedIds, timeLimitSec, resolvedStartedAt, formatId, feedbackMode]);
+
+  const elapsedSec = Math.floor((now - resolvedStartedAt) / 1000);
   const remainingSec = timeLimitSec === null ? null : timeLimitSec - elapsedSec;
+  // Red for the last 10% of the budget, not a fixed cutoff — a 60-minute
+  // quiz deserves an earlier warning than a 2-minute one.
+  const lowTime = remainingSec !== null && timeLimitSec !== null && isLowTime(remainingSec, timeLimitSec);
 
   // Display ticks only when there's a countdown to show; elapsed time for
   // untimed quizzes is computed from the start ref at submit.
@@ -77,9 +118,9 @@ export default function QuizTaking({
   useEffect(() => {
     if (remainingSec === null || remainingSec > 0 || expiredRef.current) return;
     expiredRef.current = true;
-    const elapsed = Math.round((Date.now() - startedAt) / 1000);
+    const elapsed = Math.round((Date.now() - resolvedStartedAt) / 1000);
     onSubmit(answersRef.current, unsureRef.current, { durationSec: elapsed, timedOut: true });
-  }, [remainingSec, startedAt, onSubmit]);
+  }, [remainingSec, resolvedStartedAt, onSubmit]);
 
   // Timeline/Code questions arrive as contiguous sets over one shared problem;
   // the problem is rendered once at the head of the set. Numbering stays global
@@ -94,8 +135,9 @@ export default function QuizTaking({
   const unansweredCount = questions.length - answeredCount;
   const showFeedback = feedbackMode === "immediate";
 
-  // Navigating away mid-quiz loses everything — the confirm dialogs only
-  // guard in-app buttons, not reloads or tab closes.
+  // Reloads restore from the persisted snapshot, but the confirm dialogs
+  // only guard in-app buttons — keep the tab-close guard for accidental
+  // navigation away from unsubmitted answers.
   useEffect(() => {
     function onBeforeUnload(e: BeforeUnloadEvent) {
       if (Object.keys(answers).length > 0) e.preventDefault();
@@ -204,7 +246,7 @@ export default function QuizTaking({
       setConfirmOpen(true);
       return;
     }
-    const elapsed = Math.round((Date.now() - startedAt) / 1000);
+    const elapsed = Math.round((Date.now() - resolvedStartedAt) / 1000);
     onSubmit(answers, unsureIds, { durationSec: elapsed, timedOut: false });
   }
 
@@ -295,24 +337,31 @@ export default function QuizTaking({
   return (
     <div className="flex gap-10">
       <div className="min-w-0 flex-1">
-        <div className="mb-4 flex items-center justify-between gap-3 lg:hidden">
-          <p className="text-[14px] text-text-secondary">
-            {answeredCount} of {questions.length} answered
-            {/* No live region: a per-second announcement would be noise; the
-                timeout lands on the results screen, which speaks for itself. */}
-            {remainingSec !== null && (
-              <span className={remainingSec <= 60 ? "font-medium text-error" : ""}>
-                {" "}· {formatCountdown(remainingSec)} left
-              </span>
-            )}
-          </p>
-          <button
-            type="button"
-            onClick={() => setConfirmCancelOpen(true)}
-            className="shrink-0 rounded-lg border border-error px-2.5 py-1 text-[14px] font-medium text-error hover:bg-error-subtle"
-          >
-            Cancel quiz
-          </button>
+        <div className="mb-4 lg:hidden">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[14px] text-text-secondary">
+              {answeredCount} of {questions.length} answered
+            </p>
+            <button
+              type="button"
+              onClick={() => setConfirmCancelOpen(true)}
+              className="shrink-0 rounded-lg border border-error px-2.5 py-1 text-[14px] font-medium text-error hover:bg-error-subtle"
+            >
+              Cancel quiz
+            </button>
+          </div>
+          {/* No live region: a per-second announcement would be noise; the
+              timeout lands on the results screen, which speaks for itself. */}
+          {remainingSec !== null && (
+            <p
+              data-testid="quiz-timer"
+              className={`mt-1 font-mono text-[18px] font-semibold ${
+                lowTime ? "text-error" : "text-text-primary"
+              }`}
+            >
+              {formatCountdown(remainingSec)} left
+            </p>
+          )}
         </div>
 
         <details className="mb-4 rounded-lg border border-border bg-surface-alt lg:hidden">
@@ -570,8 +619,9 @@ export default function QuizTaking({
         </div>
         {remainingSec !== null && (
           <p
-            className={`mt-2 font-mono text-[15px] ${
-              remainingSec <= 60 ? "font-medium text-error" : "text-text-secondary"
+            data-testid="quiz-timer"
+            className={`mt-2 font-mono text-[22px] font-semibold ${
+              lowTime ? "text-error" : "text-text-primary"
             }`}
           >
             {formatCountdown(remainingSec)} left
@@ -606,7 +656,7 @@ export default function QuizTaking({
           confirmLabel="Submit anyway"
           cancelLabel="Keep working"
           onConfirm={() => {
-            const elapsed = Math.round((Date.now() - startedAt) / 1000);
+            const elapsed = Math.round((Date.now() - resolvedStartedAt) / 1000);
             onSubmit(answers, unsureIds, { durationSec: elapsed, timedOut: false });
           }}
           onCancel={() => setConfirmOpen(false)}

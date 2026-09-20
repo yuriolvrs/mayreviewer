@@ -16,6 +16,7 @@ export default function QuizTaking({
   format,
   feedbackMode,
   timeLimitSec,
+  parSec,
   reviewerId,
   formatId,
   startedAt,
@@ -33,6 +34,10 @@ export default function QuizTaking({
   // Countdown budget picked in Quiz Setup, or null for untimed. Elapsed time
   // is recorded either way — the limit only adds the display + auto-submit.
   timeLimitSec: number | null;
+  // Pace estimate for these questions, in seconds — written through to the
+  // snapshot alongside everything else so a refresh never loses it. 0 means
+  // unknown and records as such at submit.
+  parSec: number;
   // Persistence identity: every answer/unsure/confirm change is written
   // through to the in-progress snapshot for this reviewer.
   reviewerId: string;
@@ -91,12 +96,13 @@ export default function QuizTaking({
       unsureIds,
       confirmedIds,
       timeLimitSec,
+      parSec,
       startedAt: resolvedStartedAt,
       formatId,
       feedbackMode,
       savedAt: Date.now(),
     });
-  }, [reviewerId, questions, answers, unsureIds, confirmedIds, timeLimitSec, resolvedStartedAt, formatId, feedbackMode]);
+  }, [reviewerId, questions, answers, unsureIds, confirmedIds, timeLimitSec, parSec, resolvedStartedAt, formatId, feedbackMode]);
 
   const elapsedSec = Math.floor((now - resolvedStartedAt) / 1000);
   const remainingSec = timeLimitSec === null ? null : timeLimitSec - elapsedSec;

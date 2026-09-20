@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Option A — Pushed further down</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0b0b0d;color:#ececf1;font-family:-apple-system,"Segoe UI",Roboto,Inter,Arial,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:40px 24px 90px}
+.back{display:inline-block;margin-bottom:18px;font-size:14px;color:#e8a33f;text-decoration:none}
+.tag{display:inline-block;margin-bottom:14px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#e8a33f}
+h1{font-size:26px;font-weight:600}
+.sec{margin-top:32px;border-top:1px solid #26262b;padding-top:24px}
+.sec h2{font-size:15px;font-weight:600}
+.hint{margin-top:4px;font-size:14px;color:#a8a8b0;line-height:1.45}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.chip{border-radius:8px;padding:4px 10px;font-size:14px;font-weight:500;border:1px solid #3f3f46;color:#a8a8b0;background:transparent;font-family:inherit}
+.chip.on{background:#e8a33f;border-color:#e8a33f;color:#1c1305}
+.countrow{display:flex;align-items:center;gap:8px;margin-top:16px}
+.countrow .lab{font-size:15px;color:#a8a8b0}
+.numbox{height:40px;width:80px;border-radius:8px;border:1px solid #3f3f46;background:#131316;color:#ececf1;font-size:15px;padding:0 8px;font-family:inherit}
+.est{font-size:14px;color:#8e8e96}
+.radio{display:flex;gap:12px;margin-top:14px;align-items:flex-start}
+.dot{margin-top:3px;width:16px;height:16px;border-radius:50%;border:1.5px solid #71717a;flex:none;position:relative}
+.dot.sel{border-color:#e8a33f}
+.dot.sel::after{content:"";position:absolute;inset:3px;border-radius:50%;background:#e8a33f}
+.radio b{display:block;font-size:15px;font-weight:600}
+.radio span{font-size:14px;color:#a8a8b0;line-height:1.45}
+.start{display:flex;justify-content:center;margin-top:26px}
+.start button{background:#e8a33f;color:#1c1305;border:0;border-radius:8px;padding:10px 18px;font-size:15px;font-weight:500;font-family:inherit}
+.attempts{margin-top:110px;border-top:2px solid #3f3f46;padding-top:28px}
+.attempts h2{font-size:15px;font-weight:600;color:#c9c9d1}
+.arow{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:12px 0;border-bottom:1px solid #1d1d21;font-size:15px}
+.arow:last-child{border-bottom:0}
+.adate{color:#8e8e96;font-size:14px}
+.ascore{font-weight:600}
+.apct{font-weight:600;margin-left:10px}
+.up{color:#4ade80}.down{color:#f87171}.flat{color:#8e8e96}
+</style></head>
+<body><div class="wrap">
+<a class="back" href="index.html">← All mockups</a><br>
+<p class="tag">Option A — push it further down</p>
+<h1>Render Check</h1>
+<div class="sec" style="margin-top:28px">
+<h2>Scope</h2>
+<div class="chips"><button class="chip on">All types</button><button class="chip">Identification</button><button class="chip">Scenario</button><button class="chip">Timeline</button><button class="chip">Code</button></div>
+<div class="countrow"><span class="lab">Number of questions</span><input class="numbox" value="38"><span class="est">~27 min estimated</span></div>
+</div>
+<div class="sec"><h2>Feedback mode</h2>
+<div class="radio"><div class="dot sel"></div><div><b>Show correct/incorrect immediately</b><span>Feedback appears as you answer. Confirm locks the answer; explanations show immediately.</span></div></div>
+<div class="radio"><div class="dot"></div><div><b>Only show results at the end</b><span>Nothing is revealed until you submit.</span></div></div>
+</div>
+<div class="sec"><h2>Timer</h2>
+<p class="hint">Countdown while answering; submits automatically at zero.</p>
+<div class="chips"><button class="chip">Off</button><button class="chip">5 min</button><button class="chip">10 min</button><button class="chip">15 min</button><button class="chip">30 min</button><button class="chip">60 min</button><button class="chip">Suggested ~27</button></div>
+</div>
+<div class="start"><button>Start quiz</button></div>
+<div class="attempts"><h2>Your attempts (3)</h2>
+<div class="arow"><span><span class="ascore">32/38</span> <span class="adate">· Sep 16</span></span><span><span class="apct">84%</span> <span class="down">↓ 2%</span></span></div>
+<div class="arow"><span><span class="ascore">30/34</span> <span class="adate">· Sep 14</span></span><span><span class="apct">88%</span> <span class="up">↑ 5%</span></span></div>
+<div class="arow"><span><span class="ascore">26/34</span> <span class="adate">· Sep 12</span></span><span><span class="apct">76%</span> <span class="flat">–</span></span></div>
+</div>
+</div></body></html>

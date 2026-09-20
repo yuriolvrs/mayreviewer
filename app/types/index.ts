@@ -1,3 +1,5 @@
+import type { StreakState } from "@/app/lib/streaks";
+
 // The five built-in type keys. Custom formats (Chapter 3) use their own
 // opaque string keys — behavior comes from the format's type definitions,
 // never from matching these literals, so nothing below switches on them.
@@ -72,6 +74,9 @@ export type UserSettings = {
   // Questions per day the home strip counts toward. Purely motivational —
   // nothing gates on it.
   dailyGoal: number;
+  // Streak restores bank, repaired days, and claimed milestones. Rides inside
+  // the settings row so sync carries it with no schema migration.
+  streak: StreakState;
   // Reserved for later monetization. Always "free" in v1 — nothing gates on it.
   proTier: "free";
 };
@@ -108,6 +113,14 @@ export type QuizAttempt = {
   // True when the countdown hit zero and submitted automatically with
   // whatever was answered. Backfilled as false.
   timedOut?: boolean;
+  // Countdown budget the quiz ran under, in seconds — null when untimed.
+  // Recorded so milestones can tell a timed quiz from an untimed one;
+  // attempts saved before this existed read back as null (unknown).
+  timeLimitSec?: number | null;
+  // Pace-calibrated time estimate for the served questions, in seconds — the
+  // par the Speedster badge measures against. Null when unknown (untimed
+  // quizzes and attempts saved before this existed).
+  parSec?: number | null;
 };
 
 export type Reviewer = {

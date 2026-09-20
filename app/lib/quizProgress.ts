@@ -14,6 +14,12 @@ export type QuizProgress = {
   // answers and let the reader change them after seeing feedback.
   confirmedIds: string[];
   timeLimitSec: number | null;
+  // Pace-calibrated estimate for the served questions, in seconds — the par
+  // the Speedster badge measures the finished attempt against. Saved with the
+  // snapshot so a refresh mid-quiz doesn't lose it before submit. Optional so
+  // snapshots saved before the par existed still resume; they record no par
+  // at submit (0 reads as unknown downstream).
+  parSec?: number;
   // Date.now() epoch ms from when the attempt started. The countdown derives
   // from wall-clock elapsed (now - startedAt), so restoring this keeps the
   // timer accurate across reloads — time spent away still counts.
@@ -61,6 +67,10 @@ function isProgress(value: unknown): value is QuizProgress {
     (v.confirmedIds === undefined || isStringArray(v.confirmedIds)) &&
     (v.timeLimitSec === null ||
       (typeof v.timeLimitSec === "number" && Number.isFinite(v.timeLimitSec) && v.timeLimitSec > 0)) &&
+    // Optional so snapshots saved before the par existed still resume — they
+    // just record no par at submit (0 reads as unknown downstream).
+    (v.parSec === undefined ||
+      (typeof v.parSec === "number" && Number.isFinite(v.parSec) && v.parSec >= 0)) &&
     typeof v.startedAt === "number" &&
     Number.isFinite(v.startedAt) &&
     v.startedAt > 0 &&
@@ -87,7 +97,7 @@ export function getQuizProgress(reviewerId: string): QuizProgress | null {
   const raw = readAll()[reviewerId];
   if (!isProgress(raw)) return null;
   if (raw.reviewerId !== reviewerId) return null;
-  return { ...raw, confirmedIds: raw.confirmedIds ?? [] };
+  return { ...raw, confirmedIds: raw.confirmedIds ?? [], parSec: raw.parSec ?? 0 };
 }
 
 export function saveQuizProgress(progress: QuizProgress): void {

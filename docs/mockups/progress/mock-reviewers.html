@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Reviewer — CSOPESY Final Exam</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0b0b0d;color:#ececf1;font-family:-apple-system,"Segoe UI",Roboto,Inter,Arial,sans-serif}
+body.phone{background:#060607}
+.vp{position:sticky;top:0;z-index:50;display:flex;gap:8px;justify-content:center;padding:10px;background:rgba(11,11,13,.94);border-bottom:1px solid #26262b}
+.vp button{border:1px solid #3f3f46;background:transparent;color:#a8a8b0;border-radius:8px;padding:6px 16px;font-size:14px;font-family:inherit;cursor:pointer}
+.vp button.on{background:#e8a33f;border-color:#e8a33f;color:#1c1305;font-weight:600}
+.topnav{display:none;border-bottom:1px solid #26262b;background:#0b0b0d}
+body:not(.phone) .topnav{display:block}
+.topnav .in{display:flex;align-items:center;gap:26px;padding:14px 24px;font-size:15px}
+.topnav .brand{font-weight:700;font-size:17px}
+.topnav .sp{flex:1}
+.topnav a{color:#a8a8b0;text-decoration:none}
+.topnav a.on{color:#ececf1;font-weight:600}
+.wrap{max-width:760px;margin:0 auto;padding:40px 24px 90px}
+body.phone .wrap{max-width:390px;border-left:1px solid #26262b;border-right:1px solid #26262b;background:#0b0b0d;padding:28px 20px 40px;min-height:70vh}
+.back{display:inline-block;margin-bottom:18px;font-size:14px;color:#e8a33f;text-decoration:none}
+.tag{display:inline-block;margin-bottom:14px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#e8a33f}
+.crumb{font-size:13px;color:#8e8e96;text-transform:uppercase;letter-spacing:.06em}
+h1{margin-top:8px;font-size:26px;font-weight:600}
+.headrow{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.quizbtn{flex:none;background:#e8a33f;color:#1c1305;border:0;border-radius:8px;padding:10px 18px;font-size:15px;font-weight:500;font-family:inherit;cursor:pointer}
+body.phone .quizbtn{padding:8px 14px}
+.tabs{display:flex;gap:4px;margin-top:20px;border-bottom:1px solid #26262b}
+.tab{border:0;background:transparent;color:#a8a8b0;font-size:15px;font-weight:500;padding:10px 14px;font-family:inherit;position:relative}
+.tab.on{color:#ececf1;font-weight:600}
+.tab.on::after{content:"";position:absolute;left:10px;right:10px;bottom:-1px;height:2px;background:#e8a33f;border-radius:2px}
+.meta{margin-top:16px;font-size:15px;color:#a8a8b0}
+.field{margin-top:16px}
+.field .fl{font-size:13px;color:#8e8e96;text-transform:uppercase;letter-spacing:.06em}
+.field .fv{margin-top:4px;font-size:15px;line-height:1.5}
+.tchips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.tchip{border:1px solid #3f3f46;border-radius:8px;padding:4px 10px;font-size:14px;color:#a8a8b0}
+.mobbar{display:none}
+body.phone .mobbar{display:block;position:sticky;bottom:0;max-width:390px;margin:0 auto;border-top:1px solid #2e2e34;border-left:1px solid #26262b;border-right:1px solid #26262b;background:#141417}
+.mobbar .tabs{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:0;margin-top:0}
+.mobbar span{padding:14px 2px;text-align:center;font-size:13px;color:#8e8e96}
+.mobbar span.on{color:#ececf1;font-weight:600}
+</style></head>
+<body>
+<div class="vp"><button data-vp="mobile">Mobile</button><button data-vp="desktop" class="on">Desktop</button></div>
+<div class="topnav"><div class="in"><span class="brand">May Reviewer</span><span class="sp"></span><a href="mock-home.html" class="on">Reviewers</a><a href="#">Formats</a><a href="#">History</a><a href="mock-a.html">Progress</a><a href="#">Log in</a></div></div>
+<div class="wrap">
+<a class="back" href="index.html">← All mockups</a><br>
+<p class="tag">Reviewer page</p>
+<p class="crumb">Reviewers / CSOPESY Final Exam</p>
+<div class="headrow">
+<div>
+<h1>CSOPESY Final Exam</h1>
+</div>
+<button class="quizbtn">Take Quiz</button>
+</div>
+<div class="tabs"><button class="tab on">Details</button><button class="tab">Questions</button><button class="tab">Import/Export</button></div>
+<p class="meta">38 questions · Sep 2026</p>
+<div class="field"><div class="fl">Subject</div><div class="fv">CSOPESY — Operating Systems</div></div>
+<div class="field"><div class="fl">Topics</div><div class="tchips"><span class="tchip">Deadlocks</span><span class="tchip">Scheduling</span><span class="tchip">Memory</span></div></div>
+<div class="field"><div class="fl">Notes</div><div class="fv">Coffman conditions, Banker's algorithm, FCFS vs SJF…</div></div>
+</div>
+<div class="mobbar"><div class="tabs"><span class="on">Home</span><span>Formats</span><span>History</span><span>Settings</span></div></div>
+<script>
+(function(){
+var btns=document.querySelectorAll(".vp button");
+function setVp(m){document.body.classList.toggle("phone",m==="mobile");btns.forEach(function(b){b.classList.toggle("on",b.dataset.vp===m)});try{localStorage.setItem("vp",m)}catch(e){}}
+btns.forEach(function(b){b.addEventListener("click",function(){setVp(b.dataset.vp)})});
+try{setVp(localStorage.getItem("vp")||"desktop")}catch(e){setVp("desktop")}
+})();
+</script>
+</body></html>

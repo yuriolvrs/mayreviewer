@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Quiz setup — attempts separation mockups</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0b0b0d;color:#ececf1;font-family:-apple-system,"Segoe UI",Roboto,Inter,Arial,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:48px 24px 90px}
+h1{font-size:26px;font-weight:600}
+.sub{margin-top:8px;font-size:15px;color:#a8a8b0;line-height:1.5}
+.cards{margin-top:28px;display:flex;flex-direction:column;gap:14px}
+a.card{display:block;border:1px solid #2e2e34;border-radius:14px;background:#141417;padding:20px 22px;text-decoration:none;color:inherit}
+a.card:hover{border-color:#e8a33f}
+.card b{display:block;font-size:16px;font-weight:600}
+.card b span{color:#e8a33f}
+.card p{margin-top:6px;font-size:14px;color:#a8a8b0;line-height:1.5}
+.verdict{margin-top:28px;border-top:1px solid #26262b;padding-top:20px;font-size:14px;color:#a8a8b0;line-height:1.6}
+.verdict b{color:#ececf1}
+</style></head>
+<body><div class="wrap">
+<h1>Attempts separation — 4 mockups</h1>
+<p class="sub">Quiz setup for “Render Check”, each with 3 sample attempts so the separation is visible. Pick one to walk through.</p>
+<div class="cards">
+<a class="card" href="mock-a.html"><b><span>A</span> — Push it further down</b><p>Same flow, bigger gap + heavier rule between Start quiz and history. Cheapest; weakest signal.</p></a>
+<a class="card" href="mock-b.html"><b><span>B</span> — Separate container below</b><p>Attempts live in their own bordered card with a one-line framing. Clear boundary, same page, mobile-identical.</p></a>
+<a class="card" href="mock-c.html"><b><span>C</span> — Separate tab</b><p><i>New quiz | Your attempts (3)</i> under the title. Setup ends at Start quiz; history is one tap away.</p></a>
+<a class="card" href="mock-d.html"><b><span>D</span> — Side-by-side columns</b><p>Setup flows left, attempts sit in a sticky rail right. Nicest on desktop; stacks on mobile.</p></a>
+</div>
+<p class="verdict"><b>Recommendation: B.</b> Fixes the actual complaint — history reading as part of the setup flow — with the least machinery, and the card becomes the natural home if attempts ever grows trend bars.</p>
+</div></body></html>

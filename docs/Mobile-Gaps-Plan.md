@@ -136,12 +136,26 @@ ride inside the existing JSONB rows, no schema migration.
 
 Order within the phase (each shippable alone):
 
-1. **Daily loop: goals + streaks. ✅** `dailyGoal` in settings; today's
+1. **Daily loop: goals + streaks + restores + milestones. ✅** `dailyGoal` in settings; today's
    answered-count derived from attempts' `takenAt`; home shows goal progress.
-   Streak = consecutive calendar days (device timezone) with ≥1 attempt.
-   Any attempt counts. Decided 2026-09-18; tests encode this.
-   (Streak engine built + tested, but hidden from the UI for now — the home
-   strip shows goal progress only.)
+   Streak = consecutive calendar days (device timezone) with **≥5 answered
+   questions** (any reviewer, any type; split attempts on one day sum).
+   Decided 2026-09-18, revised 2026-09-20; tests encode this.
+   Restores: the free grant tops the bank up to 3 every calendar month (1
+   banked → 2 free; 5 banked → none; milestone earnings can bank above, cap
+   6), each repairing one missed day — spendable only the day after the miss (manual tap; sleep through the
+   next day and the streak is lost).    Bonus restores from milestones: 7-day
+   (+1), 30-day (+2), 100 questions (+1), 500 questions (+2), first perfect
+   (+1), first timed (+1) — since replaced by leveled badge families (one tile
+   per family, every level-up banks +1): Hot Streak 7→500, Riddler 100→1000,
+   The Cleaner 1→100, goal crusher 1→60, speedster/marathon/owl/bird,
+   explorer 3→10 (timed family removed by decision). Attempts record `parSec` (estimate at quiz start, resume-safe)
+   for Speedster's half-estimate check; per-level claims migrate the old
+   one-claim ids. Streak state rides inside the settings row (sync,
+   no migration); attempts record `timeLimitSec` so timed quizzes are
+   detectable. Progress page built desktop-first: `/progress` route (goal, week dots, at-risk restore naming the
+   rescued length, banked line, claimable-first milestones) + top-Navbar link; home strip pairs the goal with the
+   global streak plus an inline Restore row when yesterday was missed. Mobile bottom-bar tab still todo.
 2. **Timer mechanic, two surfaces. ✅** Countdown timer in the quiz flow;
    record `durationSec` on the attempt (normalize default for old attempts,
    sync passes it through untouched). "5-minute review" mode is a preset on

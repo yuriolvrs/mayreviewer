@@ -48,7 +48,10 @@ function QuizPageInner() {
   // taking/results switches — retakes run under the same limit, and the
   // remounted QuizTaking continues its clock from `startedAt`.
   const [timeLimitSec, setTimeLimitSec] = useState<number | null>(null);
-  // Wall-clock start of the attempt on screen, persisted so a refresh keeps
+  // Pace estimate for the served questions, in seconds — recorded on the
+  // attempt at submit for the Speedster badge. 0 means unknown (resumed
+  // pre-par snapshots, reopened history), which never counts as speedy.
+  const [parSec, setParSec] = useState(0);  // Wall-clock start of the attempt on screen, persisted so a refresh keeps
   // the countdown accurate. Fresh attempts stamp it at start; restores reuse
   // the saved value; cleared on submit/cancel.
   const [startedAt, setStartedAt] = useState<number | null>(null);
@@ -94,6 +97,7 @@ function QuizPageInner() {
         setQuizQuestions(progress.quizQuestions);
         setFeedbackMode(progress.feedbackMode);
         setTimeLimitSec(progress.timeLimitSec);
+        setParSec(progress.parSec ?? 0);
         setFormatId(progress.formatId);
         setStartedAt(progress.startedAt);
         setInitialAnswers(progress.answers);
@@ -129,6 +133,7 @@ function QuizPageInner() {
           format={format}
           feedbackMode={feedbackMode}
           timeLimitSec={timeLimitSec}
+          parSec={parSec}
           reviewerId={reviewer.id}
           formatId={formatId}
           startedAt={startedAt ?? undefined}
@@ -145,7 +150,13 @@ function QuizPageInner() {
             window.scrollTo({ top: 0 });
           }}
           onSubmit={(answers, unsureIds, timing) => {
-            saveQuizAttempt(reviewer, quizQuestions, answers, unsureIds, timing);
+            // The budget and the par travel with the attempt so milestones
+            // can tell timed quizzes apart — and fast ones — later.
+            saveQuizAttempt(reviewer, quizQuestions, answers, unsureIds, {
+              ...timing,
+              timeLimitSec,
+              parSec,
+            });
             clearQuizProgress(reviewer.id);
             setHistory(getQuizHistory(reviewer.id));
             setSubmitted({ answers, unsureIds });
@@ -195,6 +206,7 @@ function QuizPageInner() {
               unsureIds: [],
               confirmedIds: [],
               timeLimitSec,
+              parSec,
               startedAt: now,
               formatId,
               feedbackMode,
@@ -229,12 +241,14 @@ function QuizPageInner() {
         href={`/reviewer/${reviewer.id}`}
         className="text-[15px] text-text-secondary hover:text-text-primary"
       >
-        ← {reviewer.reviewerName}
+        ← Details
       </Link>
 
-      <h1 className="mt-4 text-[26px] font-semibold text-text-primary">Quiz this reviewer</h1>
-      <p className="mt-1 text-[15px] text-text-secondary">
-        {total} question{total === 1 ? "" : "s"} in this reviewer&apos;s pool.
+      <h1 className="mt-4 text-[26px] font-semibold text-text-primary">
+        {reviewer.reviewerName} - Quiz
+      </h1>
+      <p className="mt-1 text-[16px] font-medium text-text-primary">
+        {total} question{total === 1 ? "" : "s"}
       </p>
 
       {total === 0 ? (
@@ -257,6 +271,7 @@ function QuizPageInner() {
               setQuizQuestions(served);
               setFormatId(reviewer.examFormatId);
               setTimeLimitSec(opts.timeLimitSec);
+              setParSec(opts.parSec);
               setStartedAt(now);
               setInitialAnswers({});
               setInitialUnsureIds([]);
@@ -268,6 +283,7 @@ function QuizPageInner() {
                 unsureIds: [],
                 confirmedIds: [],
                 timeLimitSec: opts.timeLimitSec,
+                parSec: opts.parSec,
                 startedAt: now,
                 formatId: reviewer.examFormatId,
                 feedbackMode,

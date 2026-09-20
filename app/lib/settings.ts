@@ -1,5 +1,13 @@
 import { DEFAULT_QUESTION_COUNT, MAX_QUESTION_COUNT, MIN_QUESTION_COUNT } from "@/app/lib/questions";
-import { DEFAULT_DAILY_GOAL, MAX_DAILY_GOAL, MIN_DAILY_GOAL } from "@/app/lib/streaks";
+import {
+  DEFAULT_DAILY_GOAL,
+  DEFAULT_STREAK_STATE,
+  MAX_DAILY_GOAL,
+  MIN_DAILY_GOAL,
+  ensureMonthlyGrant,
+  normalizeStreakState,
+  type StreakState,
+} from "@/app/lib/streaks";
 import { notifyLocalChange } from "@/app/lib/localChange";
 import type { FeedbackMode, FontSizePreference, ThemePreference, UserSettings } from "@/app/types";
 
@@ -24,6 +32,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   remindersEnabled: false,
   reminderTime: "19:00",
   dailyGoal: DEFAULT_DAILY_GOAL,
+  streak: DEFAULT_STREAK_STATE,
   proTier: "free",
 };
 
@@ -69,6 +78,7 @@ export function normalizeSettings(value: unknown): UserSettings {
     remindersEnabled: typeof v.remindersEnabled === "boolean" ? v.remindersEnabled : DEFAULT_SETTINGS.remindersEnabled,
     reminderTime: isTimeString(v.reminderTime) ? v.reminderTime : DEFAULT_SETTINGS.reminderTime,
     dailyGoal: clampGoal(v.dailyGoal),
+    streak: normalizeStreakState(v.streak),
     proTier: "free",
   };
 }
@@ -86,6 +96,18 @@ function readStored(): unknown {
 
 export function getSettings(): UserSettings {
   return normalizeSettings(readStored());
+}
+
+// The streak bank with the monthly top-up applied — persisted when the month
+// rolls over, so every surface (home strip, Progress) reads the same bank.
+// Idempotent: outside a rollover this is a pure read.
+export function getStreakState(): StreakState {
+  const settings = getSettings();
+  const granted = ensureMonthlyGrant(settings.streak, new Date());
+  if (granted.grantedMonth !== settings.streak.grantedMonth) {
+    return updateSettings({ streak: granted }).streak;
+  }
+  return granted;
 }
 
 export function updateSettings(patch: Partial<UserSettings>): UserSettings {

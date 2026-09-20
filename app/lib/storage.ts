@@ -224,6 +224,8 @@ function normalizeAttempt(
     examFormatName: attempt.examFormatName ?? format.name,
     durationSec: attempt.durationSec ?? 0,
     timedOut: attempt.timedOut ?? false,
+    timeLimitSec: attempt.timeLimitSec ?? null,
+    parSec: attempt.parSec ?? null,
   };
 }
 
@@ -254,7 +256,7 @@ export function saveQuizAttempt(
   questions: Question[],
   answers: Record<string, number>,
   unsureIds: string[],
-  timing?: { durationSec: number; timedOut: boolean },
+  timing?: { durationSec: number; timedOut: boolean; timeLimitSec?: number | null; parSec?: number | null },
 ): QuizAttempt {
   const format = resolveFormat(reviewer.examFormatId);
   const attempt: QuizAttempt = {
@@ -271,6 +273,8 @@ export function saveQuizAttempt(
     examFormatName: format.name,
     durationSec: Math.max(0, Math.round(timing?.durationSec ?? 0)),
     timedOut: timing?.timedOut ?? false,
+    timeLimitSec: timing?.timeLimitSec ?? null,
+    parSec: timing?.parSec ?? null,
   };
   writeJson(ATTEMPTS_KEY, [...getAllAttempts(), attempt]);
   notifyLocalChange();

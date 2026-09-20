@@ -68,7 +68,7 @@ export default function QuizSetup({
   history: QuizAttempt[];
   feedbackMode: FeedbackMode;
   onFeedbackModeChange: (mode: FeedbackMode) => void;
-  onStart: (questions: Question[], opts: { timeLimitSec: number | null }) => void;
+  onStart: (questions: Question[], opts: { timeLimitSec: number | null; parSec: number }) => void;
 }) {
   // Empty means "all" — the chip row shows that as the All types chip.
   const [scopeTypes, setScopeTypes] = useState<string[]>([]);
@@ -337,7 +337,7 @@ export default function QuizSetup({
 
       <div className="mt-4 flex justify-center">
         <button
-          onClick={() => onStart(sampleProportionally(pool, count), { timeLimitSec: timed ? timeMinutes * 60 : null })}
+          onClick={() => onStart(sampleProportionally(pool, count), { timeLimitSec: timed ? timeMinutes * 60 : null, parSec: minutes * 60 })}
           disabled={available === 0}
           title={available === 0 ? "No questions in this scope" : undefined}
           className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"

@@ -9,7 +9,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: "/",
     name: "May Reviewer",
     short_name: "May Reviewer",
-    description: "Turn your notes into a practice exam that matches your professor's question format.",
+    description: "Turn your notes into a practice exam, in a question format you choose.",
     start_url: "/",
     scope: "/",
     display: "standalone",

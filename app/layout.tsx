@@ -28,7 +28,7 @@ const spaceMono = Space_Mono({
 
 export const metadata: Metadata = {
   title: "May Reviewer",
-  description: "Turn your notes into a practice exam that matches your professor's question format.",
+  description: "Turn your notes into a practice exam, in a question format you choose.",
   // Explicit icons switch off file-based detection, so app/apple-icon.png
   // (the iOS home-screen icon) has to be named here too.
   icons: { icon: "/icon.svg", apple: "/apple-icon.png" },

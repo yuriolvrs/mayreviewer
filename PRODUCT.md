@@ -16,7 +16,7 @@ The product started with one student preparing for an Operating Systems final (C
 
 ## Product Purpose
 
-Turn your notes into a practice exam that matches your professor's question format. Success: a student uploads material, gets questions in the formats their exam actually uses, reviews them, and studies from them daily.
+Turn your notes into a practice exam, in a question format you choose. Success: a student uploads material, gets questions in the formats their exam actually uses, reviews them, and studies from them daily.
 
 ## Positioning
 
@@ -39,7 +39,7 @@ Generic flashcard and quiz tools produce generic questions. May Reviewer generat
 ## Brand Commitments
 
 - Header/logo text, exact casing: "pre, May Reviewer ka ba?" (Taglish: roughly "bro, got a reviewer?"). "Reviewer" is the Filipino student word for a study guide.
-- Tagline: "Turn your notes into a practice exam that matches your professor's question format."
+- Tagline: "Turn your notes into a practice exam, in a question format you choose."
 - Existing design spec: `May Reviewer Design Spec/design_handoff_may_reviewer/Design-Spec.md` (tokens in `app/globals.css`).
 
 ## Evidence on Hand

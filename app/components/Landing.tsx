@@ -17,100 +17,101 @@ type Item = {
   options: string[];
   correct: number;
   why: string;
-  mono?: boolean;
 };
 
 const TIMELINE: Item = {
-  id: "timeline",
+  id: "experiment",
   test: "Test I",
-  format: "Timeline",
-  directions: "Use the table. Choose the process running at the given time.",
+  format: "Experiment trace",
+  directions: "Use the table. Choose the conclusion it supports.",
   prompt: (
     <>
-      <table className="mb-3 w-full border-collapse font-mono text-[0.875rem]">
+      <table className="mb-3 w-full border-collapse text-[0.875rem]">
         <thead>
           <tr className="bg-surface-alt text-left text-text-secondary">
-            <th className="px-3 py-2 font-normal">Process</th>
-            <th className="px-3 py-2 font-normal">Arrival</th>
-            <th className="px-3 py-2 font-normal">Burst</th>
+            <th className="px-3 py-2 font-normal">Water temp (°C)</th>
+            <th className="px-3 py-2 font-normal">Time to dissolve (s)</th>
           </tr>
         </thead>
         <tbody>
           {[
-            ["P1", 0, 3],
-            ["P2", 1, 2],
-            ["P3", 2, 4],
-          ].map(([p, a, b]) => (
-            <tr key={p} className="border-b border-border">
-              <td className="px-3 py-2">{p}</td>
-              <td className="px-3 py-2 tabular-nums">{a}</td>
-              <td className="px-3 py-2 tabular-nums">{b}</td>
+            [20, 90],
+            [40, 55],
+            [60, 30],
+          ].map(([temp, time]) => (
+            <tr key={temp} className="border-b border-border">
+              <td className="px-3 py-2 tabular-nums">{temp}</td>
+              <td className="px-3 py-2 tabular-nums">{time}</td>
             </tr>
           ))}
         </tbody>
       </table>
-      Under FCFS, which process is running at <span className="tabular-nums">t = 4</span>?
+      A spoon of sugar is stirred into water at three temperatures. As the water gets warmer, the time to dissolve…
     </>
   ),
-  options: ["P1", "P2", "P3", "Idle"],
+  options: ["Goes up", "Goes down", "Stays the same", "Shows no pattern"],
   correct: 1,
-  why: "P1 runs 0–3, then P2 runs 3–5. At t = 4 it's P2.",
+  why: "90 s, then 55 s, then 30 s: warmer water dissolves the sugar faster.",
 };
 
 const MORE: Item[] = [
   {
-    id: "identification",
+    id: "vocabulary",
     test: "Test II",
-    format: "Identification",
-    directions: "Choose the term being described.",
-    prompt:
-      "The OS keeps one for every process: its state, program counter, registers, and open files.",
-    options: ["Page table", "Process control block", "Ready queue", "Interrupt vector"],
-    correct: 1,
-    why: "The process control block (PCB) holds everything the OS needs to pause and resume a process.",
-  },
-  {
-    id: "scenario",
-    test: "Test III",
-    format: "Scenario",
-    directions: "Choose the concept the situation shows.",
-    prompt:
-      "Two processes each hold a printer and wait for the other's scanner. Neither can ever continue.",
-    options: ["Starvation", "Race condition", "Deadlock", "Thrashing"],
-    correct: 2,
-    why: "Each holds one resource and waits for the other's: a circular wait, so a deadlock.",
-  },
-  {
-    id: "code",
-    test: "Test IV",
-    format: "Code fill-in-the-blank",
-    directions: "Choose the call that belongs in the blank.",
+    format: "Vocabulary",
+    directions: "Choose the word or phrase closest in meaning.",
     prompt: (
-      <pre className="overflow-x-auto rounded-lg bg-surface-alt p-4 font-mono text-[0.875rem] leading-[1.375rem]">
-        {"sem_t lock;\nsem_init(&lock, 0, 1);\n\n"}
-        <span aria-label="blank" className="inline-block w-20 border-b-2 border-text-primary align-baseline" />
-        {"(&lock);  // enter\nbalance += amount;\nsem_post(&lock);  // leave"}
-      </pre>
+      <>
+        She checked every line of her report in a <span className="font-semibold">meticulous</span> way.
+      </>
     ),
-    options: ["sem_post", "sem_wait", "sem_init", "pthread_join"],
+    options: ["Careless", "Very careful", "Hurried", "Generous"],
     correct: 1,
-    why: "sem_wait takes the lock before the critical section; sem_post gives it back after.",
-    mono: true,
+    why: "Meticulous means showing great attention to detail: very careful.",
+  },
+  {
+    id: "cause",
+    test: "Test III",
+    format: "Cause and effect",
+    directions: "Choose the most direct effect.",
+    prompt: "Gutenberg's printing press spread across Europe in the late 1400s. What did it lead to most directly?",
+    options: [
+      "Paper was invented",
+      "Books got cheaper and ideas spread faster",
+      "Fewer people learned to read",
+      "Handwritten books became more common",
+    ],
+    correct: 1,
+    why: "Printing made books faster and cheaper to produce, so more people could get them and ideas traveled further.",
+  },
+  {
+    id: "solve",
+    test: "Test IV",
+    format: "Solve and pick the value",
+    directions: "Solve, then choose the value.",
+    prompt: (
+      <>
+        If <span className="tabular-nums">3x + 5 = 20</span>, what is <span className="italic">x</span>?
+      </>
+    ),
+    options: ["3", "5", "15", "25"],
+    correct: 1,
+    why: "Subtract 5 from both sides to get 3x = 15, then divide by 3: x = 5.",
   },
   {
     id: "mtf",
     test: "Test V",
     format: "Modified true or false",
-    directions: "If false, choose the word that makes it true.",
+    directions: "If false, choose the value that makes it true.",
     prompt: (
       <>
-        In paging, physical memory is split into fixed-size blocks called{" "}
-        <span className="underline decoration-2 underline-offset-4">segments</span>.
+        At sea level, pure water boils at{" "}
+        <span className="underline decoration-2 underline-offset-4">50</span> °C.
       </>
     ),
-    options: ["True", "False: pages", "False: frames", "False: sectors"],
+    options: ["True", "False: 80", "False: 100", "False: 120"],
     correct: 2,
-    why: "Physical memory is split into frames. Pages are the same-size blocks of a process's logical memory.",
+    why: "At sea level, pure water boils at 100 °C.",
   },
 ];
 
@@ -163,7 +164,7 @@ function Question({
               className={`flex min-h-12 items-center gap-3 rounded-lg border px-4 py-3 text-left text-[0.9375rem] transition-colors duration-150 disabled:cursor-default ${tone}`}
             >
               <span className="text-[0.8125rem] text-text-secondary tabular-nums">{LETTERS[i]}.</span>
-              <span className={`flex-1 ${item.mono ? "font-mono" : ""}`}>{option}</span>
+              <span className="flex-1">{option}</span>
               {note && (
                 <span
                   className={`text-[0.8125rem] font-semibold ${isCorrect ? "text-success" : "text-error"}`}
@@ -234,11 +235,11 @@ export default function Landing() {
 
         <div className="px-5 md:px-10">
           <h1 className="pt-7 text-[clamp(2.5rem,9vw,4.5rem)] leading-[0.98] font-extrabold tracking-[-0.035em] text-balance text-text-primary">
-            Your notes, as your prof&apos;s exam.
+            Your notes, as a practice exam.
           </h1>
           <p className="mt-4 max-w-[34rem] text-[1.0625rem] leading-relaxed text-text-secondary">
-            Paste or upload your notes or an old exam. May Reviewer writes practice questions in the same
-            format your professor uses, so you can drill them before the real one.
+            Paste or upload your notes or an old exam. May Reviewer writes practice questions you can answer,
+            check, and drill before the real one.
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3 pb-8">
             <Link
@@ -251,7 +252,7 @@ export default function Landing() {
           </div>
 
           <p className="border-t border-border pt-5 text-[0.8125rem] text-text-secondary">
-            Sample paper. Yours is made from your own notes.
+            Sample paper, mixed subjects. Yours is made from your own notes.
           </p>
           <Question item={TIMELINE} picked={answers[TIMELINE.id]} onPick={pick(TIMELINE.id)} first />
           {MORE.map((item) => (
@@ -265,7 +266,7 @@ export default function Landing() {
             <ol className="mt-5 flex flex-col gap-5">
               {[
                 ["Bring your material.", "Paste notes or upload PDFs, Word files, images, or text. Slides work saved as PDF. Add an old exam if you have one."],
-                ["Pick your prof's format.", "Start from a built-in format (OS, Math, Language, Science, History) or let it read an old exam and copy the format."],
+                ["Match your class's format.", "Pick a built-in format (Math, Language, Science, History, and more). Have an old exam? Build a format from it, so practice asks the way your teacher does."],
                 ["Check every question.", "AI can be wrong. Edit, delete, or regenerate any item before you study from it."],
                 ["Drill it daily.", "Timed quizzes, a daily goal, and a streak. Quizzes work offline."],
               ].map(([title, body], i) => (

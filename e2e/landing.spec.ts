@@ -7,11 +7,11 @@ test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true
 
 test("first visit shows the landing; answering fills the score", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Your notes, as your prof's exam." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your notes, as a practice exam." })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Mobile" })).toBeHidden();
-  await page.getByRole("button", { name: /^B\.\s*P2/ }).click();
-  await page.getByRole("button", { name: /^A\.\s*Page table/ }).click();
-  await page.getByRole("button", { name: /^C\.\s*Deadlock/ }).click();
+  await page.getByRole("button", { name: /^B\.\s*Goes down/ }).click();
+  await page.getByRole("button", { name: /^A\.\s*Careless/ }).click();
+  await page.getByRole("button", { name: /^B\.\s*Books got cheaper/ }).click();
   await expect(page.getByText(/Score\s*2\s*\/\s*5/)).toBeVisible();
 });
 

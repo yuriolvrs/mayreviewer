@@ -1,6 +1,6 @@
 ---
 name: May Reviewer
-description: Turn your notes into a practice exam that matches your professor's question format.
+description: Turn your notes into a practice exam, in a question format you choose.
 colors:
   bg: "#f7f7f6"
   surface: "#ffffff"

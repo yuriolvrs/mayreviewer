@@ -1,6 +1,6 @@
 # May Reviewer
 
-Turn your notes into a practice exam that matches your professor's question format.
+Turn your notes into a practice exam, in a question format you choose.
 
 ## What it does
 

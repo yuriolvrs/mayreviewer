@@ -78,6 +78,7 @@
 [data-reduce-motion="true"] *::before,
 [data-reduce-motion="true"] *::after {
   animation-duration: 0.01ms !important;
+  animation-delay: 0s !important;
   transition-duration: 0.01ms !important;
   scroll-behavior: auto !important;
 }
@@ -100,6 +101,7 @@ button:not(:disabled) {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
@@ -121,4 +123,43 @@ html {
   select {
     font-size: max(1rem, 16px);
   }
+}
+
+/* "/" serves two pages: the landing for first-time visitors and the reviewers
+   home for everyone else. EntryScript sets data-entry="app" before paint for
+   returning visitors. Landing visitors get no bottom bar: the landing carries
+   its own action, and app tabs would compete with it. */
+html[data-entry="app"] .landing {
+  display: none;
+}
+html:not([data-entry="app"]):has(.landing) nav[aria-label="Mobile"] {
+  display: none;
+}
+html:not([data-entry="app"]):has(.landing) body {
+  padding-bottom: 0;
+}
+
+/* Landing entrance: the thread arrives, then the paper. Starts from the
+   finished state when animations are off (backwards fill only during the
+   delay), and the reduce-motion rules above shorten it to nothing. */
+@keyframes landing-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+.landing-rise {
+  animation: landing-rise 520ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+/* Text selection from the palette, not the browser default blue. */
+::selection {
+  background: var(--color-accent-subtle);
+  color: var(--color-text-primary);
+}
+
+/* Desktop counterpart of hiding the bottom bar: a first-time visitor's header
+   keeps the logo and Log in, without app tabs competing with the landing. */
+html:not([data-entry="app"]):has(.landing) nav[aria-label="Primary"] > a {
+  display: none;
 }

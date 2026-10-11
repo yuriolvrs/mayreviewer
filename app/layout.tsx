@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { Libre_Franklin, Space_Mono } from "next/font/google";
 import BottomBar from "@/app/components/BottomBar";
+import EntryMarker from "@/app/components/EntryMarker";
+import EntryScript from "@/app/components/EntryScript";
 import Navbar from "@/app/components/Navbar";
 import ReminderInit from "@/app/components/ReminderInit";
 import ServiceWorkerInit from "@/app/components/ServiceWorkerInit";
@@ -64,6 +66,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           so padding main left the footer links under the fixed bottom bar. */}
       <body className="flex min-h-full flex-col bg-bg pb-[calc(4rem+env(safe-area-inset-bottom))] font-sans text-text-primary md:pb-0">
         <ThemeFlashScript />
+        <EntryScript />
         <AuthProvider>        <a
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[60] focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2 focus:text-[0.9375rem] focus:font-medium focus:text-accent"
@@ -107,6 +110,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <ReminderInit />
         <ServiceWorkerInit />
         <SyncInit />
+        <EntryMarker />
         </AuthProvider>
       </body>
     </html>

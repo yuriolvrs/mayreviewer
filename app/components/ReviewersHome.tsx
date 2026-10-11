@@ -19,7 +19,7 @@ import ConfirmDialog from "@/app/components/ConfirmDialog";
 import EmptyReviewers from "@/app/components/EmptyReviewers";
 import type { Reviewer } from "@/app/types";
 
-export default function Home() {
+export default function ReviewersHome() {
   const [reviewers, setReviewers] = useState<Reviewer[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);

@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-12T00:00:00Z",
+  "title": "Design System: May Reviewer",
+  "extensions": {
+    "colorMeta": {
+      "bg": { "role": "neutral", "displayName": "Desk", "canonical": "oklch(97.5% 0 0)", "dark": "#171716", "tonalRamp": ["#1f1f1e", "#3a3a37", "#6b6b68", "#9b9b97", "#c7c7c4", "#dededc", "#f0f0ef", "#f7f7f6"] },
+      "surface": { "role": "neutral", "displayName": "Paper", "canonical": "oklch(100% 0 0)", "dark": "#222221", "tonalRamp": ["#1f1f1e", "#3a3a37", "#6b6b68", "#9b9b97", "#c7c7c4", "#dededc", "#f0f0ef", "#ffffff"] },
+      "surface-alt": { "role": "neutral", "displayName": "Margin Grey", "canonical": "oklch(94% 0 0)", "dark": "#2b2b29", "tonalRamp": ["#1f1f1e", "#3a3a37", "#6b6b68", "#9b9b97", "#c7c7c4", "#dededc", "#f0f0ef", "#f7f7f6"] },
+      "border": { "role": "neutral", "displayName": "Hairline", "canonical": "oklch(87% 0 0)", "dark": "#3a3a37", "tonalRamp": ["#1f1f1e", "#3a3a37", "#6b6b68", "#9b9b97", "#c7c7c4", "#dededc", "#f0f0ef", "#f7f7f6"] },
+      "border-strong": { "role": "neutral", "displayName": "Ruled Line", "canonical": "oklch(80% 0 0)", "dark": "#4f4f4b", "tonalRamp": ["#1f1f1e", "#3a3a37", "#6b6b68", "#9b9b97", "#c7c7c4", "#dededc", "#f0f0ef", "#f7f7f6"] },
+      "text-primary": { "role": "neutral", "displayName": "Ink", "canonical": "oklch(20% 0 0)", "dark": "#f0efec", "tonalRamp": ["#1f1f1e", "#3a3a37", "#6b6b68", "#9b9b97", "#c7c7c4", "#dededc", "#f0f0ef", "#f7f7f6"] },
+      "text-secondary": { "role": "neutral", "displayName": "Pencil", "canonical": "oklch(45% 0 0)", "dark": "#b8b7b2", "tonalRamp": ["#1f1f1e", "#3a3a37", "#6b6b68", "#9b9b97", "#c7c7c4", "#dededc", "#f0f0ef", "#f7f7f6"] },
+      "text-tertiary": { "role": "neutral", "displayName": "Faint", "canonical": "oklch(60% 0 0)", "dark": "#8a8a86", "tonalRamp": ["#1f1f1e", "#3a3a37", "#6b6b68", "#9b9b97", "#c7c7c4", "#dededc", "#f0f0ef", "#f7f7f6"] },
+      "accent": { "role": "primary", "displayName": "Pencil Amber", "canonical": "oklch(55% 0.13 65)", "dark": "#d29a4e", "tonalRamp": ["#2e1c08", "#4f3110", "#704617", "#8f5416", "#a8681f", "#d29a4e", "#e9c79a", "#f3e6d3"] },
+      "accent-hover": { "role": "primary", "displayName": "Burnt Amber", "canonical": "oklch(47% 0.13 65)", "dark": "#e0aa5f", "tonalRamp": ["#2e1c08", "#4f3110", "#704617", "#8f5416", "#a8681f", "#d29a4e", "#e9c79a", "#f3e6d3"] },
+      "accent-subtle": { "role": "primary", "displayName": "Amber Wash", "canonical": "oklch(93% 0.04 65)", "dark": "#3d2f1c", "tonalRamp": ["#2e1c08", "#4f3110", "#704617", "#8f5416", "#a8681f", "#d29a4e", "#e9c79a", "#f3e6d3"] },
+      "on-accent": { "role": "primary", "displayName": "On-accent Ink", "canonical": "#ffffff", "dark": "#1c150a", "tonalRamp": ["#1c150a", "#3d2f1c", "#704617", "#a8681f", "#d29a4e", "#e9c79a", "#f3e6d3", "#ffffff"] },
+      "on-error": { "role": "status", "displayName": "On-error Ink", "canonical": "#ffffff", "dark": "#2b1210", "tonalRamp": ["#2b1210", "#452522", "#7a2a21", "#b23b2e", "#e08a7d", "#efbdb5", "#f6e4e0", "#ffffff"] },
+      "info": { "role": "status", "displayName": "Margin Blue", "canonical": "#2f5fa8", "dark": "#7fa5d9", "tonalRamp": ["#101f38", "#22334d", "#244a83", "#2f5fa8", "#5584c7", "#7fa5d9", "#b7cdec", "#e4ecf7"] },
+      "info-subtle": { "role": "status", "displayName": "Margin Blue Wash", "canonical": "#e4ecf7", "dark": "#22334d", "tonalRamp": ["#101f38", "#22334d", "#244a83", "#2f5fa8", "#5584c7", "#7fa5d9", "#b7cdec", "#e4ecf7"] },
+      "warning": { "role": "status", "displayName": "Highlighter Yellow", "canonical": "#8a6a08", "dark": "#d9b93c", "tonalRamp": ["#2e2403", "#443d14", "#6b5206", "#8a6a08", "#b8930f", "#d9b93c", "#efdc8a", "#fbf1c9"] },
+      "warning-subtle": { "role": "status", "displayName": "Highlighter Wash", "canonical": "#fbf1c9", "dark": "#443d14", "tonalRamp": ["#2e2403", "#443d14", "#6b5206", "#8a6a08", "#b8930f", "#d9b93c", "#efdc8a", "#fbf1c9"] },
+      "success": { "role": "status", "displayName": "Correct Green", "canonical": "oklch(48% 0.11 150)", "dark": "#6fbf8d", "tonalRamp": ["#0f2a1a", "#1e3a28", "#245e3c", "#2f7a4f", "#4c9a6c", "#6fbf8d", "#b2dcc0", "#e4f0e7"] },
+      "success-subtle": { "role": "status", "displayName": "Correct Wash", "canonical": "oklch(94% 0.03 150)", "dark": "#1e3a28", "tonalRamp": ["#0f2a1a", "#1e3a28", "#245e3c", "#2f7a4f", "#4c9a6c", "#6fbf8d", "#b2dcc0", "#e4f0e7"] },
+      "error": { "role": "status", "displayName": "Missed Red", "canonical": "oklch(48% 0.14 30)", "dark": "#e08a7d", "tonalRamp": ["#2b1210", "#452522", "#7a2a21", "#b23b2e", "#cc6556", "#e08a7d", "#efbdb5", "#f6e4e0"] },
+      "error-subtle": { "role": "status", "displayName": "Missed Wash", "canonical": "oklch(93% 0.03 30)", "dark": "#452522", "tonalRamp": ["#2b1210", "#452522", "#7a2a21", "#b23b2e", "#cc6556", "#e08a7d", "#efbdb5", "#f6e4e0"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Landing headline only." },
+      "headline-lg": { "displayName": "Headline Large", "purpose": "Reviewers home and Formats titles; the quiz results score." },
+      "headline": { "displayName": "Headline", "purpose": "Page title on most app screens." },
+      "title": { "displayName": "Title", "purpose": "Dialog and section titles." },
+      "body-lg": { "displayName": "Body Large", "purpose": "Landing prose, chat bubbles, landing question prompts." },
+      "body": { "displayName": "Body", "purpose": "Default UI text: buttons, fields, option rows, menu items." },
+      "small": { "displayName": "Small", "purpose": "Helper text, explanations, secondary actions." },
+      "label": { "displayName": "Label", "purpose": "Uppercase exam section heads and meta lines." },
+      "caption": { "displayName": "Caption", "purpose": "Bottom-bar labels and chips." },
+      "mono": { "displayName": "Mono", "purpose": "Code, tables, question numbers, timers, option letters, type and source tags." }
+    },
+    "shadows": [
+      { "name": "menu", "value": "0 4px 12px rgba(0, 0, 0, 0.08)", "purpose": "Floating layers only: account menu, confirm dialogs." }
+    ],
+    "motion": [
+      { "name": "color-transition", "value": "150ms ease (transition-colors)", "purpose": "Option row and control state changes." },
+      { "name": "landing-rise", "value": "520ms cubic-bezier(0.16, 1, 0.3, 1), translateY(10px) + opacity, backwards fill", "purpose": "Landing thread and paper entrance, staggered 0 / 350 / 650ms." },
+      { "name": "reduced-motion", "value": "animation-duration 0.01ms; animation-delay 0s; transition-duration 0.01ms; scroll-behavior auto", "purpose": "Applied by prefers-reduced-motion and by data-reduce-motion=\"true\"." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The main action on a screen. Accent fill, 8px corners.",
+      "html": "<button class=\"ds-btn-primary\">Start quiz</button>",
+      "css": ".ds-btn-primary { background: var(--color-accent, #a8681f); color: var(--color-on-accent, #ffffff); border: none; border-radius: 8px; padding: 10px 16px; font-family: 'Libre Franklin', system-ui, sans-serif; font-size: 0.9375rem; font-weight: 500; cursor: pointer; transition: background-color 150ms; } .ds-btn-primary:hover { background: var(--color-accent-hover, #8f5416); } .ds-btn-primary:focus-visible { outline: 2px solid var(--color-accent, #a8681f); outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Paper button with a hairline border for secondary actions.",
+      "html": "<button class=\"ds-btn-secondary\">Edit questions</button>",
+      "css": ".ds-btn-secondary { background: var(--color-surface, #ffffff); color: var(--color-text-primary, #1f1f1e); border: 1px solid var(--color-border, #dededc); border-radius: 8px; padding: 10px 16px; font-family: 'Libre Franklin', system-ui, sans-serif; font-size: 0.9375rem; font-weight: 500; cursor: pointer; transition: border-color 150ms; } .ds-btn-secondary:hover { border-color: var(--color-border-strong, #c7c7c4); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--color-accent, #a8681f); outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Hairline field; focus turns the border accent, no extra ring.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Reviewer name\" />",
+      "css": ".ds-input { height: 44px; width: 260px; padding: 0 8px; background: var(--color-surface, #ffffff); color: var(--color-text-primary, #1f1f1e); border: 1px solid var(--color-border, #dededc); border-radius: 8px; font-family: 'Libre Franklin', system-ui, sans-serif; font-size: 0.9375rem; outline: none; } .ds-input::placeholder { color: var(--color-text-tertiary, #9b9b97); } .ds-input:focus { border-color: var(--color-accent, #a8681f); } @media (max-width: 767px) { .ds-input { font-size: max(1rem, 16px); } }"
+    },
+    {
+      "name": "Option Row",
+      "kind": "custom",
+      "refersTo": "option-row",
+      "description": "Lettered answer choice with selected, correct, and incorrect states.",
+      "html": "<div class=\"ds-options\"><button class=\"ds-option\"><span class=\"ds-option-letter\">A.</span><span class=\"ds-option-text\">Page table</span></button><button class=\"ds-option ds-option--selected\"><span class=\"ds-option-letter\">B.</span><span class=\"ds-option-text\">Ready queue</span></button><button class=\"ds-option ds-option--correct\"><span class=\"ds-option-letter\">C.</span><span class=\"ds-option-text\">Process control block</span><span class=\"ds-option-note ds-ok\">Correct</span></button><button class=\"ds-option ds-option--incorrect\"><span class=\"ds-option-letter\">D.</span><span class=\"ds-option-text\">Interrupt vector</span><span class=\"ds-option-note ds-bad\">Your answer</span></button></div>",
+      "css": ".ds-options { display: flex; flex-direction: column; gap: 8px; max-width: 420px; } .ds-option { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 10px 14px; text-align: left; background: var(--color-surface, #ffffff); color: var(--color-text-primary, #1f1f1e); border: 1px solid var(--color-border, #dededc); border-radius: 8px; font-family: 'Libre Franklin', system-ui, sans-serif; font-size: 0.9375rem; cursor: pointer; transition: border-color 150ms, background-color 150ms; } .ds-option:hover { border-color: var(--color-border-strong, #c7c7c4); } .ds-option:focus-visible { outline: 2px solid var(--color-accent, #a8681f); outline-offset: 2px; } .ds-option-letter { font-family: 'Space Mono', 'SF Mono', monospace; font-size: 0.8125rem; color: var(--color-text-tertiary, #9b9b97); } .ds-option-text { flex: 1; } .ds-option--selected { border-color: var(--color-accent, #a8681f); background: var(--color-accent-subtle, #f3e6d3); } .ds-option--correct { border-color: var(--color-success, #2f7a4f); background: var(--color-success-subtle, #e4f0e7); } .ds-option--incorrect { border-color: var(--color-error, #b23b2e); background: var(--color-error-subtle, #f6e4e0); } .ds-option-note { font-size: 0.8125rem; font-weight: 600; } .ds-ok { color: var(--color-success, #2f7a4f); } .ds-bad { color: var(--color-error, #b23b2e); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Paper on Desk, hairline border, no shadow.",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">CSOPESY Finals</h3><p class=\"ds-card-meta\">42 questions · last quiz 8/10</p></div>",
+      "css": ".ds-card { width: 320px; padding: 24px; background: var(--color-surface, #ffffff); border: 1px solid var(--color-border, #dededc); border-radius: 8px; font-family: 'Libre Franklin', system-ui, sans-serif; } .ds-card-title { margin: 0; font-size: 1.1875rem; font-weight: 600; color: var(--color-text-primary, #1f1f1e); } .ds-card-meta { margin: 8px 0 0; font-size: 0.875rem; color: var(--color-text-secondary, #6b6b68); }"
+    },
+    {
+      "name": "Bottom Bar",
+      "kind": "nav",
+      "refersTo": "bottom-bar-tab",
+      "description": "Phone-only four-tab nav, icon over caption, accent marks the current tab.",
+      "html": "<nav class=\"ds-bottombar\"><a class=\"ds-tab ds-tab--active\" href=\"#\"><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.25\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z\"/><path d=\"M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z\"/></svg>Reviewers</a><a class=\"ds-tab\" href=\"#\"><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\"><path d=\"M3 3v16a2 2 0 0 0 2 2h16\"/><path d=\"M8 17v-3\"/><path d=\"M13 17V9\"/><path d=\"M18 17V5\"/></svg>Progress</a><a class=\"ds-tab\" href=\"#\"><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\"><path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\"/><path d=\"M3 3v5h5\"/><path d=\"M12 7v5l4 2\"/></svg>History</a><a class=\"ds-tab\" href=\"#\"><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\"><circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1\"/></svg>Settings</a></nav>",
+      "css": ".ds-bottombar { display: grid; grid-template-columns: repeat(4, 1fr); width: 375px; background: var(--color-surface, #ffffff); border-top: 1px solid var(--color-border, #dededc); padding-bottom: env(safe-area-inset-bottom); font-family: 'Libre Franklin', system-ui, sans-serif; } .ds-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 56px; padding: 6px 4px; font-size: 0.75rem; color: var(--color-text-secondary, #6b6b68); text-decoration: none; } .ds-tab--active { color: var(--color-accent, #a8681f); font-weight: 600; } .ds-tab:focus-visible { outline: 2px solid var(--color-accent, #a8681f); outline-offset: 2px; }"
+    },
+    {
+      "name": "Account Menu",
+      "kind": "custom",
+      "refersTo": "menu",
+      "description": "The one floating layer: paper panel with the menu shadow.",
+      "html": "<div class=\"ds-menu\" role=\"menu\"><p class=\"ds-menu-email\">student@example.com</p><a class=\"ds-menu-item\" href=\"#\">Account</a><a class=\"ds-menu-item\" href=\"#\">Settings</a><button class=\"ds-menu-item\">Log out</button></div>",
+      "css": ".ds-menu { width: 224px; padding: 4px 0; background: var(--color-surface, #ffffff); border: 1px solid var(--color-border, #dededc); border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); font-family: 'Libre Franklin', system-ui, sans-serif; } .ds-menu-email { margin: 0; padding: 8px 12px; font-size: 0.8125rem; color: var(--color-text-secondary, #6b6b68); } .ds-menu-item { display: block; box-sizing: border-box; width: 100%; min-height: 44px; padding: 8px 12px; text-align: left; font-size: 0.9375rem; color: var(--color-text-primary, #1f1f1e); background: none; border: none; text-decoration: none; cursor: pointer; } .ds-menu-item:hover { background: var(--color-surface-alt, #f0f0ef); } .ds-menu-item:focus-visible { outline: 2px solid var(--color-accent, #a8681f); outline-offset: -2px; }"
+    },
+    {
+      "name": "Test Paper + Chat",
+      "kind": "custom",
+      "refersTo": "chat-bubble-sent",
+      "description": "Landing surface pattern: a chat thread whose reply is an answerable test paper with a Name/Score rule.",
+      "html": "<div class=\"ds-thread\"><p class=\"ds-stamp\">Thu 11:42 PM · finals tomorrow</p><p class=\"ds-bubble ds-them\">pre, may reviewer ka ba?</p><p class=\"ds-bubble ds-me\">meron, eto oh</p></div><article class=\"ds-paper\"><div class=\"ds-paper-head\"><span>Name <span class=\"ds-blank\"></span></span><span>Score <b>___</b> / 5</span></div><div class=\"ds-paper-body\"><h3 class=\"ds-test\">Test I. Timeline</h3><p class=\"ds-directions\"><i>Directions:</i> Choose the process running at the given time.</p></div></article>",
+      "css": ".ds-thread { display: flex; flex-direction: column; gap: 8px; width: 420px; font-family: 'Libre Franklin', system-ui, sans-serif; } .ds-stamp { align-self: center; margin: 0 0 4px; font-size: 0.8125rem; color: var(--color-text-secondary, #6b6b68); } .ds-bubble { max-width: 80%; margin: 0; padding: 10px 16px; border-radius: 8px; font-size: 1.0625rem; line-height: 1.375; } .ds-them { align-self: flex-start; background: var(--color-surface, #ffffff); border: 1px solid var(--color-border, #dededc); color: var(--color-text-primary, #1f1f1e); } .ds-me { align-self: flex-end; background: var(--color-accent, #a8681f); color: var(--color-on-accent, #ffffff); } .ds-paper { width: 420px; margin-top: 12px; background: var(--color-surface, #ffffff); border: 1px solid var(--color-border, #dededc); border-radius: 8px; font-family: 'Libre Franklin', system-ui, sans-serif; } .ds-paper-head { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 20px; border-bottom: 1px solid var(--color-text-primary, #1f1f1e); font-size: 0.8125rem; color: var(--color-text-secondary, #6b6b68); } .ds-paper-head b { color: var(--color-text-primary, #1f1f1e); font-variant-numeric: tabular-nums; } .ds-blank { display: inline-block; width: 96px; border-bottom: 1px solid var(--color-text-tertiary, #9b9b97); } .ds-paper-body { padding: 16px 20px 24px; } .ds-test { margin: 0; font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.025em; text-transform: uppercase; color: var(--color-text-primary, #1f1f1e); } .ds-directions { margin: 4px 0 0; font-size: 0.875rem; color: var(--color-text-secondary, #6b6b68); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Exam Paper on the Desk",
+    "overview": "May Reviewer looks like a clean printed test paper set on a quiet desk. The page is an off-white field (`bg`). Content sits on white, hairline-bordered sheets. One warm amber-brown accent marks the action you take and the choice you made. Nothing else is decorated. Hierarchy comes from Libre Franklin weight and size, from 1px rules, and from the grammar of an exam: numbered items, lettered choices, directions lines, drawn blanks, a score.\n\nDensity is moderate and phone-first. Screens are a single column on a phone, with a fixed four-tab bottom bar. Desktop adds a top text nav and wider containers, but the material stays the same. Color carries meaning, never mood: accent for action and selection, green and red for right and wrong, blue for fill-in blanks in code, yellow for \"check this again\". Status color always comes with a text label.\n\nThe landing page extends this world without a new one. It opens as a group-chat thread (the brand line \"pre, may reviewer ka ba?\" as a received bubble, an accent sent reply), and the reply's attachment is a test paper the visitor can answer. That test-paper + chat grammar is a surface pattern built from the system's own parts, not a second style.",
+    "keyCharacteristics": [
+      "Border-first, flat surfaces; one shadow, for floating layers only.",
+      "One warm accent, used sparingly; status hues reserved for status and always labeled.",
+      "Libre Franklin for everything readable; Space Mono for code, tables, and the exam's machine data (numbers, timers, tags).",
+      "All type sizes in rem, so the Large text setting (112.5% root) scales the whole UI.",
+      "Light and dark themes share token names; dark swaps values only.",
+      "Exam grammar (numbered items, lettered options, directions, drawn blanks, a score) is the house vocabulary."
+    ],
+    "rules": [
+      { "name": "The One Pencil Rule", "body": "Accent marks only what you act on or what you chose: the primary action, the current tab, the selected answer, focus. It is never a background wash, a heading color, or decoration.", "section": "colors" },
+      { "name": "The Labeled Status Rule", "body": "Green, red, blue, and yellow mean status, and each one ships with a word (\"Correct\", \"Your answer\", \"Incorrect\"). Never a colored dot or tint alone.", "section": "colors" },
+      { "name": "The Rem Rule", "body": "Every size is in rem, never px. The Large text setting sets the root to 112.5%, and that must scale every label, field, and heading with no layout change.", "section": "typography" },
+      { "name": "The Machine Voice Rule", "body": "Space Mono is for things a machine or an answer key would print: code, tables, numbers, timers, letters, tags. Headings, prose, buttons, and display type stay in Libre Franklin.", "section": "typography" },
+      { "name": "The Hairline Rule", "body": "Cards, rows, bubbles, and the landing paper separate with a 1px border, never a shadow. If it does not float, it does not cast.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do separate surfaces with a 1px Hairline border (`border`) on Paper over Desk.",
+      "Do keep the accent to actions, the current tab, the selected answer, and focus (The One Pencil Rule).",
+      "Do pair every status color with a word.",
+      "Do write all sizes in rem so Large text (112.5%) scales them.",
+      "Do keep phone fields at 16px minimum and tap targets at 44px minimum.",
+      "Do define new colors as token pairs in both `@theme` and `[data-theme=\"dark\"]`.",
+      "Do honor both reduced-motion paths, and reset `animation-delay` along with duration.",
+      "Do use exam grammar (numbered items, lettered options, directions lines, drawn blanks, a score) when a surface needs character."
+    ],
+    "donts": [
+      "Don't add shadows to cards, rows, or buttons; the 0 4px 12px menu shadow is for floating layers only.",
+      "Don't make text buttons pill-shaped; full rounding is for avatars, toggles, tracks, and chips.",
+      "Don't introduce a new hue for decoration or color-code question types.",
+      "Don't set headings, prose, or buttons in Space Mono.",
+      "Don't use px font sizes.",
+      "Don't show the bottom bar and the top text nav at the same width."
+    ]
+  }
+}

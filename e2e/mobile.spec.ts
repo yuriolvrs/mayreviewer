@@ -80,6 +80,9 @@ for (const fontSize of ["normal", "large"] as const) test.describe(`Mobile 360px
 
   test("bottom bar never covers the end of the page", async ({ page }) => {
     await page.goto("/");
+    // The reviewers home mounts after hydration (HomeMount); measure the
+    // page at its full height, not before the list renders.
+    await expect(page.getByRole("heading", { name: "Reviewers" })).toBeVisible();
     const bar = page.getByRole("navigation", { name: "Mobile" });
     await expect(bar).toBeVisible();
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));

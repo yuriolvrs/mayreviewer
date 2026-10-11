@@ -57,3 +57,9 @@ notes/
 /.cursor/
 /.openchamber/
 /.opencode/
+
+# impeccable working files (decision boards, review captures, server state)
+/.impeccable/mocks/
+/.impeccable/review/
+/.impeccable/questions/
+/.impeccable/build/

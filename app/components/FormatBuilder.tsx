@@ -36,6 +36,7 @@ import {
 import { MAX_QUESTION_COUNT } from "@/app/lib/questions";
 import { newId } from "@/app/lib/ids";
 import { useOnline } from "@/app/lib/useOnline";
+import { turnstileHeaders } from "@/app/lib/turnstileClient";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
 import OptionSelect from "@/app/components/OptionSelect";
 
@@ -229,7 +230,7 @@ export default function FormatBuilder({
       );
       const res = await fetch("/api/infer-format", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await turnstileHeaders()) },
         // The format name gives the analyst subject context ("midterm for
         // Math 101" beats "the course").
         body: JSON.stringify({

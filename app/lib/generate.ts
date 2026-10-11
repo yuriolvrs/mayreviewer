@@ -1,6 +1,7 @@
 import { upload } from "@vercel/blob/client";
 import { getAttachments, getFormatAttachments } from "@/app/lib/attachments";
 import { resolveFormat } from "@/app/lib/examFormats";
+import { turnstileHeaders } from "@/app/lib/turnstileClient";
 import type { Question, Reviewer } from "@/app/types";
 
 // The client half of a generation run: uploads the reviewer's attachments to
@@ -119,7 +120,7 @@ export async function generateQuestions(
   const res = await fetch("/api/generate", {
     method: "POST",
     signal,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await turnstileHeaders()) },
     body: JSON.stringify({
       subject: reviewer.subject,
       topics: reviewer.topics,

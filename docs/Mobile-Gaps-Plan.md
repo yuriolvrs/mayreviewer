@@ -211,7 +211,7 @@ These affect the live web app now, not only the Play build.
 - [in progress] Shared rate-limit store: code done (`createSharedRateLimiter` in `app/lib/rateLimit.ts`, Upstash Redis fixed window, in-memory fallback when unconfigured or slow). Live once an Upstash for Redis store is connected to the Vercel project (`KV_REST_API_URL` / `KV_REST_API_TOKEN`).
 - [todo] Incremental sync: every run pulls every row's full JSON. Pull ids for delete detection, but full rows only where `updated_at` > watermark. Matters most on mobile data.
 - [todo] Service worker: offline load of an uncached `/reviewer/<id>` falls back to the cached home HTML, so the wrong page renders. Also, old hashed `/_next/static` files are never pruned from the cache.
-- [todo] `/api/generate` and `/api/infer-format` accept anonymous calls. Decided 2026-10-12: Cloudflare Turnstile (free, mostly invisible) after the landing ships; keeps no-account use. Needs a site key + secret key.
+- [done 2026-10-12] `/api/generate` and `/api/infer-format` accepted anonymous calls. Now each call carries a Cloudflare Turnstile token (free, mostly invisible), checked server-side before any model call; no-account use stays. Keys are set for Production only (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`); without them the check is skipped.
 - [x] Landing page on `/` for first-time visitors (2026-10-12). `EntryScript` picks before first paint: saved reviewers, a Supabase session, or a prior app entry show the reviewers home; everyone else sees the landing. `/` stays static. Product record in `PRODUCT.md`; direction contract in `.impeccable/surfaces/`.
 
 ---

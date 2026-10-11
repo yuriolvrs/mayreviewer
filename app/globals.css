@@ -163,3 +163,13 @@ html:not([data-entry="app"]):has(.landing) body {
 html:not([data-entry="app"]):has(.landing) nav[aria-label="Primary"] > a {
   display: none;
 }
+
+/* Turnstile's checkbox, shown only when Cloudflare wants a click. Sits above
+   the phone bottom bar so it is never hidden under it. */
+.turnstile-host {
+  position: fixed;
+  left: 50%;
+  bottom: calc(5rem + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 60;
+}

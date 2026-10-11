@@ -19,6 +19,7 @@ import {
   type TopicTarget,
 } from "@/app/lib/generationPlan";
 import { createSharedRateLimiter, clientKey } from "@/app/lib/rateLimit";
+import { turnstileRejection, verifyTurnstile } from "@/app/lib/turnstile";
 import {
   MAX_SUBJECT_CHARS,
   SYSTEM_INSTRUCTION,
@@ -1138,6 +1139,8 @@ export async function POST(request: Request) {
       { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
     );
   }
+
+  if (!(await verifyTurnstile(request))) return turnstileRejection();
 
   const declaredLength = Number(request.headers.get("content-length"));
   if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {

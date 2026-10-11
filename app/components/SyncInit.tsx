@@ -23,8 +23,11 @@ export default function SyncInit() {
   useEffect(() => {
     if (!user) return;
     const userId = user.id;
+    // Each run pulls every row, so skip it while hidden: a phone with the app
+    // in the background would otherwise spend data and battery every minute.
+    // Returning to the tab runs it at once (onVisible below).
     const tick = () => {
-      if (navigator.onLine) void syncNow(userId);
+      if (navigator.onLine && !document.hidden) void syncNow(userId);
     };
     const onLocalChange = () => {
       if (navigator.onLine) scheduleSync(userId);

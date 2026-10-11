@@ -113,6 +113,28 @@ export default function DetailsTab({
     onSavedRef.current = onSaved;
   });
 
+  // Phones freeze or kill a backgrounded page without unmounting it, so the
+  // unmount flush below never runs there. Flush when the page is hidden too.
+  useEffect(() => {
+    function onHidden() {
+      if (!document.hidden) return;
+      const pending = timers.current;
+      if (!pending.notes && !pending.project && !pending.pastexam) return;
+      clearTimeout(pending.notes);
+      clearTimeout(pending.project);
+      clearTimeout(pending.pastexam);
+      timers.current = {};
+      saveNowRef.current();
+      onSavedRef.current();
+      // Same end state as flushSource, for every field at once.
+      if (pending.notes) setNotesStatus("saved");
+      if (pending.project) setProjectStatus("saved");
+      if (pending.pastexam) setPastExamStatus("saved");
+    }
+    document.addEventListener("visibilitychange", onHidden);
+    return () => document.removeEventListener("visibilitychange", onHidden);
+  }, []);
+
   // Flush a pending debounce on unmount — switching tabs must not drop edits.
   // The parent has to be told too: it hands every sibling tab its own copy of
   // the Reviewer, and a flush that writes silently leaves those copies stale.

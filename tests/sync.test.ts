@@ -198,6 +198,10 @@ describe("local-change notifications", () => {
 
 type FakeRow = { id: string; data: unknown; updated_at?: string; taken_at?: string };
 
+// Supabase's default max-rows. The fake truncates every page to it, like the
+// real API does, so a pull that doesn't page shows up as missing rows.
+const FAKE_MAX_ROWS = 1000;
+
 // Minimal thenable query builder: just enough shape for runSync's
 // select/eq, upsert, and delete/in/eq chains. Records writes for assertions.
 function makeFakeCloud(state: {
@@ -222,15 +226,22 @@ function makeFakeCloud(state: {
         select() {
           return {
             eq() {
-              const result =
-                table === "settings"
-                  ? { data: state.settings, error: null }
-                  : { data: rowsFor(table), error: null };
-              const p = Promise.resolve(result) as Promise<typeof result> & {
-                maybeSingle: () => Promise<typeof result>;
+              if (table === "settings") {
+                const result = { data: state.settings, error: null };
+                return { maybeSingle: () => Promise.resolve(result) };
+              }
+              // Mirrors PostgREST: ordered pages, each capped at max-rows.
+              return {
+                order() {
+                  return {
+                    range(from: number, to: number) {
+                      const sorted = [...rowsFor(table)].sort((a, b) => a.id.localeCompare(b.id));
+                      const end = Math.min(to + 1, from + FAKE_MAX_ROWS);
+                      return Promise.resolve({ data: sorted.slice(from, end), error: null });
+                    },
+                  };
+                },
               };
-              p.maybeSingle = () => Promise.resolve(result);
-              return p;
             },
           };
         },
@@ -325,6 +336,30 @@ describe("runSync", () => {
     expect(getReviewers()).toEqual([]);
     const pushed = fake.calls.upserts.reviewers as { id: string }[];
     expect(pushed).toEqual([]);
+  });
+
+  it("pages past the max-rows cap instead of dropping the rows beyond it", async () => {
+    // A synced device with more attempts than one select returns. Every local
+    // attempt predates the watermark and exists in the cloud; an unpaged pull
+    // would see only the first 1000 and drop the rest as "deleted elsewhere".
+    localStorage.setItem(
+      "mayreviewer-sync-meta",
+      JSON.stringify({ lastSyncedAt: "2026-05-01T00:00:00.000Z", lastError: null }),
+    );
+    const many = Array.from({ length: 1500 }, (_, i) => attempt(`a-${String(i).padStart(4, "0")}`));
+    replaceAllAttempts(many);
+    const fake = makeFakeCloud({
+      reviewers: [],
+      attempts: many.map((a) => ({ id: a.id, data: a, taken_at: a.takenAt })),
+      formats: [],
+      settings: null,
+    });
+    mockHolder.client = fake.client as unknown as SupabaseClient;
+
+    const result = await syncNow("user-1");
+
+    expect(result.ok).toBe(true);
+    expect(getAllQuizHistory()).toHaveLength(1500);
   });
 
   it("records whose data converged, for the account-switch guard", async () => {

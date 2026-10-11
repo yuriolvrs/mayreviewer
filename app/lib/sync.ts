@@ -51,6 +51,7 @@ const SYNC_META_KEY = "mayreviewer-sync-meta";
 // Push-on-change debounce: rapid successive saves (autosave ticks) collapse
 // into one round-trip.
 const PUSH_DEBOUNCE_MS = 5000;
+const SELECT_PAGE_SIZE = 1000;
 
 function readMeta(): SyncMeta {
   const empty: SyncMeta = { lastSyncedAt: null, lastError: null, lastUserId: null };
@@ -200,6 +201,33 @@ export function scheduleSync(userId: string): void {
   }, PUSH_DEBOUNCE_MS);
 }
 
+type SyncClient = NonNullable<ReturnType<typeof getSupabaseClient>>;
+
+// Supabase caps every select at the project's max-rows (1000 by default) and
+// truncates silently. A truncated pull is not just incomplete: step 3 below
+// reads "local row missing from the cloud" as "deleted on another device", so
+// the rows past the cap would be dropped locally. Page until an empty page —
+// advancing by what came back, so a lower server cap can't end it early.
+async function selectAll(
+  client: SyncClient,
+  table: string,
+  columns: string,
+  userId: string,
+): Promise<{ data: unknown[] | null; error: unknown }> {
+  const rows: unknown[] = [];
+  for (;;) {
+    const { data, error } = await client
+      .from(table)
+      .select(columns)
+      .eq("user_id", userId)
+      .order("id")
+      .range(rows.length, rows.length + SELECT_PAGE_SIZE - 1);
+    if (error) return { data: null, error };
+    if (!data || data.length === 0) return { data: rows, error: null };
+    rows.push(...data);
+  }
+}
+
 async function runSync(userId: string): Promise<SyncResult> {
   const client = getSupabaseClient();
   if (!client) return { ok: false, error: "Sync is not set up yet." };
@@ -215,9 +243,9 @@ async function runSync(userId: string): Promise<SyncResult> {
 
   try {
     const [reviewersRes, attemptsRes, formatsRes, settingsRes] = await Promise.all([
-      client.from("reviewers").select("id,data,updated_at").eq("user_id", userId),
-      client.from("attempts").select("id,data,taken_at").eq("user_id", userId),
-      client.from("formats").select("id,data,updated_at").eq("user_id", userId),
+      selectAll(client, "reviewers", "id,data,updated_at", userId),
+      selectAll(client, "attempts", "id,data,taken_at", userId),
+      selectAll(client, "formats", "id,data,updated_at", userId),
       client.from("settings").select("data,updated_at").eq("user_id", userId).maybeSingle(),
     ]);
     const firstError =

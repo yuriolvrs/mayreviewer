@@ -343,7 +343,9 @@ export default function QuizTaking({
   return (
     <div className="flex gap-10">
       <div className="min-w-0 flex-1">
-        <div className="mb-4 lg:hidden">
+        {/* Pinned below lg: the desktop rail is sticky, and without this the
+            countdown scrolled off-screen after the first question on phones. */}
+        <div className="sticky top-0 z-30 mb-4 border-b border-border bg-bg py-2 lg:hidden">
           <div className="flex items-center justify-between gap-3">
             <p className="text-[0.875rem] text-text-secondary">
               {answeredCount} of {questions.length} answered
@@ -400,7 +402,7 @@ export default function QuizTaking({
             return (
             <section key={group.key} className="border-t border-border last:border-b">
               {hasProblemBlock && (
-                <div id={`stimulus-${group.key}`} className="scroll-mt-6 pt-6">
+                <div id={`stimulus-${group.key}`} className="scroll-mt-24 lg:scroll-mt-6 pt-6">
                   <p className="font-mono text-[0.8125rem] tracking-wide text-text-tertiary uppercase">
                     {groupKind === "code" ? "Program" : "Problem"} · questions{" "}
                     {numbering.get(group.questions[0].id)}–
@@ -430,7 +432,7 @@ export default function QuizTaking({
                   <div
                     key={question.id}
                     id={`question-${question.id}`}
-                    className={`scroll-mt-6 py-6 ${hasProblemBlock ? "border-t border-border" : ""}`}
+                    className={`scroll-mt-24 lg:scroll-mt-6 py-6 ${hasProblemBlock ? "border-t border-border" : ""}`}
                   >
                 <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
                   <span className="flex items-baseline gap-2 font-mono text-[0.875rem] font-bold tracking-wide text-text-primary">

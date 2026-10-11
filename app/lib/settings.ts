@@ -175,4 +175,11 @@ export function applySettingsToDocument(settings: UserSettings): void {
   document.documentElement.dataset.fontSize = settings.fontSize;
   document.documentElement.dataset.reduceMotion = settings.reduceMotion ? "true" : "false";
   document.documentElement.style.colorScheme = resolved;
+  // The theme-color metas in layout.tsx follow the OS only. A manual override
+  // must repaint the browser bar too, or an installed app shows a light status
+  // bar over a dark page. Values mirror --color-bg in globals.css.
+  const barColor = resolved === "dark" ? "#171716" : "#f7f7f6";
+  document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach((meta) => {
+    meta.content = barColor;
+  });
 }

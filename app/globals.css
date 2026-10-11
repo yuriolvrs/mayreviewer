@@ -111,3 +111,14 @@ button:not(:disabled) {
 html {
   scrollbar-gutter: stable;
 }
+
+/* iOS Safari zooms the page into any focused field whose text is under 16px,
+   and doesn't zoom back out. Phones get 16px fields (1rem, so Large text still
+   scales them). Unlayered, so it outranks the per-field Tailwind sizes. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: max(1rem, 16px);
+  }
+}

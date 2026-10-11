@@ -27,7 +27,12 @@ const spaceMono = Space_Mono({
 export const metadata: Metadata = {
   title: "May Reviewer",
   description: "Turn your notes into a practice exam that matches your professor's question format.",
-  icons: { icon: "/icon.svg" },
+  // Explicit icons switch off file-based detection, so app/apple-icon.png
+  // (the iOS home-screen icon) has to be named here too.
+  icons: { icon: "/icon.svg", apple: "/apple-icon.png" },
+  // iOS ignores most of the manifest: this is what makes "Add to Home Screen"
+  // open full-screen with the right name instead of as a Safari bookmark.
+  appleWebApp: { capable: true, title: "May Reviewer", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
@@ -55,7 +60,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       // React would otherwise flag the expected divergence in dev.
       suppressHydrationWarning
     >
-      <body className="flex min-h-full flex-col bg-bg font-sans text-text-primary">
+      {/* Bottom padding lives on body, not main: the footer comes after main,
+          so padding main left the footer links under the fixed bottom bar. */}
+      <body className="flex min-h-full flex-col bg-bg pb-[calc(4rem+env(safe-area-inset-bottom))] font-sans text-text-primary md:pb-0">
         <ThemeFlashScript />
         <AuthProvider>        <a
           href="#main"
@@ -64,7 +71,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           Skip to content
         </a>
         <Navbar />
-        <main id="main" className="flex flex-1 flex-col pb-16 md:pb-0">
+        <main id="main" className="flex flex-1 flex-col">
           {children}
         </main>
         <footer className="border-t border-border px-4 py-2 md:px-16">

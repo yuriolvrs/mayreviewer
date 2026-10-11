@@ -46,10 +46,12 @@ export default function Navbar() {
         </span>
       </Link>
 
+      {/* Below md the text links hide: the bottom bar carries them on phones,
+          and showing both wasted a whole header row. The account menu stays. */}
       <nav aria-label="Primary" className="flex flex-wrap items-center gap-3 md:gap-6">
         <Link
           href="/"
-          className={`text-[0.875rem] md:text-[0.9375rem] ${
+          className={`hidden text-[0.875rem] md:inline md:text-[0.9375rem] ${
             reviewersActive
               ? "font-semibold text-text-primary"
               : "text-text-secondary hover:text-text-primary"
@@ -59,7 +61,7 @@ export default function Navbar() {
         </Link>
         <Link
           href="/formats"
-          className={`text-[0.875rem] md:text-[0.9375rem] ${
+          className={`hidden text-[0.875rem] md:inline md:text-[0.9375rem] ${
             formatsActive
               ? "font-semibold text-text-primary"
               : "text-text-secondary hover:text-text-primary"
@@ -69,7 +71,7 @@ export default function Navbar() {
         </Link>
         <Link
           href="/history"
-          className={`text-[0.875rem] md:text-[0.9375rem] ${
+          className={`hidden text-[0.875rem] md:inline md:text-[0.9375rem] ${
             historyActive
               ? "font-semibold text-text-primary"
               : "text-text-secondary hover:text-text-primary"
@@ -79,7 +81,7 @@ export default function Navbar() {
         </Link>
         <Link
           href="/progress"
-          className={`text-[0.875rem] md:text-[0.9375rem] ${
+          className={`hidden text-[0.875rem] md:inline md:text-[0.9375rem] ${
             progressActive
               ? "font-semibold text-text-primary"
               : "text-text-secondary hover:text-text-primary"

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { getAllQuizHistory, getReviewers } from "@/app/lib/storage";
 import { getSettings, getStreakState, updateSettings } from "@/app/lib/settings";
@@ -20,22 +19,7 @@ import ConfirmDialog from "@/app/components/ConfirmDialog";
 import EmptyReviewers from "@/app/components/EmptyReviewers";
 import type { Reviewer } from "@/app/types";
 
-function ChevronRightIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 10 10" fill="none" aria-hidden="true">
-      <path
-        d="M4 2l3 3-3 3"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 export default function Home() {
-  const router = useRouter();
   const [reviewers, setReviewers] = useState<Reviewer[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
@@ -154,7 +138,7 @@ export default function Home() {
           </button>
         </div>
       )}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-[2.125rem] font-bold leading-10 tracking-tight text-text-primary">
             Reviewers

@@ -4,7 +4,7 @@ Goal: fill missing features and functionality now. Defer all Play Store paperwor
 Stay Next.js web-first, mobile-ready. No native rewrite.
 
 Status key: `done` = built + verified, `in progress` = partially shipped,
-`todo` = not started. Updated 2026-09-18.
+`todo` = not started. Updated 2026-10-11.
 
 Locked decisions (from scoping):
 - Settings: full v1 (study defaults, appearance, notifications, data, Pro slot, about/legal).
@@ -79,7 +79,7 @@ Data:
 
 Offline:
 - ✅ Reviewers readable, quizzes takable, `/history` viewable fully offline. Gate Generate and Infer behind an offline banner. Do not queue generation.
-- ✅ PWA prep only, no store submission: minimal `manifest.webmanifest` plus icons later in Phase 5, service worker caching the app shell and reads, network-first for `/api/*`. (Icons still pending — now Phase 6.)
+- ✅ PWA prep only, no store submission: service worker caching the app shell and reads, `/api/*` never cached. Correction 2026-10-11: the manifest was marked done here but never existed. It landed in the 2026-10-11 audit (`app/manifest.ts`, PNG + maskable icons, Apple icon) — see below.
 
 Study:
 - ✅ Search: home filters by reviewer name, subject, and topic. Questions tab filters by question text. Client-side filter, no new index.
@@ -155,7 +155,7 @@ Order within the phase (each shippable alone):
    no migration); attempts record `timeLimitSec` so timed quizzes are
    detectable. Progress page built desktop-first: `/progress` route (goal, week dots, at-risk restore naming the
    rescued length, banked line, claimable-first milestones) + top-Navbar link; home strip pairs the goal with the
-   global streak plus an inline Restore row when yesterday was missed. Mobile bottom-bar tab still todo.
+   global streak plus an inline Restore row when yesterday was missed. Mobile bottom-bar tab ✅ (2026-10-11).
 2. **Timer mechanic, two surfaces. ✅** Countdown timer in the quiz flow;
    record `durationSec` on the attempt (normalize default for old attempts,
    sync passes it through untouched). "5-minute review" mode is a preset on
@@ -183,7 +183,35 @@ Done when:
 
 Verify:
 - `npm run test` (streak/scheduler/aggregates are pure-function unit tests),
-  `npm run test:e2e` (goal + timed flows), `npm run build`.
+  `npm run test:e2e` (goal + timed flows, plus `e2e/mobile.spec.ts`: every
+  route at 360px in normal and large text), `npm run build`.
+
+---
+
+## ✅ 2026-10-11 audit — mobile fixes
+
+Status: done (verified: tsc, lint, 313 unit, 74 e2e incl. new
+`e2e/mobile.spec.ts`, `npm run build`).
+
+- ✅ Footer links sat under the fixed bottom bar on phones: the bar padding was on `main`, but the footer comes after `main`. Padding moved to `body` and includes the safe-area inset.
+- ✅ Bottom bar: 5 tabs with icons (Reviewers, Formats, History, Progress, Settings). Below md the top Navbar drops its duplicate text links and keeps only the logo + account menu (one header row instead of two).
+- ✅ Web app manifest (`app/manifest.ts`), 192/512 icons, maskable 512, Apple touch icon, `appleWebApp` metadata. The app is now installable.
+- ✅ Reminders never fired on Android: Chrome there throws on `new Notification()`. Reminders now show through the service worker registration, and `sw.js` handles the tap (focus or open the app).
+- ✅ "Large text" did almost nothing: 434 text sizes were fixed px, so the root-size bump skipped them. All converted to the same size in rem.
+- ✅ iOS zoomed into any focused field under 16px. Phone-width fields are now 16px minimum.
+- ✅ Theme-color (browser / status bar) now follows the manual theme override, not just the OS.
+- ✅ Quiz on phones: the answered count + countdown is pinned to the top. Before, it scrolled away after question 1.
+- ✅ Details tab: debounced source edits flush when the page is hidden. Phones kill background pages without unmounting them.
+- ✅ Sync: the 60s full pull pauses while the app is hidden (data + battery).
+- ✅ Sync: cloud pulls page past Supabase's 1000-row cap. Before, rows past the cap looked "deleted on another device" and were dropped locally (attempts hit this first).
+
+## Web hardening — do before Phase 6 (todo)
+
+These affect the live web app now, not only the Play build.
+- [todo] Shared rate-limit store for `app/lib/rateLimit.ts`. The app deploys to Vercel (serverless), so the in-memory `Map` is per instance and the limit multiplies. Upstash Redis or a Supabase table. Moved here from Phase 6.
+- [todo] Incremental sync: every run pulls every row's full JSON. Pull ids for delete detection, but full rows only where `updated_at` > watermark. Matters most on mobile data.
+- [todo] Service worker: offline load of an uncached `/reviewer/<id>` falls back to the cached home HTML, so the wrong page renders. Also, old hashed `/_next/static` files are never pruned from the cache.
+- [todo] `/api/generate` and `/api/infer-format` accept anonymous calls. Consider requiring sign-in (or a bot check) before generation once the app is public in a store.
 
 ---
 
@@ -192,11 +220,43 @@ Verify:
 Status: todo.
 
 Do none of this until Phases 1–5 are done:
-- [todo] Manifest polish, maskable 512 icon, screenshots, service worker installability.
-- [todo] Digital AssetLinks + TWA or Capacitor wrapper config, absolute API URL + CORS.
-- [todo] Shared rate-limit store for `app/lib/rateLimit.ts` (in-memory `Map` multiplies on serverless).
+- [x] Manifest, maskable 512 icon, service worker installability (2026-10-11 audit).
+- [todo] Store screenshots (phone 360–412px, from `e2e/mobile.spec.ts` shots as a start).
+- [todo] TWA wrapper (decision below) + Digital Asset Links.
 - [todo] Opt-in Sentry crash reporting and minimal analytics.
 - [todo] App bundle + API 36 target + signing, listing assets, content rating, Data Safety form, 12 testers x 14 days closed test, Play Billing when Pro activates.
+
+### How the web app becomes the Android app
+
+Decision (recommended): Trusted Web Activity (TWA), not Capacitor.
+
+A TWA is a small Android app with no UI of its own. It opens the deployed
+site full-screen in the phone's Chrome, with no address bar. So:
+- The app is the live site. A web deploy updates every installed app at
+  once. A new `.aab` is needed only for icon, name, or package changes.
+- Same origin as the site: API routes, Supabase auth, and Google sign-in
+  work unchanged. No CORS, no absolute API URL.
+- Storage is Chrome's storage for the origin. Local-first data,
+  IndexedDB files, the service worker, and offline quiz all carry over.
+- Notifications go through Android's notification permission (Android 13+);
+  Bubblewrap adds the delegation.
+
+Why not Capacitor: it needs a static export bundled into the app, and this
+app has server routes (`/api/*`) and dynamic pages. Pointing Capacitor at the
+live URL makes it a plain WebView instead. Google blocks OAuth sign-in inside
+WebViews, so Google login would need a native plugin. Capacitor becomes worth
+it only for native-only features (true background push, widgets).
+
+Steps:
+1. Deploy to a stable HTTPS domain (the TWA is tied to it).
+2. `npx @bubblewrap/cli init --manifest https://<domain>/manifest.webmanifest` — generates the Android project from the manifest (name, icons, colors, start URL).
+3. `bubblewrap build` — produces a signed `.aab`.
+4. Serve `/.well-known/assetlinks.json` with the package name + the Play App Signing SHA-256 fingerprint (from Play Console). Without it, Android shows a browser bar at the top.
+5. Play Console: listing, Data Safety form, privacy URL (`/privacy`), account-deletion URL (`/goodbye`), content rating, closed test (12 testers x 14 days), then production.
+
+iOS: no TWA equivalent, and Apple rejects plain website wrappers. The iOS
+path is "Add to Home Screen" (manifest + `appleWebApp` are in place);
+reminders there fire only from the installed web app.
 
 ---
 
@@ -206,6 +266,7 @@ Do none of this until Phases 1–5 are done:
 - Phase 2: content review, link check, `npm run build`.
 - Phase 3: `npm run test`, `npm run test:e2e`, offline Playwright pass.
 - Phase 4: auth end-to-end, security negative test, `npm run build`.
-- Phase 5: unit tests for streak/scheduler/aggregates, goal + timed e2e flows, `npm run build`.
+- Phase 5: unit tests for streak/scheduler/aggregates, goal + timed e2e flows, `e2e/mobile.spec.ts`, `npm run build`.
+- Phase 6: Lighthouse installability pass on the deployed URL, `assetlinks.json` check (no browser bar in the TWA), reminder + Google sign-in on a real Android device.
 
 *Created: 2026-09-12. Source: scoping answers + repo audit of `app/`, `app/lib/storage.ts`, `app/lib/attachments.ts`, `app/components/Navbar.tsx`, `app/layout.tsx`, `app/about/page.tsx`, `docs/DevPhases-MayReviewer-MVP.md`.*

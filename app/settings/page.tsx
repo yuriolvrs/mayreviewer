@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
 import { useAuth } from "@/app/components/AuthProvider";
@@ -267,6 +268,16 @@ export default function SettingsPage() {
               aria-label="Daily goal"
               className="h-11 w-full rounded-lg border border-border bg-surface px-2 py-2 text-[0.9375rem] text-text-primary outline-none focus:border-accent"
             />
+          </Row>
+          {/* Formats left the phone bottom bar (set up rarely, not daily), so
+              Settings is its home there. Desktop still has it in the Navbar. */}
+          <Row label="Exam formats" hint="Built-in and custom question formats.">
+            <Link
+              href="/formats"
+              className="flex h-11 items-center rounded-lg border border-border bg-surface px-4 text-[0.9375rem] font-medium text-text-primary hover:border-border-strong"
+            >
+              Manage formats
+            </Link>
           </Row>
         </Section>
 

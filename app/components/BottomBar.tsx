@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, ChartNoAxesColumn, History, LayoutList, Settings, type LucideIcon } from "lucide-react";
+import { BookOpen, ChartNoAxesColumn, History, Settings, type LucideIcon } from "lucide-react";
 
 const TABS: { href: string; label: string; icon: LucideIcon; match: (p: string) => boolean }[] = [
   { href: "/", label: "Reviewers", icon: BookOpen, match: (p) => p === "/" || p.startsWith("/reviewer") },
-  { href: "/formats", label: "Formats", icon: LayoutList, match: (p) => p.startsWith("/formats") },
-  { href: "/history", label: "History", icon: History, match: (p) => p.startsWith("/history") },
   { href: "/progress", label: "Progress", icon: ChartNoAxesColumn, match: (p) => p.startsWith("/progress") },
-  { href: "/settings", label: "Settings", icon: Settings, match: (p) => p.startsWith("/settings") },
+  { href: "/history", label: "History", icon: History, match: (p) => p.startsWith("/history") },
+  // Formats lives under Settings on phones: it is setup, not the daily loop.
+  { href: "/settings", label: "Settings", icon: Settings, match: (p) => p.startsWith("/settings") || p.startsWith("/formats") },
 ];
 
 // Mobile-only bottom nav. Desktop keeps the top Navbar — this renders nothing
@@ -23,7 +23,7 @@ export default function BottomBar() {
       className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface md:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <div className="grid grid-cols-5">
+      <div className="grid grid-cols-4">
         {TABS.map((tab) => {
           const active = tab.match(pathname);
           const Icon = tab.icon;

@@ -62,11 +62,11 @@ function CallbackInner() {
   return (
     <div className="mx-auto w-full max-w-md flex-1 px-6 py-10">
       {error ? (
-        <p role="alert" className="rounded-lg bg-surface-alt px-3 py-2 text-[14px] font-medium text-error">
+        <p role="alert" className="rounded-lg bg-surface-alt px-3 py-2 text-[0.875rem] font-medium text-error">
           {error}
         </p>
       ) : (
-        <p className="text-[15px] text-text-secondary">Finishing sign-in…</p>
+        <p className="text-[0.9375rem] text-text-secondary">Finishing sign-in…</p>
       )}
     </div>
   );

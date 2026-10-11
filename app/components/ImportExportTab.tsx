@@ -245,8 +245,8 @@ export default function ImportExportTab({
     <div className="flex flex-col">
       <div className="grid grid-cols-1 gap-6 py-6 md:grid-cols-[160px_1fr]">
         <div>
-          <p className="text-[15px] font-medium text-text-primary">Export</p>
-          <p className="mt-1 text-[14px] text-text-secondary">
+          <p className="text-[0.9375rem] font-medium text-text-primary">Export</p>
+          <p className="mt-1 text-[0.875rem] text-text-secondary">
             Download this reviewer as a <span className="font-mono">.json</span> or{" "}
             <span className="font-mono">.zip</span> file.
           </p>
@@ -255,19 +255,19 @@ export default function ImportExportTab({
           <div className="flex flex-wrap gap-3">
             <button
               onClick={handleExport}
-              className="rounded-lg border border-border bg-surface px-4 py-2.5 text-[15px] font-medium text-text-primary hover:border-border-strong"
+              className="rounded-lg border border-border bg-surface px-4 py-2.5 text-[0.9375rem] font-medium text-text-primary hover:border-border-strong"
             >
               Export reviewer JSON
             </button>
             <button
               onClick={handleExportWithMaterials}
               disabled={exporting}
-              className="rounded-lg border border-border bg-surface px-4 py-2.5 text-[15px] font-medium text-text-primary hover:border-border-strong disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-lg border border-border bg-surface px-4 py-2.5 text-[0.9375rem] font-medium text-text-primary hover:border-border-strong disabled:cursor-not-allowed disabled:opacity-40"
             >
               {exporting ? "Zipping…" : "Export with uploaded files (.zip)"}
             </button>
           </div>
-          <p className="mt-2 text-[14px] text-text-tertiary">
+          <p className="mt-2 text-[0.875rem] text-text-tertiary">
             The JSON export includes info, text notes, project material, and questions, but not
             the uploaded files. The zip export includes the JSON export and bundles those files together.
           </p>
@@ -276,8 +276,8 @@ export default function ImportExportTab({
 
       <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
         <div>
-          <p className="text-[15px] font-medium text-text-primary">Import</p>
-          <p className="mt-1 text-[14px] text-text-secondary">
+          <p className="text-[0.9375rem] font-medium text-text-primary">Import</p>
+          <p className="mt-1 text-[0.875rem] text-text-secondary">
             Merge a <span className="font-mono">.json</span> or <span className="font-mono">.zip</span>{" "}
             export into this reviewer&apos;s pool.
           </p>
@@ -302,16 +302,16 @@ export default function ImportExportTab({
               <div className="flex items-center gap-2.5">
                 <span
                   aria-hidden="true"
-                  className="shrink-0 rounded bg-accent-subtle px-1.5 py-0.5 text-[12px] font-semibold text-accent"
+                  className="shrink-0 rounded bg-accent-subtle px-1.5 py-0.5 text-[0.75rem] font-semibold text-accent"
                 >
                   {pending.isArchive ? "ZIP" : "JSON"}
                 </span>
-                <span className="min-w-0 break-words text-[15px] text-text-primary">
+                <span className="min-w-0 break-words text-[0.9375rem] text-text-primary">
                   {pending.fileName}
                 </span>
               </div>
 
-              <dl className="mt-3 flex flex-col gap-1 text-[14px]">
+              <dl className="mt-3 flex flex-col gap-1 text-[0.875rem]">
                 <div className="flex gap-2">
                   <dt className="text-text-secondary">Questions in file</dt>
                   <dd className="text-text-primary">{pending.questions.length}</dd>
@@ -363,7 +363,7 @@ export default function ImportExportTab({
                 )}
               </dl>
 
-              <p className="mt-3 text-[14px] text-text-tertiary">
+              <p className="mt-3 text-[0.875rem] text-text-tertiary">
                 {duplicateQuestions > 0
                   ? `${duplicateQuestions} question${duplicateQuestions === 1 ? " is" : "s are"} already in this reviewer and will be skipped.`
                   : "Questions already in this reviewer are skipped automatically."}
@@ -375,13 +375,13 @@ export default function ImportExportTab({
               <div className="mt-4 flex items-center justify-end gap-3">
                 <button
                   onClick={() => setPending(null)}
-                  className="text-[15px] font-medium text-text-secondary hover:text-text-primary"
+                  className="text-[0.9375rem] font-medium text-text-secondary hover:text-text-primary"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmMerge}
-                  className="rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-on-accent hover:bg-accent-hover"
+                  className="rounded-lg bg-accent px-4 py-2 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover"
                 >
                   Merge
                 </button>
@@ -413,7 +413,7 @@ export default function ImportExportTab({
             </div>
           )}
 
-          <p className="mt-2 text-[14px] text-text-tertiary">
+          <p className="mt-2 text-[0.875rem] text-text-tertiary">
             Doesn&apos;t overwrite this reviewer&apos;s name or content. Questions, topics, and
             files already in this reviewer are skipped automatically, so re-importing the same
             file changes nothing.
@@ -422,7 +422,7 @@ export default function ImportExportTab({
           {message && (
             <p
               role={message.isError ? "alert" : "status"}
-              className={`mt-2 text-[15px] ${message.isError ? "text-error" : "text-success"}`}
+              className={`mt-2 text-[0.9375rem] ${message.isError ? "text-error" : "text-success"}`}
             >
               {message.text}
             </p>

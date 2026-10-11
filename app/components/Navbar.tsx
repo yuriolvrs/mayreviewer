@@ -40,16 +40,16 @@ export default function Navbar() {
       <Link href="/" className="flex items-center gap-2 hover:opacity-70">
         <Image src="/icon.svg" alt="" width={24} height={24} className="h-6 w-6" aria-hidden="true" />
         <span className="flex flex-col leading-none text-text-primary">
-          <span className="mb-[-2px] text-[11px] font-normal">pre,</span>
+          <span className="mb-[-2px] text-[0.6875rem] font-normal">pre,</span>
           <span className="text-xl font-bold tracking-tight">May Reviewer</span>
-          <span className="mt-[-2px] self-end text-[11px] font-normal">ka ba?</span>
+          <span className="mt-[-2px] self-end text-[0.6875rem] font-normal">ka ba?</span>
         </span>
       </Link>
 
       <nav aria-label="Primary" className="flex flex-wrap items-center gap-3 md:gap-6">
         <Link
           href="/"
-          className={`text-[14px] md:text-[15px] ${
+          className={`text-[0.875rem] md:text-[0.9375rem] ${
             reviewersActive
               ? "font-semibold text-text-primary"
               : "text-text-secondary hover:text-text-primary"
@@ -59,7 +59,7 @@ export default function Navbar() {
         </Link>
         <Link
           href="/formats"
-          className={`text-[14px] md:text-[15px] ${
+          className={`text-[0.875rem] md:text-[0.9375rem] ${
             formatsActive
               ? "font-semibold text-text-primary"
               : "text-text-secondary hover:text-text-primary"
@@ -69,7 +69,7 @@ export default function Navbar() {
         </Link>
         <Link
           href="/history"
-          className={`text-[14px] md:text-[15px] ${
+          className={`text-[0.875rem] md:text-[0.9375rem] ${
             historyActive
               ? "font-semibold text-text-primary"
               : "text-text-secondary hover:text-text-primary"
@@ -79,7 +79,7 @@ export default function Navbar() {
         </Link>
         <Link
           href="/progress"
-          className={`text-[14px] md:text-[15px] ${
+          className={`text-[0.875rem] md:text-[0.9375rem] ${
             progressActive
               ? "font-semibold text-text-primary"
               : "text-text-secondary hover:text-text-primary"
@@ -101,7 +101,7 @@ export default function Navbar() {
           {!loading && !user ? (
             <Link
               href="/login"
-              className="flex min-h-[44px] items-center text-[14px] font-medium text-text-secondary hover:text-text-primary md:text-[15px]"
+              className="flex min-h-[44px] items-center text-[0.875rem] font-medium text-text-secondary hover:text-text-primary md:text-[0.9375rem]"
             >
               Log in
             </Link>
@@ -122,7 +122,7 @@ export default function Navbar() {
               {menuOpen && (
                 <div role="menu" className="absolute right-0 top-11 w-56 rounded-lg border border-border bg-surface py-1 shadow-menu">
                   {user?.email && (
-                    <p className="truncate px-3 py-2 text-[13px] text-text-secondary" aria-hidden="true">
+                    <p className="truncate px-3 py-2 text-[0.8125rem] text-text-secondary" aria-hidden="true">
                       {user.email}
                     </p>
                   )}
@@ -130,7 +130,7 @@ export default function Navbar() {
                     href="/account"
                     role="menuitem"
                     onClick={() => setMenuOpen(false)}
-                    className={`block min-h-[44px] px-3 py-2 text-left text-[15px] hover:bg-surface-alt ${
+                    className={`block min-h-[44px] px-3 py-2 text-left text-[0.9375rem] hover:bg-surface-alt ${
                       accountActive ? "font-semibold text-text-primary" : "text-text-primary"
                     }`}
                   >
@@ -140,7 +140,7 @@ export default function Navbar() {
                     href="/settings"
                     role="menuitem"
                     onClick={() => setMenuOpen(false)}
-                    className={`block min-h-[44px] px-3 py-2 text-left text-[15px] hover:bg-surface-alt ${
+                    className={`block min-h-[44px] px-3 py-2 text-left text-[0.9375rem] hover:bg-surface-alt ${
                       settingsActive ? "font-semibold text-text-primary" : "text-text-primary"
                     }`}
                   >
@@ -170,7 +170,7 @@ function AccountMenuLogout({ onDone }: { onDone: () => void }) {
         onDone();
         void signOut();
       }}
-      className="block min-h-[44px] w-full px-3 py-2 text-left text-[15px] text-text-primary hover:bg-surface-alt"
+      className="block min-h-[44px] w-full px-3 py-2 text-left text-[0.9375rem] text-text-primary hover:bg-surface-alt"
     >
       Log out
     </button>

@@ -40,7 +40,7 @@ export default function EditFormatPage() {
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-6 py-8">
       <nav
         aria-label="Breadcrumb"
-        className="mb-2 flex items-center gap-1.5 text-[12px] tracking-wide uppercase"
+        className="mb-2 flex items-center gap-1.5 text-[0.75rem] tracking-wide uppercase"
       >
         <Link href="/formats" className="text-text-secondary hover:text-text-primary">
           Formats
@@ -53,10 +53,10 @@ export default function EditFormatPage() {
 
       {!custom ? (
         <>
-          <h1 className="text-[26px] font-semibold text-text-primary">
+          <h1 className="text-[1.625rem] font-semibold text-text-primary">
             {isBuiltin ? "Can't edit this format" : "Format not found"}
           </h1>
-          <p className="mt-1 text-[15px] text-text-secondary">
+          <p className="mt-1 text-[0.9375rem] text-text-secondary">
             {isBuiltin
               ? "Built-in formats are read-only. Clone it to make your own editable copy."
               : "No format with this id exists in the library."}
@@ -66,7 +66,7 @@ export default function EditFormatPage() {
               <button
                 type="button"
                 onClick={cloneAndEdit}
-                className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-on-accent hover:bg-accent-hover"
+                className="rounded-lg bg-accent px-4 py-2.5 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover"
               >
                 Clone and edit
               </button>
@@ -75,8 +75,8 @@ export default function EditFormatPage() {
         </>
       ) : (
         <>
-          <h1 className="text-[26px] font-semibold text-text-primary">Edit format</h1>
-          <p className="mt-1 text-[15px] text-text-secondary">
+          <h1 className="text-[1.625rem] font-semibold text-text-primary">Edit format</h1>
+          <p className="mt-1 text-[0.9375rem] text-text-secondary">
             Reviewers already on this format keep their questions. New generations use the
             edited definition.
           </p>

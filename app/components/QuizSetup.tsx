@@ -144,13 +144,13 @@ export default function QuizSetup({
     // the main column.
     <div className="min-w-0">
       <div className="mt-8 border-t border-border pt-6">
-        <h2 className="text-[15px] font-semibold text-text-primary">Scope</h2>
+        <h2 className="text-[0.9375rem] font-semibold text-text-primary">Scope</h2>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
             onClick={() => applyScope([])}
             aria-pressed={scopeTypes.length === 0}
-            className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
+            className={`rounded-lg px-2.5 py-1 text-[0.875rem] font-medium ${
               scopeTypes.length === 0
                 ? "bg-accent text-on-accent"
                 : "border border-border-strong text-text-secondary hover:text-text-primary"
@@ -163,7 +163,7 @@ export default function QuizSetup({
               key={type}
               onClick={() => toggleType(type)}
               aria-pressed={scopeTypes.includes(type)}
-              className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
+              className={`rounded-lg px-2.5 py-1 text-[0.875rem] font-medium ${
                 scopeTypes.includes(type)
                   ? "bg-accent text-on-accent"
                   : "border border-border-strong text-text-secondary hover:text-text-primary"
@@ -177,7 +177,7 @@ export default function QuizSetup({
               onClick={toggleMissed}
               aria-pressed={missedOnly}
               title="Only questions the newest attempt got wrong or left blank"
-              className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
+              className={`rounded-lg px-2.5 py-1 text-[0.875rem] font-medium ${
                 missedOnly
                   ? "bg-accent text-on-accent"
                   : "border border-border-strong text-text-secondary hover:text-text-primary"
@@ -190,7 +190,7 @@ export default function QuizSetup({
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2">
-            <span className="text-[15px] text-text-secondary">Number of questions</span>
+            <span className="text-[0.9375rem] text-text-secondary">Number of questions</span>
             <input
               type="number"
               min={1}
@@ -200,32 +200,32 @@ export default function QuizSetup({
               onChange={(e) => setCountInput(e.target.value)}
               onBlur={() => setCountInput(String(count))}
               aria-describedby={overAsked ? "quiz-count-note" : undefined}
-              className="h-10 w-20 rounded-lg border border-border bg-surface px-2 text-[15px] text-text-primary outline-none focus:border-accent"
+              className="h-10 w-20 rounded-lg border border-border bg-surface px-2 text-[0.9375rem] text-text-primary outline-none focus:border-accent"
             />
           </label>
-          <span className="text-[14px] text-text-tertiary">~{minutes} min estimated</span>
+          <span className="text-[0.875rem] text-text-tertiary">~{minutes} min estimated</span>
         </div>
 
         {overAsked && (
-          <p id="quiz-count-note" className="mt-2 text-[14px] text-text-secondary">
+          <p id="quiz-count-note" className="mt-2 text-[0.875rem] text-text-secondary">
             Only {available} question{available === 1 ? " is" : "s are"} available in this scope —
             the quiz will use {count}.
           </p>
         )}
         {missedOnly && available === 0 && (
-          <p className="mt-2 text-[14px] text-text-secondary">
+          <p className="mt-2 text-[0.875rem] text-text-secondary">
             Those questions are no longer in the pool — turn the filter off for the full set.
           </p>
         )}
         {count < available && !overAsked && (
-          <p className="mt-2 text-[14px] text-text-tertiary">
+          <p className="mt-2 text-[0.875rem] text-text-tertiary">
             Sampled evenly across the question types in this scope, and reshuffled each attempt.
           </p>
         )}
       </div>
 
       <div className="mt-6 border-t border-border pt-4">
-        <h2 className="text-[15px] font-semibold text-text-primary">Feedback mode</h2>
+        <h2 className="text-[0.9375rem] font-semibold text-text-primary">Feedback mode</h2>
         <div className="mt-3 flex flex-col gap-3">
           {FEEDBACK_OPTIONS.map((option) => (
             <label key={option.value} className="flex cursor-pointer items-start gap-3">
@@ -237,10 +237,10 @@ export default function QuizSetup({
                 className="mt-1 cursor-pointer accent-accent"
               />
               <span>
-                <span className="block text-[15px] leading-tight font-semibold text-text-primary">
+                <span className="block text-[0.9375rem] leading-tight font-semibold text-text-primary">
                   {option.label}
                 </span>
-                <span className="mt-0.5 block text-[14px] leading-snug text-text-secondary">
+                <span className="mt-0.5 block text-[0.875rem] leading-snug text-text-secondary">
                   {option.hint}
                 </span>
               </span>
@@ -250,8 +250,8 @@ export default function QuizSetup({
       </div>
 
       <div className="mt-6 border-t border-border pt-4">
-        <h2 className="text-[15px] font-semibold text-text-primary">Timer</h2>
-        <p className="mt-1 text-[14px] leading-snug text-text-secondary">
+        <h2 className="text-[0.9375rem] font-semibold text-text-primary">Timer</h2>
+        <p className="mt-1 text-[0.875rem] leading-snug text-text-secondary">
           Countdown while answering; submits automatically at zero.
         </p>
         {/* One control for one decision: Off or a duration. Picking any
@@ -266,7 +266,7 @@ export default function QuizSetup({
             type="button"
             onClick={() => setTimed(false)}
             aria-pressed={!timed}
-            className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
+            className={`rounded-lg px-2.5 py-1 text-[0.875rem] font-medium ${
               !timed
                 ? "bg-accent text-on-accent"
                 : "border border-border-strong text-text-secondary hover:text-text-primary"
@@ -283,7 +283,7 @@ export default function QuizSetup({
                 setMinutesInput(String(preset));
               }}
               aria-pressed={timed && timeMinutes === preset}
-              className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
+              className={`rounded-lg px-2.5 py-1 text-[0.875rem] font-medium ${
                 timed && timeMinutes === preset
                   ? "bg-accent text-on-accent"
                   : "border border-border-strong text-text-secondary hover:text-text-primary"
@@ -307,7 +307,7 @@ export default function QuizSetup({
                   ? "Matches the estimated time for this quiz"
                   : "Matches your average pace for this quiz"
               }
-              className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
+              className={`rounded-lg px-2.5 py-1 text-[0.875rem] font-medium ${
                 timed && timeMinutes === minutes
                   ? "bg-accent text-on-accent"
                   : "border border-border-strong text-text-secondary hover:text-text-primary"
@@ -319,7 +319,7 @@ export default function QuizSetup({
         </div>
         {timed && (
           <label className="mt-3 flex items-center gap-2">
-            <span className="text-[15px] text-text-secondary">Custom minutes</span>
+            <span className="text-[0.9375rem] text-text-secondary">Custom minutes</span>
             <input
               type="number"
               min={MIN_TIMER_MINUTES}
@@ -329,7 +329,7 @@ export default function QuizSetup({
               onChange={(e) => setMinutesInput(e.target.value)}
               onBlur={() => setMinutesInput(String(timeMinutes))}
               aria-label="Time limit in minutes"
-              className="h-10 w-20 rounded-lg border border-border bg-surface px-2 text-[15px] text-text-primary outline-none focus:border-accent"
+              className="h-10 w-20 rounded-lg border border-border bg-surface px-2 text-[0.9375rem] text-text-primary outline-none focus:border-accent"
             />
           </label>
         )}
@@ -340,7 +340,7 @@ export default function QuizSetup({
           onClick={() => onStart(sampleProportionally(pool, count), { timeLimitSec: timed ? timeMinutes * 60 : null, parSec: minutes * 60 })}
           disabled={available === 0}
           title={available === 0 ? "No questions in this scope" : undefined}
-          className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-lg bg-accent px-4 py-2.5 text-[0.9375rem] font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
         >
           Start quiz
         </button>

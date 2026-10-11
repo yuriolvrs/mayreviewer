@@ -73,13 +73,13 @@ export default function HistoryPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 px-6 py-10">
-      <h1 className="text-[26px] font-semibold text-text-primary">History</h1>
-      <p className="text-[15px] text-text-secondary">
+      <h1 className="text-[1.625rem] font-semibold text-text-primary">History</h1>
+      <p className="text-[0.9375rem] text-text-secondary">
         Every quiz attempt across all Reviewers, newest first.
       </p>
 
       {attempts.length === 0 ? (
-        <p className="mt-4 text-[15px] text-text-secondary">
+        <p className="mt-4 text-[0.9375rem] text-text-secondary">
           No attempts yet. Take a quiz from any Reviewer to see it here.
         </p>
       ) : (
@@ -88,7 +88,7 @@ export default function HistoryPage() {
             <button
               onClick={() => setFilterId(null)}
               aria-pressed={filterId === null}
-              className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
+              className={`rounded-lg px-2.5 py-1 text-[0.875rem] font-medium ${
                 filterId === null
                   ? "bg-accent text-on-accent"
                   : "border border-border-strong text-text-secondary hover:text-text-primary"
@@ -101,7 +101,7 @@ export default function HistoryPage() {
                 key={group.reviewerId}
                 onClick={() => setFilterId(group.reviewerId)}
                 aria-pressed={filterId === group.reviewerId}
-                className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
+                className={`rounded-lg px-2.5 py-1 text-[0.875rem] font-medium ${
                   filterId === group.reviewerId
                     ? "bg-accent text-on-accent"
                     : "border border-border-strong text-text-secondary hover:text-text-primary"
@@ -119,16 +119,16 @@ export default function HistoryPage() {
                   {group.reviewer ? (
                     <Link
                       href={`/reviewer/${group.reviewerId}`}
-                      className="text-[14px] font-semibold uppercase tracking-wide text-accent hover:underline"
+                      className="text-[0.875rem] font-semibold uppercase tracking-wide text-accent hover:underline"
                     >
                       {group.reviewer.reviewerName}
                     </Link>
                   ) : (
-                    <span className="text-[14px] font-semibold uppercase tracking-wide text-text-tertiary">
+                    <span className="text-[0.875rem] font-semibold uppercase tracking-wide text-text-tertiary">
                       Deleted reviewer
                     </span>
                   )}
-                  <span className="text-[14px] text-text-tertiary">
+                  <span className="text-[0.875rem] text-text-tertiary">
                     {group.attempts.length} attempt{group.attempts.length === 1 ? "" : "s"}
                   </span>
                 </div>
@@ -138,7 +138,7 @@ export default function HistoryPage() {
                     const percent = Math.round((attempt.score / attempt.total) * 100);
                     const summary = (
                       <>
-                        <span className="text-[15px] text-text-secondary">
+                        <span className="text-[0.9375rem] text-text-secondary">
                           {formatTakenAt(attempt.takenAt)}
                         </span>
                         <span className={`ml-auto shrink-0 font-medium ${scoreTone(percent)}`}>

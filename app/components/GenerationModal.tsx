@@ -103,18 +103,18 @@ export default function GenerationModal({
         {loading ? <Spinner /> : <DoneIcon />}
 
         <div aria-live="polite">
-          <h2 id="generation-modal-title" className="text-[19px] font-semibold text-text-primary">
+          <h2 id="generation-modal-title" className="text-[1.1875rem] font-semibold text-text-primary">
             {loading
               ? "Generating questions"
               : `${count} question${count === 1 ? "" : "s"} generated`}
           </h2>
           {loading && (
-            <p className="mt-1 text-[15px] text-text-secondary">
+            <p className="mt-1 text-[0.9375rem] text-text-secondary">
               This may take a minute. Stay on this page.
             </p>
           )}
           {loading && progress && (
-            <p className="mt-1 text-[14px] text-text-tertiary">
+            <p className="mt-1 text-[0.875rem] text-text-tertiary">
               {progress.stage === "verify"
                 ? "Double-checking answers…"
                 : `${progress.completed} of ${progress.total} source${progress.total === 1 ? "" : "s"} processed`}
@@ -126,7 +126,7 @@ export default function GenerationModal({
           <button
             type="button"
             onClick={onCancel}
-            className="mt-2 rounded-lg border border-border-strong px-4 py-2 text-[15px] font-medium text-text-secondary hover:border-accent hover:text-text-primary"
+            className="mt-2 rounded-lg border border-border-strong px-4 py-2 text-[0.9375rem] font-medium text-text-secondary hover:border-accent hover:text-text-primary"
           >
             Cancel
           </button>
@@ -134,7 +134,7 @@ export default function GenerationModal({
           <button
             type="button"
             onClick={onDone}
-            className="mt-2 rounded-lg bg-accent px-5 py-2 text-[15px] font-medium text-on-accent hover:bg-accent-hover"
+            className="mt-2 rounded-lg bg-accent px-5 py-2 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover"
           >
             Done
           </button>

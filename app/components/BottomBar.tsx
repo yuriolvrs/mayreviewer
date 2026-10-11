@@ -28,7 +28,7 @@ export default function BottomBar() {
               key={tab.href}
               href={tab.href}
               aria-current={active ? "page" : undefined}
-              className={`flex min-h-[48px] items-center justify-center px-2 py-1.5 text-[14px] ${
+              className={`flex min-h-[48px] items-center justify-center px-2 py-1.5 text-[0.875rem] ${
                 active ? "font-semibold text-text-primary" : "text-text-secondary"
               }`}
             >

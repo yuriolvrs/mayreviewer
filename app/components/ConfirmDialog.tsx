@@ -67,18 +67,18 @@ export default function ConfirmDialog({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
     >
       <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-6 shadow-menu">
-        <h2 id="confirm-dialog-title" className="text-[19px] font-semibold text-text-primary">{title}</h2>
-        <p id="confirm-dialog-body" className="mt-2 text-[15px] text-text-secondary">{body}</p>
+        <h2 id="confirm-dialog-title" className="text-[1.1875rem] font-semibold text-text-primary">{title}</h2>
+        <p id="confirm-dialog-body" className="mt-2 text-[0.9375rem] text-text-secondary">{body}</p>
         <div className="mt-5 flex justify-end gap-3">
           <button
             onClick={onCancel}
-            className="rounded-lg px-4 py-2 text-[15px] font-medium text-text-secondary hover:bg-surface-alt"
+            className="rounded-lg px-4 py-2 text-[0.9375rem] font-medium text-text-secondary hover:bg-surface-alt"
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
-            className={`rounded-lg px-4 py-2 text-[15px] font-medium ${
+            className={`rounded-lg px-4 py-2 text-[0.9375rem] font-medium ${
               destructive ? "bg-error text-on-error hover:opacity-90" : "bg-accent text-on-accent hover:bg-accent-hover"
             }`}
           >

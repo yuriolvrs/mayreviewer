@@ -114,7 +114,7 @@ function QuizPageInner() {
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
         <p className="text-text-secondary">Reviewer not found.</p>
-        <Link href="/" className="text-[15px] font-medium text-accent underline">
+        <Link href="/" className="text-[0.9375rem] font-medium text-accent underline">
           Back to Home
         </Link>
       </div>
@@ -127,7 +127,7 @@ function QuizPageInner() {
   if (stage === "taking") {
     return (
       <div className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
-        <h1 className="text-[26px] font-semibold text-text-primary">{reviewer.reviewerName}</h1>
+        <h1 className="text-[1.625rem] font-semibold text-text-primary">{reviewer.reviewerName}</h1>
         <QuizTaking
           questions={quizQuestions}
           format={format}
@@ -239,20 +239,20 @@ function QuizPageInner() {
     <div className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
       <Link
         href={`/reviewer/${reviewer.id}`}
-        className="text-[15px] text-text-secondary hover:text-text-primary"
+        className="text-[0.9375rem] text-text-secondary hover:text-text-primary"
       >
         ← Details
       </Link>
 
-      <h1 className="mt-4 text-[26px] font-semibold text-text-primary">
+      <h1 className="mt-4 text-[1.625rem] font-semibold text-text-primary">
         {reviewer.reviewerName} - Quiz
       </h1>
-      <p className="mt-1 text-[16px] font-medium text-text-primary">
+      <p className="mt-1 text-[1rem] font-medium text-text-primary">
         {total} question{total === 1 ? "" : "s"}
       </p>
 
       {total === 0 ? (
-        <p className="mt-8 text-[15px] text-text-secondary">
+        <p className="mt-8 text-[0.9375rem] text-text-secondary">
           No questions yet — generate some in the Questions tab first.
         </p>
       ) : (

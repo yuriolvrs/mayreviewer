@@ -20,7 +20,7 @@ export default function NewFormatPage() {
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-6 py-8">
       <nav
         aria-label="Breadcrumb"
-        className="mb-2 flex items-center gap-1.5 text-[12px] tracking-wide uppercase"
+        className="mb-2 flex items-center gap-1.5 text-[0.75rem] tracking-wide uppercase"
       >
         <Link href="/formats" className="text-text-secondary hover:text-text-primary">
           Formats
@@ -31,8 +31,8 @@ export default function NewFormatPage() {
         <span className="text-text-tertiary">New format</span>
       </nav>
 
-      <h1 className="text-[26px] font-semibold text-text-primary">New format</h1>
-      <p className="mt-1 text-[15px] text-text-secondary">
+      <h1 className="text-[1.625rem] font-semibold text-text-primary">New format</h1>
+      <p className="mt-1 text-[0.9375rem] text-text-secondary">
         Define the question types once. Every reviewer on this format generates from it.
       </p>
 

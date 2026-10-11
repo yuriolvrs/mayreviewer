@@ -30,11 +30,11 @@ export default function FeedbackForm() {
   return (
     <form onSubmit={onSubmit} className="mt-2 flex flex-col gap-3">
       <label className="flex flex-col gap-1.5">
-        <span className="text-[15px] font-medium text-text-primary">What is this about?</span>
+        <span className="text-[0.9375rem] font-medium text-text-primary">What is this about?</span>
         <select
           value={type}
           onChange={(e) => setType(e.target.value as FeedbackType)}
-          className="min-h-[44px] w-full max-w-xs rounded-lg border border-border bg-surface px-2 py-2 text-[15px] text-text-primary"
+          className="min-h-[44px] w-full max-w-xs rounded-lg border border-border bg-surface px-2 py-2 text-[0.9375rem] text-text-primary"
         >
           {FEEDBACK_TYPES.map((t) => (
             <option key={t.value} value={t.value}>
@@ -44,7 +44,7 @@ export default function FeedbackForm() {
         </select>
       </label>
       <label className="flex flex-col gap-1.5">
-        <span className="text-[15px] font-medium text-text-primary">Message</span>
+        <span className="text-[0.9375rem] font-medium text-text-primary">Message</span>
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -52,24 +52,24 @@ export default function FeedbackForm() {
           maxLength={2000}
           placeholder="What happened, and what did you expect?"
           aria-describedby={error ? "feedback-error" : undefined}
-          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-[15px] text-text-primary outline-none placeholder:text-text-tertiary focus:border-accent"
+          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-[0.9375rem] text-text-primary outline-none placeholder:text-text-tertiary focus:border-accent"
         />
       </label>
       {error && (
-        <p id="feedback-error" role="alert" className="text-[14px] text-error">
+        <p id="feedback-error" role="alert" className="text-[0.875rem] text-error">
           {error}
         </p>
       )}
       <div className="flex justify-center">
         <button
           type="submit"
-          className="min-h-[44px] rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-on-accent hover:bg-accent-hover"
+          className="min-h-[44px] rounded-lg bg-accent px-4 py-2 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover"
         >
           Send via mail app
         </button>
       </div>
       {sent && (
-        <p role="status" className="text-[14px] text-text-secondary">
+        <p role="status" className="text-[0.875rem] text-text-secondary">
           Mail app opened. If nothing happened, email {SUPPORT_EMAIL} directly.
         </p>
       )}

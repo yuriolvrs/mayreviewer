@@ -25,7 +25,7 @@ function PasswordField({
 }) {
   return (
     <>
-      <label className="mt-4 block text-[15px] font-medium text-text-primary" htmlFor={id}>
+      <label className="mt-4 block text-[0.9375rem] font-medium text-text-primary" htmlFor={id}>
         {label}
       </label>
       <PasswordInput
@@ -135,32 +135,32 @@ export default function LoginPage() {
   if (loading) {
     return (
       <div className="mx-auto w-full max-w-md flex-1 px-6 py-10">
-        <p className="text-[15px] text-text-secondary">Checking your session…</p>
+        <p className="text-[0.9375rem] text-text-secondary">Checking your session…</p>
       </div>
     );
   }
 
   return (
     <div className="mx-auto w-full max-w-md flex-1 px-6 py-10">
-      <h1 className="text-[26px] font-semibold text-text-primary">Sync your reviewers</h1>
-      <p className="mt-1 text-[15px] text-text-secondary">
+      <h1 className="text-[1.625rem] font-semibold text-text-primary">Sync your reviewers</h1>
+      <p className="mt-1 text-[0.9375rem] text-text-secondary">
         Sign in to back up reviewers, questions, history, and settings — and pick them up on
         another device. Your uploaded files stay on each device.
       </p>
 
       {!configured && (
-        <p role="alert" className="mt-4 rounded-lg bg-surface-alt px-3 py-2 text-[14px] text-text-secondary">
+        <p role="alert" className="mt-4 rounded-lg bg-surface-alt px-3 py-2 text-[0.875rem] text-text-secondary">
           Sync isn&apos;t set up on this build yet — the app still works fully on this device.
         </p>
       )}
 
       {error && (
-        <p role="alert" className="mt-4 rounded-lg bg-surface-alt px-3 py-2 text-[14px] font-medium text-error">
+        <p role="alert" className="mt-4 rounded-lg bg-surface-alt px-3 py-2 text-[0.875rem] font-medium text-error">
           {error}
         </p>
       )}
       {needsConfirmation && (
-        <p role="status" className="mt-4 rounded-lg bg-surface-alt px-3 py-2 text-[14px] text-text-secondary">
+        <p role="status" className="mt-4 rounded-lg bg-surface-alt px-3 py-2 text-[0.875rem] text-text-secondary">
           Account created — check your inbox for the confirmation link, then sign in.
         </p>
       )}
@@ -169,7 +169,7 @@ export default function LoginPage() {
         <button
           onClick={() => void submitGoogle()}
           disabled={busy || !configured}
-          className="flex min-h-[48px] w-full items-center justify-center gap-3 rounded-lg border border-border-strong px-4 py-2 text-[15px] font-medium text-text-primary disabled:opacity-40"
+          className="flex min-h-[48px] w-full items-center justify-center gap-3 rounded-lg border border-border-strong px-4 py-2 text-[0.9375rem] font-medium text-text-primary disabled:opacity-40"
         >
           <GoogleLogo />
           Continue with Google
@@ -177,7 +177,7 @@ export default function LoginPage() {
 
         <div className="my-5 flex items-center gap-3" aria-hidden="true">
           <span className="h-px flex-1 bg-border" />
-          <span className="text-[13px] text-text-tertiary">or with email</span>
+          <span className="text-[0.8125rem] text-text-tertiary">or with email</span>
           <span className="h-px flex-1 bg-border" />
         </div>
 
@@ -192,7 +192,7 @@ export default function LoginPage() {
                 setConfirmPassword("");
               }}
               aria-pressed={mode === m}
-              className={`flex min-h-8 flex-1 items-center justify-center rounded-md px-2 py-1.5 text-[15px] ${
+              className={`flex min-h-8 flex-1 items-center justify-center rounded-md px-2 py-1.5 text-[0.9375rem] ${
                 mode === m
                   ? "bg-accent font-semibold text-on-accent"
                   : "text-text-secondary hover:text-text-primary"
@@ -204,7 +204,7 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={(e) => void submitEmail(e)} className="mt-4">
-          <label className="block text-[15px] font-medium text-text-primary" htmlFor="login-email">
+          <label className="block text-[0.9375rem] font-medium text-text-primary" htmlFor="login-email">
             Email
           </label>
           <input
@@ -214,7 +214,7 @@ export default function LoginPage() {
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 h-12 w-full rounded-lg border border-border bg-surface px-3 py-2 text-[15px] text-text-primary outline-none focus:border-accent"
+            className="mt-1 h-12 w-full rounded-lg border border-border bg-surface px-3 py-2 text-[0.9375rem] text-text-primary outline-none focus:border-accent"
           />
           <PasswordField
             id="login-password"
@@ -239,7 +239,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={busy || !configured}
-            className="mt-5 min-h-[48px] w-full rounded-lg bg-accent px-4 py-2 text-[15px] font-semibold text-on-accent disabled:opacity-40"
+            className="mt-5 min-h-[48px] w-full rounded-lg bg-accent px-4 py-2 text-[0.9375rem] font-semibold text-on-accent disabled:opacity-40"
           >
             {busy ? "Working…" : mode === "signin" ? "Sign in" : "Create account"}
           </button>

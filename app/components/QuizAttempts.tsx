@@ -41,7 +41,7 @@ function NewQuestionsDivider() {
       <span className="h-px flex-1 bg-border" />
       {/* Pill sits on the card's surface fill, so it takes the alt fill to
           stay visible — on the open page it used the surface fill itself. */}
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-alt px-3 py-1 text-[12px] text-text-secondary">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-alt px-3 py-1 text-[0.75rem] text-text-secondary">
         <RefreshIcon />
         New questions
       </span>
@@ -62,7 +62,7 @@ function Delta({ change }: { change: number }) {
 
   return (
     <span
-      className={`text-[14px] ${tone}`}
+      className={`text-[0.875rem] ${tone}`}
       title={`${Math.abs(change)}% ${label} from the previous attempt`}
     >
       {arrow} {Math.abs(change)}%
@@ -85,16 +85,16 @@ export default function QuizAttempts({
       aria-label="Your attempts"
       className="rounded-lg border border-border bg-surface p-5 lg:sticky lg:top-6"
     >
-      <h2 className="text-[15px] font-semibold text-text-primary">
+      <h2 className="text-[0.9375rem] font-semibold text-text-primary">
         Your attempts{history.length > 0 ? ` (${history.length})` : ""}
       </h2>
       {history.length === 0 ? (
-        <p className="mt-2 text-[14px] leading-snug text-text-secondary">
+        <p className="mt-2 text-[0.875rem] leading-snug text-text-secondary">
           No attempts yet. Your scores for this reviewer will show up here.
         </p>
       ) : (
         <>
-          <p className="mt-1 text-[13px] leading-snug text-text-tertiary">
+          <p className="mt-1 text-[0.8125rem] leading-snug text-text-tertiary">
             Past scores for this reviewer.
           </p>
           <ul className="mt-2 flex flex-col">
@@ -151,7 +151,7 @@ export default function QuizAttempts({
                       // elsewhere in the app, this row is already full-width, so
                       // negative margin here only shrank the hover fill instead
                       // of extending it — plain padding is the whole row.
-                      className={`flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left text-[15px] ${
+                      className={`flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left text-[0.9375rem] ${
                         reopenable ? "group hover:bg-surface-alt" : ""
                       }`}
                     >

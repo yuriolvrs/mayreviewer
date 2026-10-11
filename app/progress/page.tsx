@@ -233,23 +233,23 @@ export default function ProgressPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
-      <h1 className="text-[26px] font-semibold text-text-primary">Progress</h1>
+      <h1 className="text-[1.625rem] font-semibold text-text-primary">Progress</h1>
 
       {/* The page's one decisive action: no heading, just the fact and the
           button. Only renders while a restore can still save the streak. */}
       {restorable !== null && (
         <div className="mt-8 border-t border-border pt-6">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[15px] font-medium text-text-primary">
+            <p className="text-[0.9375rem] font-medium text-text-primary">
               Oh no! You forgot to review yesterday.
-              <span className="mt-0.5 block text-[13px] font-normal text-text-secondary">
+              <span className="mt-0.5 block text-[0.8125rem] font-normal text-text-secondary">
                 Restore your streak now or else it will be lost forever (a long time!)
               </span>
             </p>
             <button
               type="button"
               onClick={onRestore}
-              className="shrink-0 rounded-lg bg-accent px-6 py-3 text-[15px] font-semibold text-on-accent hover:bg-accent-hover"
+              className="shrink-0 rounded-lg bg-accent px-6 py-3 text-[0.9375rem] font-semibold text-on-accent hover:bg-accent-hover"
             >
               Restore {restoredCount}-day streak
             </button>
@@ -258,16 +258,16 @@ export default function ProgressPage() {
       )}
 
       <div className="mt-8 border-t border-border pt-6">
-        <h2 className="text-[15px] font-semibold text-text-primary">Today&apos;s goal</h2>
+        <h2 className="text-[0.9375rem] font-semibold text-text-primary">Today&apos;s goal</h2>
         {progress.done ? (
-          <p className="mt-2 text-[15px] font-semibold text-text-primary">Goal met</p>
+          <p className="mt-2 text-[0.9375rem] font-semibold text-text-primary">Goal met</p>
         ) : (
           <>
             <div className="mt-2 flex items-baseline justify-between gap-3">
-              <p className="text-[15px] text-text-primary">
+              <p className="text-[0.9375rem] text-text-primary">
                 <span className="font-semibold">{progress.answered}</span> of {progress.goal}
               </p>
-              <p className="text-[14px] text-text-secondary">
+              <p className="text-[0.875rem] text-text-secondary">
                 {progress.goal - progress.answered} more to go
               </p>
             </div>
@@ -289,14 +289,14 @@ export default function ProgressPage() {
       </div>
 
       <div className="mt-8 border-t border-border pt-6">
-        <h2 className="text-[15px] font-semibold text-text-primary">Streak</h2>
+        <h2 className="text-[0.9375rem] font-semibold text-text-primary">Streak</h2>
         {current.count > 0 ? (
-          <p className="mt-2 text-[19px] font-semibold text-text-primary">
+          <p className="mt-2 text-[1.1875rem] font-semibold text-text-primary">
             {current.count === 1 ? "1 day" : `${current.count} days`}{" "}
-            <span className="text-[14px] font-normal text-text-secondary">· best: {best}</span>
+            <span className="text-[0.875rem] font-normal text-text-secondary">· best: {best}</span>
           </p>
         ) : (
-          <p className="mt-2 text-[15px] text-text-secondary">
+          <p className="mt-2 text-[0.9375rem] text-text-secondary">
             No streak yet — answer 5+ questions today to start one.
           </p>
         )}
@@ -312,10 +312,10 @@ export default function ProgressPage() {
             {week.map((d) => (
               <span
                 key={d.key}
-                className="flex w-9 flex-col items-center gap-2 text-[11px] text-text-tertiary md:w-11"
+                className="flex w-9 flex-col items-center gap-2 text-[0.6875rem] text-text-tertiary md:w-11"
               >
                 <span
-                  className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-[12px] md:h-11 md:w-11 md:text-[14px] ${
+                  className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-[0.75rem] md:h-11 md:w-11 md:text-[0.875rem] ${
                     d.hit
                       ? "border-accent bg-accent font-bold text-on-accent"
                       : d.isToday
@@ -331,21 +331,21 @@ export default function ProgressPage() {
           </div>
         </div>
         {current.count > 0 && (
-          <p className="mt-3 text-[14px] text-text-secondary">
+          <p className="mt-3 text-[0.875rem] text-text-secondary">
             {current.todayDone
               ? "Answer 5 questions tomorrow to keep it going."
               : `Answer ${Math.max(0, 5 - progress.answered)} today to keep it going.`}
           </p>
         )}
-        <p className="mt-2 text-[14px] text-text-secondary">
+        <p className="mt-2 text-[0.875rem] text-text-secondary">
           {streak.banked} restore{streak.banked === 1 ? "" : "s"} left · tops up to 3 on{" "}
           {grantLabel}.
         </p>
       </div>
 
       <div className="mt-8 border-t border-border pt-6">
-        <h2 className="text-[15px] font-semibold text-text-primary">Milestones</h2>
-        <p className="mt-1 text-[14px] text-text-secondary">
+        <h2 className="text-[0.9375rem] font-semibold text-text-primary">Milestones</h2>
+        <p className="mt-1 text-[0.875rem] text-text-secondary">
           Every level-up banks +1 restore. Unlocked {unlockedCount} of {badges.length}.
         </p>
         <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
@@ -371,12 +371,12 @@ export default function ProgressPage() {
                 >
                   {style.icon}
                 </span>
-                <p className={`text-[14px] font-semibold ${locked ? "text-text-secondary" : "text-text-primary"}`}>
+                <p className={`text-[0.875rem] font-semibold ${locked ? "text-text-secondary" : "text-text-primary"}`}>
                   {family.label}
                   {status.level > 0 ? ` ${toRoman(status.level)}` : ""}
                 </p>
-                <p className="text-[12px] leading-snug text-text-secondary">{family.description}</p>
-                <p className={`text-[12px] ${claimable ? "font-semibold text-accent" : "text-text-tertiary"}`}>
+                <p className="text-[0.75rem] leading-snug text-text-secondary">{family.description}</p>
+                <p className={`text-[0.75rem] ${claimable ? "font-semibold text-accent" : "text-text-tertiary"}`}>
                   {/* Streak counts a running best, not a lifetime total — the
                       line says so, so "2 of 7" never reads as "2 done". */}
                   {locked
@@ -398,7 +398,7 @@ export default function ProgressPage() {
                     type="button"
                     onClick={() => onClaim(family)}
                     aria-label={`Claim ${family.label} level ${status.level}, plus 1 restore`}
-                    className="mt-1.5 shrink-0 rounded-lg bg-accent px-4 py-1.5 text-[13px] font-semibold text-on-accent hover:bg-accent-hover"
+                    className="mt-1.5 shrink-0 rounded-lg bg-accent px-4 py-1.5 text-[0.8125rem] font-semibold text-on-accent hover:bg-accent-hover"
                   >
                     Claim +1
                   </button>

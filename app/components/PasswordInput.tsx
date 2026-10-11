@@ -78,7 +78,7 @@ export default function PasswordInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={ariaLabel}
-        className="h-12 w-full rounded-lg border border-border bg-surface py-2 pr-14 pl-3 text-[15px] text-text-primary outline-none placeholder:text-text-tertiary focus:border-accent"
+        className="h-12 w-full rounded-lg border border-border bg-surface py-2 pr-14 pl-3 text-[0.9375rem] text-text-primary outline-none placeholder:text-text-tertiary focus:border-accent"
       />
       <button
         type="button"

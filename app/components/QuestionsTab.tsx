@@ -182,8 +182,8 @@ function QuestionEditor({
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-[13px] tracking-wide">
-            <span className="text-[14px] font-bold text-text-primary">
+          <span className="font-mono text-[0.8125rem] tracking-wide">
+            <span className="text-[0.875rem] font-bold text-text-primary">
               {number !== undefined ? `${number}.` : "New"}
             </span>{" "}
             <span className="text-text-tertiary uppercase">· Type:</span>
@@ -193,7 +193,7 @@ function QuestionEditor({
               value={draft.type}
               onChange={(e) => setDraft({ ...draft, type: e.target.value })}
               aria-label="Question type"
-              className="cursor-pointer appearance-none border-0 bg-transparent p-0 pr-4 font-mono text-[13px] tracking-wide text-inherit uppercase outline-none hover:underline focus:underline"
+              className="cursor-pointer appearance-none border-0 bg-transparent p-0 pr-4 font-mono text-[0.8125rem] tracking-wide text-inherit uppercase outline-none hover:underline focus:underline"
             >
               {types.map((t) => (
                 <option key={t} value={t} className="normal-case">
@@ -203,12 +203,12 @@ function QuestionEditor({
             </select>
             <CaretIcon className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2" />
           </span>
-          <span className="font-mono text-[13px] tracking-wide text-text-tertiary uppercase">
+          <span className="font-mono text-[0.8125rem] tracking-wide text-text-tertiary uppercase">
             · Source: {SOURCE_LABELS[draft.source]}
           </span>
         </div>
 
-        <div className="flex shrink-0 items-center gap-3 text-[14px]">
+        <div className="flex shrink-0 items-center gap-3 text-[0.875rem]">
           <button
             onClick={onCancel}
             className="font-medium text-text-secondary hover:text-text-primary"
@@ -228,14 +228,14 @@ function QuestionEditor({
 
       {draft.stimulus !== undefined && (
         <label className="flex flex-col gap-1.5">
-          <span className="text-[14px] text-text-secondary">
+          <span className="text-[0.875rem] text-text-secondary">
             Problem shared by this set — editing it updates every question in the set
           </span>
           <textarea
             value={draft.stimulus}
             onChange={(e) => setDraft({ ...draft, stimulus: e.target.value })}
             rows={10}
-            className="w-full rounded-lg border border-border bg-surface p-3 font-mono text-[14px] text-text-primary outline-none focus:border-accent"
+            className="w-full rounded-lg border border-border bg-surface p-3 font-mono text-[0.875rem] text-text-primary outline-none focus:border-accent"
           />
         </label>
       )}
@@ -247,7 +247,7 @@ function QuestionEditor({
         rows={2}
         placeholder="Type your question…"
         aria-label="Question text"
-        className={`w-full resize-y rounded-lg border border-border bg-surface p-3 text-[15px] text-text-primary outline-none focus:border-accent ${
+        className={`w-full resize-y rounded-lg border border-border bg-surface p-3 text-[0.9375rem] text-text-primary outline-none focus:border-accent ${
           isPreformatted(draft.type) ? "font-mono" : ""
         }`}
       />
@@ -282,7 +282,7 @@ function QuestionEditor({
               }
               placeholder={`Option ${optionLetter(i)}`}
               aria-label={`Option ${optionLetter(i)}`}
-              className="h-10 flex-1 rounded-lg border border-border bg-surface px-3 text-[15px] text-text-primary outline-none focus:border-accent"
+              className="h-10 flex-1 rounded-lg border border-border bg-surface px-3 text-[0.9375rem] text-text-primary outline-none focus:border-accent"
             />
             {isCorrect(i) && (
               <span className="shrink-0 text-success">
@@ -307,18 +307,18 @@ function QuestionEditor({
         <button
           type="button"
           onClick={() => setDraft({ ...draft, options: [...draft.options, ""] })}
-          className="self-start rounded-lg border border-dashed border-border-strong px-3 py-1.5 text-[14px] font-medium text-text-secondary hover:border-accent hover:text-accent"
+          className="self-start rounded-lg border border-dashed border-border-strong px-3 py-1.5 text-[0.875rem] font-medium text-text-secondary hover:border-accent hover:text-accent"
         >
           + Add option
         </button>
       </div>
 
-      <p className="text-[14px] text-text-tertiary">
+      <p className="text-[0.875rem] text-text-tertiary">
         Select the radio next to the correct option. The highlighted option is currently correct.
       </p>
 
       <label className="flex flex-col gap-1.5">
-        <span className="text-[14px] text-text-secondary">
+        <span className="text-[0.875rem] text-text-secondary">
           Explanation — a sentence or two on why that option is correct
         </span>
         <textarea
@@ -326,12 +326,12 @@ function QuestionEditor({
           onChange={(e) => setDraft({ ...draft, explanation: e.target.value })}
           rows={2}
           placeholder="Optional, but shown alongside the answer in results and immediate feedback…"
-          className="w-full resize-y rounded-lg border border-border bg-surface p-3 text-[15px] text-text-primary outline-none focus:border-accent"
+          className="w-full resize-y rounded-lg border border-border bg-surface p-3 text-[0.9375rem] text-text-primary outline-none focus:border-accent"
         />
       </label>
 
       <label className="flex flex-col gap-1.5">
-        <span className="text-[14px] text-text-secondary">
+        <span className="text-[0.875rem] text-text-secondary">
           Why not the others — a sentence or two ruling out the remaining options
         </span>
         <textarea
@@ -339,7 +339,7 @@ function QuestionEditor({
           onChange={(e) => setDraft({ ...draft, whyOthersWrong: e.target.value })}
           rows={2}
           placeholder="Optional, shown as a second paragraph under the explanation…"
-          className="w-full resize-y rounded-lg border border-border bg-surface p-3 text-[15px] text-text-primary outline-none focus:border-accent"
+          className="w-full resize-y rounded-lg border border-border bg-surface p-3 text-[0.9375rem] text-text-primary outline-none focus:border-accent"
         />
       </label>
     </div>
@@ -631,14 +631,14 @@ function startCreate() {
           placeholder="Search questions…"
           aria-label="Search questions"
           disabled={generating}
-          className="h-11 w-full rounded-lg border border-border bg-surface px-3 text-[15px] text-text-primary outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:min-w-[220px] sm:flex-1"
+          className="h-11 w-full rounded-lg border border-border bg-surface px-3 text-[0.9375rem] text-text-primary outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:min-w-[220px] sm:flex-1"
         />
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as Sort)}
           aria-label="Sort questions"
           disabled={generating}
-          className="h-11 min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 text-[15px] text-text-primary outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none sm:shrink-0"
+          className="h-11 min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 text-[0.9375rem] text-text-primary outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none sm:shrink-0"
         >
           <option value="newest">Sort: Newest</option>
           <option value="oldest">Sort: Oldest</option>
@@ -649,7 +649,7 @@ function startCreate() {
           type="button"
           onClick={startCreate}
           disabled={generating}
-          className="h-11 min-w-0 flex-1 rounded-lg border border-border-strong px-4 text-[15px] font-medium text-text-secondary enabled:hover:border-accent enabled:hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none sm:shrink-0"
+          className="h-11 min-w-0 flex-1 rounded-lg border border-border-strong px-4 text-[0.9375rem] font-medium text-text-secondary enabled:hover:border-accent enabled:hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none sm:shrink-0"
         >
           + Add question
         </button>
@@ -662,7 +662,7 @@ function startCreate() {
               ? `Generate ${reviewer.questionCount} questions from this reviewer's sources`
               : "Generation needs an internet connection"
           }
-          className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 text-[15px] font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:shrink-0"
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 text-[0.9375rem] font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:shrink-0"
         >
           <SparkleIcon />
           {generating ? "Generating…" : "Generate"}
@@ -670,23 +670,23 @@ function startCreate() {
       </div>
 
       {!online && (
-        <p className="text-[14px] text-text-secondary">
+        <p className="text-[0.875rem] text-text-secondary">
           You&apos;re offline — quizzing works, but generation needs a connection.
         </p>
       )}
 
       {!generating && generateError && (
-        <p className="text-[15px] text-error">{generateError}</p>
+        <p className="text-[0.9375rem] text-error">{generateError}</p>
       )}
 
       {cancelled && (
-        <p className="text-[15px] text-text-secondary">
+        <p className="text-[0.9375rem] text-text-secondary">
           Generation cancelled — your questions are unchanged.
         </p>
       )}
 
       {!generating && failures.length > 0 && (
-        <ul className="ml-5 list-disc text-[14px] text-text-secondary">
+        <ul className="ml-5 list-disc text-[0.875rem] text-text-secondary">
           {failures.map((f) => (
             <li key={f.label}>
               <span className="font-medium text-text-primary">{f.label}</span> — {f.reason}
@@ -696,7 +696,7 @@ function startCreate() {
       )}
 
       {!generating && verified && (verified.corrected > 0 || verified.dropped > 0) && (
-        <p className="text-[14px] text-text-secondary">
+        <p className="text-[0.875rem] text-text-secondary">
           Answer check: {verified.corrected > 0 && `fixed ${verified.corrected} wrong answer${verified.corrected === 1 ? "" : "s"}`}
           {verified.corrected > 0 && verified.dropped > 0 && ", "}
           {verified.dropped > 0 && `dropped ${verified.dropped} unanswerable question${verified.dropped === 1 ? "" : "s"}`}.
@@ -709,12 +709,12 @@ function startCreate() {
           groups flow back into the single row they always were. */}
       <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-alt px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[14px] text-text-secondary">Type</span>
+          <span className="text-[0.875rem] text-text-secondary">Type</span>
           {typeFilters.map((t) => (
             <button
               key={t}
               onClick={() => setTypeFilter(t)}
-              className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
+              className={`rounded-lg px-2.5 py-1 text-[0.875rem] font-medium ${
                 typeFilter === t
                   ? "bg-accent text-on-accent"
                   : "border border-border-strong text-text-secondary hover:text-text-primary"
@@ -731,7 +731,7 @@ function startCreate() {
           <button
             onClick={() => setFavFilter(favFilter === "starred" ? "all" : "starred")}
             aria-pressed={favFilter === "starred"}
-            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[14px] font-medium ${
+            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[0.875rem] font-medium ${
               favFilter === "starred"
                 ? "bg-accent text-on-accent"
                 : "border border-border-strong text-text-secondary hover:text-text-primary"
@@ -745,12 +745,12 @@ function startCreate() {
         <div className="mx-2 hidden h-6 w-px bg-border-strong sm:block" />
 
         <div className="flex items-center gap-2 sm:flex-1">
-          <span className="shrink-0 text-[14px] text-text-secondary">Source</span>
+          <span className="shrink-0 text-[0.875rem] text-text-secondary">Source</span>
           <select
             value={sourceFilter}
             onChange={(e) => setSourceFilter(e.target.value as "all" | QuestionSource)}
             aria-label="Filter by source"
-            className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-surface px-2 text-[14px] text-text-primary outline-none focus:border-accent sm:flex-none"
+            className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-surface px-2 text-[0.875rem] text-text-primary outline-none focus:border-accent sm:flex-none"
           >
             {SOURCE_FILTERS.map((s) => (
               <option key={s} value={s}>
@@ -759,7 +759,7 @@ function startCreate() {
             ))}
           </select>
 
-          <span className="ml-auto shrink-0 pl-2 text-[14px] text-text-tertiary">
+          <span className="ml-auto shrink-0 pl-2 text-[0.875rem] text-text-tertiary">
             {total} question{total === 1 ? "" : "s"} total
           </span>
         </div>
@@ -780,12 +780,12 @@ function startCreate() {
       )}
 
       {total === 0 ? (
-        <p className="text-[15px] text-text-secondary">
+        <p className="text-[0.9375rem] text-text-secondary">
           No questions yet — add your notes in the Details tab, then hit Generate. You can also add
           one by hand.
         </p>
       ) : visible.length === 0 ? (
-        <p className="text-[15px] text-text-secondary">No questions match these filters.</p>
+        <p className="text-[0.9375rem] text-text-secondary">No questions match these filters.</p>
       ) : (
         <>
           <div className="flex items-center gap-3">
@@ -799,13 +799,13 @@ function startCreate() {
             />
 
             {selected.length === 0 ? (
-              <span className="text-[15px] text-text-secondary">
+              <span className="text-[0.9375rem] text-text-secondary">
                 Select all {visible.length} question{visible.length === 1 ? "" : "s"}
               </span>
             ) : (
               <>
-                <span className="text-[15px] text-text-primary">{selected.length} selected</span>
-                <div className="ml-auto flex items-center gap-4 text-[14px]">
+                <span className="text-[0.9375rem] text-text-primary">{selected.length} selected</span>
+                <div className="ml-auto flex items-center gap-4 text-[0.875rem]">
                   {confirmBulkDelete ? (
                     <>
                       <span className="text-text-secondary">
@@ -875,7 +875,7 @@ function startCreate() {
                   ) : (
                     <>
                       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
-                        <span className="shrink-0 font-mono text-[13px] tracking-wide uppercase">
+                        <span className="shrink-0 font-mono text-[0.8125rem] tracking-wide uppercase">
                           <span className="font-semibold text-text-secondary">Question {number}</span>{" "}
                           <span className="font-normal text-text-tertiary">
                             · {typeLabelOf(format, question.type)} · {SOURCE_LABELS[question.source]}
@@ -887,7 +887,7 @@ function startCreate() {
                             stacking flush under the label. Below `sm` it's also
                             a size and weight lighter than that label, so the
                             two don't read as equals. */}
-                        <div className="ml-auto flex shrink-0 items-center gap-3 text-[13px] sm:text-[14px]">
+                        <div className="ml-auto flex shrink-0 items-center gap-3 text-[0.8125rem] sm:text-[0.875rem]">
                           {confirmDeleteId === question.id ? (
                             <>
                               <span className="text-text-tertiary sm:text-text-secondary">
@@ -944,10 +944,10 @@ function startCreate() {
                         // the quiz and results screens branch for branch.
                         (isMonoKind(stimulusKindOf(format, question.type)) ? (
                           <details className="mt-2">
-                            <summary className="cursor-pointer text-[14px] text-text-secondary hover:text-text-primary">
+                            <summary className="cursor-pointer text-[0.875rem] text-text-secondary hover:text-text-primary">
                               {question.groupTitle || "Show the problem"}
                             </summary>
-                            <pre className="mt-2 overflow-x-auto rounded-r-lg border-l-2 border-accent bg-surface-alt p-4 font-mono text-[14px] leading-relaxed text-text-primary">
+                            <pre className="mt-2 overflow-x-auto rounded-r-lg border-l-2 border-accent bg-surface-alt p-4 font-mono text-[0.875rem] leading-relaxed text-text-primary">
                               {question.stimulus}
                             </pre>
                           </details>
@@ -956,7 +956,7 @@ function startCreate() {
                         ))}
 
                       <p
-                        className={`mt-2 text-[15px] leading-relaxed whitespace-pre-wrap text-text-primary ${
+                        className={`mt-2 text-[0.9375rem] leading-relaxed whitespace-pre-wrap text-text-primary ${
                           isPreformatted(question.type) && !question.stimulus ? "font-mono" : ""
                         }`}
                       >
@@ -967,13 +967,13 @@ function startCreate() {
                         {question.options.map((option, i) => (
                           <li
                             key={i}
-                            className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-[15px] ${
+                            className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-[0.9375rem] ${
                               i === question.correctIndex
                                 ? "bg-success-subtle font-medium text-success"
                                 : "text-text-secondary"
                             }`}
                           >
-                            <span className="font-mono text-[13px] text-text-tertiary">
+                            <span className="font-mono text-[0.8125rem] text-text-tertiary">
                               {optionLetter(i)}.
                             </span>
                             <span className="min-w-0 break-words">{option}</span>
@@ -987,14 +987,14 @@ function startCreate() {
                       </ol>
 
                       {question.explanation && (
-                        <p className="mt-3 text-[14px] leading-relaxed text-text-secondary">
+                        <p className="mt-3 text-[0.875rem] leading-relaxed text-text-secondary">
                           <span className="font-medium text-text-primary">Explanation:</span>{" "}
                           {question.explanation}
                         </p>
                       )}
 
                       {question.whyOthersWrong && (
-                        <p className="mt-2 text-[14px] leading-relaxed text-text-secondary">
+                        <p className="mt-2 text-[0.875rem] leading-relaxed text-text-secondary">
                           <span className="font-medium text-text-primary">Why not the others:</span>{" "}
                           {question.whyOthersWrong}
                         </p>

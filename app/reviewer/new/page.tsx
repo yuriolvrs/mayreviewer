@@ -208,7 +208,7 @@ export default function NewReviewerPage() {
     <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-6 py-8">
       <nav
         aria-label="Breadcrumb"
-        className="mb-2 flex items-center gap-1.5 text-[12px] tracking-wide uppercase"
+        className="mb-2 flex items-center gap-1.5 text-[0.75rem] tracking-wide uppercase"
       >
         <Link href="/" className="text-text-secondary hover:text-text-primary">
           Reviewers
@@ -219,7 +219,7 @@ export default function NewReviewerPage() {
         <span className="text-text-tertiary">New reviewer</span>
       </nav>
 
-      <h1 className="text-[26px] font-semibold text-text-primary">New reviewer</h1>
+      <h1 className="text-[1.625rem] font-semibold text-text-primary">New reviewer</h1>
 
       <div className="mt-4">
         <input
@@ -237,8 +237,8 @@ export default function NewReviewerPage() {
 
         {importPending ? (
           <div className="rounded-lg border border-border bg-surface-alt p-4">
-            <p className="text-[15px] font-medium text-text-primary">{importPending.fileName}</p>
-            <dl className="mt-3 flex flex-col gap-1 text-[14px]">
+            <p className="text-[0.9375rem] font-medium text-text-primary">{importPending.fileName}</p>
+            <dl className="mt-3 flex flex-col gap-1 text-[0.875rem]">
               <div className="flex gap-2">
                 <dt className="text-text-secondary">Reviewer name</dt>
                 <dd className="text-text-primary">{importPending.reviewerName}</dd>
@@ -268,7 +268,7 @@ export default function NewReviewerPage() {
               <button
                 type="button"
                 onClick={() => setImportPending(null)}
-                className="text-[15px] font-medium text-text-secondary hover:text-text-primary"
+                className="text-[0.9375rem] font-medium text-text-secondary hover:text-text-primary"
               >
                 Cancel
               </button>
@@ -276,7 +276,7 @@ export default function NewReviewerPage() {
                 type="button"
                 onClick={confirmImportCreate}
                 disabled={importing}
-                className="rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-on-accent hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-lg bg-accent px-4 py-2 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {importing ? "Creating…" : "Create from file"}
               </button>
@@ -301,8 +301,8 @@ export default function NewReviewerPage() {
             }`}
           >
             <UploadIcon />
-            <p className="text-[15px] font-semibold text-text-primary">Already have an exported reviewer?</p>
-            <p className="mt-1 text-[14px] text-text-secondary">
+            <p className="text-[0.9375rem] font-semibold text-text-primary">Already have an exported reviewer?</p>
+            <p className="mt-1 text-[0.875rem] text-text-secondary">
               Drop a <span className="font-mono">.json</span> or <span className="font-mono">.zip</span> file
               here, or click to browse.
             </p>
@@ -310,7 +310,7 @@ export default function NewReviewerPage() {
         )}
 
         {importError && (
-          <p role="alert" className="mt-2 text-[14px] text-error">
+          <p role="alert" className="mt-2 text-[0.875rem] text-error">
             {importError}
           </p>
         )}
@@ -318,7 +318,7 @@ export default function NewReviewerPage() {
 
       <div className="my-6 flex items-center gap-4">
         <div className="h-px flex-1 bg-border" />
-        <span className="text-[12px] font-medium tracking-wide text-text-tertiary uppercase">
+        <span className="text-[0.75rem] font-medium tracking-wide text-text-tertiary uppercase">
           Or start from scratch
         </span>
         <div className="h-px flex-1 bg-border" />
@@ -327,12 +327,12 @@ export default function NewReviewerPage() {
       <form onSubmit={handleCreate} className="flex flex-col">
         <div className="grid grid-cols-1 gap-6 pb-6 md:grid-cols-[160px_1fr]">
           <div>
-            <p className="text-[15px] font-medium text-text-primary">Reviewer info</p>
-            <p className="mt-1 text-[14px] text-text-secondary">Name and subject for this reviewer.</p>
+            <p className="text-[0.9375rem] font-medium text-text-primary">Reviewer info</p>
+            <p className="mt-1 text-[0.875rem] text-text-secondary">Name and subject for this reviewer.</p>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5">
-              <span className="text-[14px] text-text-secondary">
+              <span className="text-[0.875rem] text-text-secondary">
                 Reviewer name <span className="text-error">*</span>
               </span>
               <input
@@ -348,10 +348,10 @@ export default function NewReviewerPage() {
                 }`}
                 autoFocus
               />
-              {nameError && <span className="text-[13px] text-error">Reviewer name is required.</span>}
+              {nameError && <span className="text-[0.8125rem] text-error">Reviewer name is required.</span>}
             </label>
             <label className="flex flex-col gap-1.5">
-              <span className="text-[14px] text-text-secondary">Subject (optional)</span>
+              <span className="text-[0.875rem] text-text-secondary">Subject (optional)</span>
               <input
                 type="text"
                 value={subject}
@@ -365,8 +365,8 @@ export default function NewReviewerPage() {
 
         <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
           <div>
-            <p className="text-[15px] font-medium text-text-primary">Topics</p>
-            <p className="mt-1 text-[14px] text-text-secondary">
+            <p className="text-[0.9375rem] font-medium text-text-primary">Topics</p>
+            <p className="mt-1 text-[0.875rem] text-text-secondary">
               Optional. Weights question generation toward these topics.
             </p>
           </div>
@@ -409,7 +409,7 @@ export default function NewReviewerPage() {
             <button
               type="button"
               onClick={addTopic}
-              className="col-span-full flex h-11 items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong text-[15px] font-medium text-text-secondary hover:border-accent hover:text-accent"
+              className="col-span-full flex h-11 items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong text-[0.9375rem] font-medium text-text-secondary hover:border-accent hover:text-accent"
             >
               + Add topic
             </button>
@@ -418,8 +418,8 @@ export default function NewReviewerPage() {
 
         <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
           <div>
-            <p className="text-[15px] font-medium text-text-primary">Exam format</p>
-            <p className="mt-1 text-[14px] text-text-secondary">
+            <p className="text-[0.9375rem] font-medium text-text-primary">Exam format</p>
+            <p className="mt-1 text-[0.875rem] text-text-secondary">
               The question formats this reviewer generates.
             </p>
           </div>
@@ -446,9 +446,9 @@ export default function NewReviewerPage() {
                     }}
                     className="h-4 w-4 shrink-0 accent-accent"
                   />
-                  <span className="text-[15px] font-semibold text-text-primary">{f.name}</span>
+                  <span className="text-[0.9375rem] font-semibold text-text-primary">{f.name}</span>
                 </span>
-                <span className="mt-1 block pl-[26px] text-[13px] text-text-tertiary">
+                <span className="mt-1 block pl-[26px] text-[0.8125rem] text-text-tertiary">
                   {f.types.map((t) => t.label).join(" · ")}
                 </span>
               </label>
@@ -458,8 +458,8 @@ export default function NewReviewerPage() {
 
         <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
           <div>
-            <p className="text-[15px] font-medium text-text-primary">Question count</p>
-            <p className="mt-1 text-[14px] text-text-secondary">How many questions to generate per type.</p>
+            <p className="text-[0.9375rem] font-medium text-text-primary">Question count</p>
+            <p className="mt-1 text-[0.875rem] text-text-secondary">How many questions to generate per type.</p>
           </div>
           <QuestionCountControl
             format={format}
@@ -479,7 +479,7 @@ export default function NewReviewerPage() {
         />
 
         {error && (
-          <p role="alert" className="pb-2 text-[15px] text-error">
+          <p role="alert" className="pb-2 text-[0.9375rem] text-error">
             {error}
           </p>
         )}
@@ -487,7 +487,7 @@ export default function NewReviewerPage() {
         <div className="flex justify-end border-t border-border py-6">
           <button
             type="submit"
-            className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-on-accent hover:bg-accent-hover"
+            className="rounded-lg bg-accent px-4 py-2.5 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover"
           >
             Create Reviewer
           </button>

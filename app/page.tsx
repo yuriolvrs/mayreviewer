@@ -141,14 +141,14 @@ export default function Home() {
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-12">
       {showWelcome && (
         <div role="status" className="flex items-center justify-between gap-3 rounded-lg bg-surface-alt px-3 py-2">
-          <p className="text-[14px] text-text-secondary">
+          <p className="text-[0.875rem] text-text-secondary">
             <span className="font-semibold text-text-primary">Account created — you&apos;re signed in.</span>{" "}
             Your reviewers now sync across devices.
           </p>
           <button
             onClick={() => setShowWelcome(false)}
             aria-label="Dismiss welcome message"
-            className="flex min-h-[44px] min-w-[44px] flex-none items-center justify-center rounded-md text-[18px] text-text-secondary hover:text-text-primary"
+            className="flex min-h-[44px] min-w-[44px] flex-none items-center justify-center rounded-md text-[1.125rem] text-text-secondary hover:text-text-primary"
           >
             ×
           </button>
@@ -156,16 +156,16 @@ export default function Home() {
       )}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-[34px] font-bold leading-10 tracking-tight text-text-primary">
+          <h1 className="text-[2.125rem] font-bold leading-10 tracking-tight text-text-primary">
             Reviewers
           </h1>
-          <p className="mt-1 text-[15px] text-text-secondary">
+          <p className="mt-1 text-[0.9375rem] text-text-secondary">
             Turn your notes into a practice exam.
           </p>
         </div>
         <Link
           href="/reviewer/new"
-          className="shrink-0 rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-on-accent hover:bg-accent-hover"
+          className="shrink-0 rounded-lg bg-accent px-4 py-2.5 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover"
         >
           + New Reviewer
         </Link>
@@ -173,7 +173,7 @@ export default function Home() {
 
       {reviewers.length > 0 && (
         <>
-          <p role="status" className="text-[15px] font-medium text-text-primary">
+          <p role="status" className="text-[0.9375rem] font-medium text-text-primary">
             {progress.done ? "Goal met" : `Today ${progress.answered}/${progress.goal}`}
             {streakNow.count > 0 && (
               <>
@@ -184,13 +184,13 @@ export default function Home() {
           </p>
           {restorable !== null && (
             <div className="flex items-center justify-between gap-3">
-              <p className="text-[14px] text-text-secondary">
+              <p className="text-[0.875rem] text-text-secondary">
                 Oh no! You forgot to review yesterday.
               </p>
               <button
                 type="button"
                 onClick={onRestore}
-                className="shrink-0 rounded-lg border border-accent px-3.5 py-1.5 text-[13px] font-semibold text-accent hover:bg-accent-subtle"
+                className="shrink-0 rounded-lg border border-accent px-3.5 py-1.5 text-[0.8125rem] font-semibold text-accent hover:bg-accent-subtle"
               >
                 Restore
               </button>
@@ -211,15 +211,15 @@ export default function Home() {
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search reviewers…"
             aria-label="Search reviewers"
-            className="h-11 w-full rounded-lg border border-border bg-surface px-3 py-2 text-[15px] text-text-primary outline-none placeholder:text-text-tertiary focus:border-accent"
+            className="h-11 w-full rounded-lg border border-border bg-surface px-3 py-2 text-[0.9375rem] text-text-primary outline-none placeholder:text-text-tertiary focus:border-accent"
           />
           {term && (
-            <p className="text-[14px] text-text-secondary" role="status">
+            <p className="text-[0.875rem] text-text-secondary" role="status">
               {visible.length} of {reviewers.length} reviewer{reviewers.length === 1 ? "" : "s"} shown
             </p>
           )}
           {visible.length === 0 ? (
-            <p className="text-[15px] text-text-secondary">
+            <p className="text-[0.9375rem] text-text-secondary">
               No reviewers match “{search.trim()}”.
             </p>
           ) : (
@@ -236,13 +236,13 @@ export default function Home() {
               className="h-4 w-4 shrink-0 accent-accent"
             />
             {selected.length === 0 ? (
-              <span className="text-[15px] text-text-secondary">
+              <span className="text-[0.9375rem] text-text-secondary">
                 Select all {visible.length} reviewer{visible.length === 1 ? "" : "s"}
               </span>
             ) : (
               <>
-                <span className="text-[15px] text-text-primary">{selected.length} selected</span>
-                <div className="ml-auto flex items-center gap-4 text-[14px]">
+                <span className="text-[0.9375rem] text-text-primary">{selected.length} selected</span>
+                <div className="ml-auto flex items-center gap-4 text-[0.875rem]">
                   <button
                     onClick={() => setSelected([])}
                     className="font-medium text-text-secondary hover:text-text-primary"
@@ -277,10 +277,10 @@ export default function Home() {
                     className="h-4 w-4 shrink-0 accent-accent"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[19px] font-semibold text-text-primary">
+                    <p className="truncate text-[1.1875rem] font-semibold text-text-primary">
                       {reviewer.reviewerName}
                     </p>
-                    <p className="mt-1 text-[15px] text-text-secondary">
+                    <p className="mt-1 text-[0.9375rem] text-text-secondary">
                       {reviewer.questions.length} question
                       {reviewer.questions.length === 1 ? "" : "s"} ·{" "}
                       {new Date(reviewer.updatedAt).toLocaleDateString(undefined, {
@@ -293,14 +293,14 @@ export default function Home() {
                   <div className="ml-auto flex shrink-0 items-center gap-2 max-sm:w-full max-sm:[&>a]:flex-1 max-sm:[&>a]:text-center">
                     <Link
                       href={`/reviewer/${reviewer.id}`}
-                      className="rounded-lg border border-border-strong px-3.5 py-2 text-[14px] font-medium text-text-primary hover:text-text-primary"
+                      className="rounded-lg border border-border-strong px-3.5 py-2 text-[0.875rem] font-medium text-text-primary hover:text-text-primary"
                     >
                       Edit
                     </Link>
                     {hasQuestions ? (
                       <Link
                         href={`/reviewer/${reviewer.id}/quiz`}
-                        className="rounded-lg bg-accent px-3.5 py-2 text-[14px] font-medium text-on-accent hover:bg-accent-hover"
+                        className="rounded-lg bg-accent px-3.5 py-2 text-[0.875rem] font-medium text-on-accent hover:bg-accent-hover"
                       >
                         Take Quiz
                       </Link>
@@ -308,7 +308,7 @@ export default function Home() {
                       <span
                         title="Generate questions first"
                         aria-disabled="true"
-                        className="cursor-not-allowed rounded-lg bg-accent px-3.5 py-2 text-[14px] font-medium text-on-accent opacity-40"
+                        className="cursor-not-allowed rounded-lg bg-accent px-3.5 py-2 text-[0.875rem] font-medium text-on-accent opacity-40"
                       >
                         Take Quiz
                       </span>

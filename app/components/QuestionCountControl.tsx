@@ -65,7 +65,7 @@ export default function QuestionCountControl({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {types.map((type) => (
           <label key={type} className="flex flex-col gap-1.5">
-            <span className="text-[14px] text-text-secondary">{typeLabelOf(format, type)}</span>
+            <span className="text-[0.875rem] text-text-secondary">{typeLabelOf(format, type)}</span>
             <input
               type="number"
               min={0}
@@ -78,7 +78,7 @@ export default function QuestionCountControl({
           </label>
         ))}
       </div>
-      <p className="mt-3 text-[14px] font-semibold text-text-primary">
+      <p className="mt-3 text-[0.875rem] font-semibold text-text-primary">
         Total: {total} question{total === 1 ? "" : "s"}
       </p>
     </div>

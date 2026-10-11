@@ -32,11 +32,11 @@ function FormatCard({
   return (
     <li className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-6">
       <div>
-        <p className="text-[19px] font-semibold text-text-primary">{format.name}</p>
+        <p className="text-[1.1875rem] font-semibold text-text-primary">{format.name}</p>
       </div>
       <ul className="flex flex-col gap-1.5">
         {format.types.map((t) => (
-          <li key={t.key} className="flex items-baseline justify-between gap-3 text-[15px]">
+          <li key={t.key} className="flex items-baseline justify-between gap-3 text-[0.9375rem]">
             <span className="text-text-primary">{t.label}</span>
             <span className="shrink-0 text-text-secondary">
               {t.defaultCount} question{t.defaultCount === 1 ? "" : "s"} default
@@ -47,11 +47,11 @@ function FormatCard({
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
         <Link
           href={`/reviewer/new?format=${encodeURIComponent(format.id)}`}
-          className="text-[14px] font-medium text-accent hover:underline"
+          className="text-[0.875rem] font-medium text-accent hover:underline"
         >
           New reviewer with this format
         </Link>
-        <div className="ml-auto flex items-center gap-4 text-[14px]">
+        <div className="ml-auto flex items-center gap-4 text-[0.875rem]">
           {custom && (
             <Link
               href={`/formats/${format.id}`}
@@ -75,7 +75,7 @@ function FormatCard({
         </div>
       </div>
       {custom && usageCount > 0 && (
-        <p className="text-[13px] text-text-tertiary">
+        <p className="text-[0.8125rem] text-text-tertiary">
           {usageCount} reviewer{usageCount === 1 ? "" : "s"} use{usageCount === 1 ? "s" : ""} this
           format.
         </p>
@@ -141,16 +141,16 @@ export default function FormatsPage() {
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-12">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-[34px] font-bold leading-10 tracking-tight text-text-primary">
+          <h1 className="text-[2.125rem] font-bold leading-10 tracking-tight text-text-primary">
             Exam formats
           </h1>
-          <p className="mt-1 text-[15px] text-text-secondary">
+          <p className="mt-1 text-[0.9375rem] text-text-secondary">
             Pick a question format for your reviewers.
           </p>
         </div>
         <Link
           href="/formats/new"
-          className="shrink-0 rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-on-accent hover:bg-accent-hover"
+          className="shrink-0 rounded-lg bg-accent px-4 py-2.5 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover"
         >
           + New format
         </Link>
@@ -158,7 +158,7 @@ export default function FormatsPage() {
 
       {customs.length > 0 && (
         <>
-          <h2 className="text-[15px] font-semibold text-text-primary">Your formats</h2>
+          <h2 className="text-[0.9375rem] font-semibold text-text-primary">Your formats</h2>
           <ul className="flex flex-col gap-3">
             {customs.map((format) => (
               <FormatCard
@@ -175,7 +175,7 @@ export default function FormatsPage() {
       )}
 
       <div>
-        <h2 className="text-[15px] font-semibold text-text-primary">Built-in formats</h2>
+        <h2 className="text-[0.9375rem] font-semibold text-text-primary">Built-in formats</h2>
         <ul className="mt-2 flex flex-col gap-3">
         {builtins.map((format) => (
           <FormatCard

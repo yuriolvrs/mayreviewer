@@ -296,7 +296,7 @@ export default function QuizTaking({
             onClick={() => jumpTo(question.id)}
             title={`Question ${index + 1} — ${state}${isActive ? ", currently viewing" : ""}`}
             aria-current={isActive ? "location" : undefined}
-            className={`rounded border py-1 font-mono text-[13px] ${stateClass} ${
+            className={`rounded border py-1 font-mono text-[0.8125rem] ${stateClass} ${
               isActive ? "ring-2 ring-text-secondary ring-offset-1" : ""
             }`}
           >
@@ -309,8 +309,8 @@ export default function QuizTaking({
 
   const legend = (
     <div className="border-t border-border pt-3">
-      <p className="text-[13px] font-medium text-text-primary">Legend</p>
-      <dl className="mt-2 flex flex-col gap-1.5 text-[13px] text-text-secondary">
+      <p className="text-[0.8125rem] font-medium text-text-primary">Legend</p>
+      <dl className="mt-2 flex flex-col gap-1.5 text-[0.8125rem] text-text-secondary">
         <div className="flex items-center gap-2">
           <span className="h-3 w-3 shrink-0 rounded-sm border border-border bg-surface" />
           <dd>Unanswered</dd>
@@ -345,13 +345,13 @@ export default function QuizTaking({
       <div className="min-w-0 flex-1">
         <div className="mb-4 lg:hidden">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[14px] text-text-secondary">
+            <p className="text-[0.875rem] text-text-secondary">
               {answeredCount} of {questions.length} answered
             </p>
             <button
               type="button"
               onClick={() => setConfirmCancelOpen(true)}
-              className="shrink-0 rounded-lg border border-error px-2.5 py-1 text-[14px] font-medium text-error hover:bg-error-subtle"
+              className="shrink-0 rounded-lg border border-error px-2.5 py-1 text-[0.875rem] font-medium text-error hover:bg-error-subtle"
             >
               Cancel quiz
             </button>
@@ -361,7 +361,7 @@ export default function QuizTaking({
           {remainingSec !== null && (
             <p
               data-testid="quiz-timer"
-              className={`mt-1 font-mono text-[18px] font-semibold ${
+              className={`mt-1 font-mono text-[1.125rem] font-semibold ${
                 lowTime ? "text-error" : "text-text-primary"
               }`}
             >
@@ -371,13 +371,13 @@ export default function QuizTaking({
         </div>
 
         <details className="mb-4 rounded-lg border border-border bg-surface-alt lg:hidden">
-          <summary className="cursor-pointer px-4 py-2.5 text-[14px] font-medium text-text-secondary hover:text-text-primary">
+          <summary className="cursor-pointer px-4 py-2.5 text-[0.875rem] font-medium text-text-secondary hover:text-text-primary">
             Jump to a question
           </summary>
           <div className="px-4 pb-4">
             {jumpGrid}
             <div className="mt-4">{legend}</div>
-            <p className="mt-3 text-[13px] text-text-tertiary">
+            <p className="mt-3 text-[0.8125rem] text-text-tertiary">
               Keys 1–4 answer the question in view, u flags it unsure, n/p move between questions.
             </p>
           </div>
@@ -401,13 +401,13 @@ export default function QuizTaking({
             <section key={group.key} className="border-t border-border last:border-b">
               {hasProblemBlock && (
                 <div id={`stimulus-${group.key}`} className="scroll-mt-6 pt-6">
-                  <p className="font-mono text-[13px] tracking-wide text-text-tertiary uppercase">
+                  <p className="font-mono text-[0.8125rem] tracking-wide text-text-tertiary uppercase">
                     {groupKind === "code" ? "Program" : "Problem"} · questions{" "}
                     {numbering.get(group.questions[0].id)}–
                     {numbering.get(group.questions[group.questions.length - 1].id)}
                   </p>
                   {group.title && (
-                    <h2 className="mt-1 text-[17px] font-semibold text-text-primary">
+                    <h2 className="mt-1 text-[1.0625rem] font-semibold text-text-primary">
                       {group.title}
                     </h2>
                   )}
@@ -433,7 +433,7 @@ export default function QuizTaking({
                     className={`scroll-mt-6 py-6 ${hasProblemBlock ? "border-t border-border" : ""}`}
                   >
                 <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-                  <span className="flex items-baseline gap-2 font-mono text-[14px] font-bold tracking-wide text-text-primary">
+                  <span className="flex items-baseline gap-2 font-mono text-[0.875rem] font-bold tracking-wide text-text-primary">
                     {numbering.get(question.id)}.
                     {hasProblemBlock && (
                       <button
@@ -443,7 +443,7 @@ export default function QuizTaking({
                             .getElementById(`stimulus-${group.key}`)
                             ?.scrollIntoView({ behavior: "smooth", block: "start" });
                         }}
-                        className="font-sans text-[13px] font-normal text-text-tertiary underline decoration-dotted underline-offset-2 hover:text-text-secondary"
+                        className="font-sans text-[0.8125rem] font-normal text-text-tertiary underline decoration-dotted underline-offset-2 hover:text-text-secondary"
                       >
                         ↑ Back to problem
                       </button>
@@ -464,7 +464,7 @@ export default function QuizTaking({
                             ? "Answer is locked in immediate feedback mode"
                             : undefined
                       }
-                      className="rounded-lg border border-border px-2.5 py-1 text-[14px] font-medium text-text-secondary enabled:hover:border-border-strong enabled:hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                      className="rounded-lg border border-border px-2.5 py-1 text-[0.875rem] font-medium text-text-secondary enabled:hover:border-border-strong enabled:hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       Clear selection
                     </button>
@@ -472,7 +472,7 @@ export default function QuizTaking({
                       type="button"
                       onClick={() => toggleUnsure(question.id)}
                       aria-pressed={isUnsure}
-                      className={`rounded-lg border px-2.5 py-1 text-[14px] font-medium ${
+                      className={`rounded-lg border px-2.5 py-1 text-[0.875rem] font-medium ${
                         isUnsure
                           ? "border-warning bg-warning-subtle text-warning"
                           : "border-border text-text-secondary hover:border-border-strong hover:text-text-primary"
@@ -488,11 +488,11 @@ export default function QuizTaking({
                 )}
 
                 <p
-                  className={`mt-2 text-[16px] leading-relaxed whitespace-pre-wrap text-text-primary ${
+                  className={`mt-2 text-[1rem] leading-relaxed whitespace-pre-wrap text-text-primary ${
                     // A set's table/listing lives in the stimulus above, so the
                     // question itself is plain prose. Only the older standalone
                     // Timeline/Code questions carry their own preformatted text.
-                    isPreformatted(question.type) && !group.stimulus ? "font-mono text-[15px]" : ""
+                    isPreformatted(question.type) && !group.stimulus ? "font-mono text-[0.9375rem]" : ""
                   }`}
                 >
                   {question.question}
@@ -541,11 +541,11 @@ export default function QuizTaking({
                           className={`text-text-primary ${
                             groupKind === "code" &&
                             (hasProblemBlock || question.type === "code")
-                              ? "font-mono text-[14px]"
-                              : "text-[15px]"
+                              ? "font-mono text-[0.875rem]"
+                              : "text-[0.9375rem]"
                           }`}
                         >
-                          <span className="font-mono text-[13px] text-text-tertiary">
+                          <span className="font-mono text-[0.8125rem] text-text-tertiary">
                             {optionLetter(optionIndex)}.
                           </span>{" "}
                           {option}
@@ -553,7 +553,7 @@ export default function QuizTaking({
                         {showFeedback && isConfirmed && isSelected && (
                           <span
                             aria-live="polite"
-                            className={`ml-auto shrink-0 self-center text-[14px] font-medium ${
+                            className={`ml-auto shrink-0 self-center text-[0.875rem] font-medium ${
                               isCorrectOption ? "text-success" : "text-error"
                             }`}
                           >
@@ -561,7 +561,7 @@ export default function QuizTaking({
                           </span>
                         )}
                         {revealAnswer && !isSelected && isCorrectOption && (
-                          <span aria-live="polite" className="ml-auto shrink-0 self-center text-[14px] font-medium text-success">
+                          <span aria-live="polite" className="ml-auto shrink-0 self-center text-[0.875rem] font-medium text-success">
                             Correct answer
                           </span>
                         )}
@@ -577,7 +577,7 @@ export default function QuizTaking({
                       onClick={() => confirmAnswer(question.id)}
                       disabled={!isAnswered || isConfirmed}
                       title={!isAnswered ? "Select an option first" : undefined}
-                      className="rounded-lg border border-accent px-2.5 py-1 text-[14px] font-medium text-accent enabled:hover:bg-accent-subtle disabled:cursor-not-allowed disabled:opacity-40"
+                      className="rounded-lg border border-accent px-2.5 py-1 text-[0.875rem] font-medium text-accent enabled:hover:bg-accent-subtle disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {isConfirmed ? "Answer confirmed" : "Confirm answer"}
                     </button>
@@ -587,7 +587,7 @@ export default function QuizTaking({
                 {showFeedback &&
                   isConfirmed &&
                   (question.explanation || question.whyOthersWrong) && (
-                    <div aria-live="polite" className="mt-3 space-y-2 rounded-lg bg-surface-alt px-3.5 py-2.5 text-[14px] leading-relaxed text-text-secondary">
+                    <div aria-live="polite" className="mt-3 space-y-2 rounded-lg bg-surface-alt px-3.5 py-2.5 text-[0.875rem] leading-relaxed text-text-secondary">
                       {question.explanation && <p>{question.explanation}</p>}
                       {question.whyOthersWrong && <p>{question.whyOthersWrong}</p>}
                     </div>
@@ -603,7 +603,7 @@ export default function QuizTaking({
         <div className="mt-8 flex justify-end">
           <button
             onClick={handleSubmit}
-            className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-on-accent hover:bg-accent-hover"
+            className="rounded-lg bg-accent px-4 py-2.5 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover"
           >
             Submit quiz
           </button>
@@ -612,13 +612,13 @@ export default function QuizTaking({
 
       <aside className="sticky top-6 hidden h-fit w-56 shrink-0 lg:block">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-[14px] text-text-secondary">
+          <p className="text-[0.875rem] text-text-secondary">
             {answeredCount} of {questions.length} answered
           </p>
           <button
             type="button"
             onClick={() => setConfirmCancelOpen(true)}
-            className="shrink-0 rounded-lg border border-error px-2.5 py-1 text-[14px] font-medium text-error hover:bg-error-subtle"
+            className="shrink-0 rounded-lg border border-error px-2.5 py-1 text-[0.875rem] font-medium text-error hover:bg-error-subtle"
           >
             Cancel quiz
           </button>
@@ -626,7 +626,7 @@ export default function QuizTaking({
         {remainingSec !== null && (
           <p
             data-testid="quiz-timer"
-            className={`mt-2 font-mono text-[22px] font-semibold ${
+            className={`mt-2 font-mono text-[1.375rem] font-semibold ${
               lowTime ? "text-error" : "text-text-primary"
             }`}
           >
@@ -638,7 +638,7 @@ export default function QuizTaking({
 
         <div className="mt-4">{legend}</div>
 
-        <p className="mt-3 text-[13px] text-text-tertiary">
+        <p className="mt-3 text-[0.8125rem] text-text-tertiary">
           Keys 1–4 answer the question in view, u flags it unsure, n/p move between questions.
         </p>
       </aside>

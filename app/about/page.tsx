@@ -4,8 +4,8 @@ import { APP_VERSION } from "@/app/lib/feedback";
 function Section({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
   return (
     <section id={id} className="border-t border-border py-6 scroll-mt-6">
-      <h2 className="text-[15px] font-medium text-text-primary">{title}</h2>
-      <div className="mt-2 flex flex-col gap-2 text-[15px] text-text-secondary">{children}</div>
+      <h2 className="text-[0.9375rem] font-medium text-text-primary">{title}</h2>
+      <div className="mt-2 flex flex-col gap-2 text-[0.9375rem] text-text-secondary">{children}</div>
     </section>
   );
 }
@@ -13,8 +13,8 @@ function Section({ title, children, id }: { title: string; children: React.React
 export default function AboutPage() {
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
-      <h1 className="text-[26px] font-semibold text-text-primary">About</h1>
-      <p className="mt-1 text-[15px] text-text-secondary">pre, May Reviewer ka ba?</p>
+      <h1 className="text-[1.625rem] font-semibold text-text-primary">About</h1>
+      <p className="mt-1 text-[0.9375rem] text-text-secondary">pre, May Reviewer ka ba?</p>
 
       <div className="mt-6 flex flex-col">
         <Section title="What this is">
@@ -105,12 +105,12 @@ export default function AboutPage() {
             <span className="font-mono">fflate</span> for zip import/export, and{" "}
             <span className="font-mono">idb</span> for storing uploaded files in the browser.
           </p>
-          <p className="text-[14px] text-text-tertiary">May Reviewer v{APP_VERSION}.</p>
+          <p className="text-[0.875rem] text-text-tertiary">May Reviewer v{APP_VERSION}.</p>
         </Section>
 
         <section className="border-t border-border py-6">
-          <h2 className="text-[15px] font-medium text-text-primary">Disclaimer</h2>
-          <p className="mt-2 text-[14px] text-text-tertiary">
+          <h2 className="text-[0.9375rem] font-medium text-text-primary">Disclaimer</h2>
+          <p className="mt-2 text-[0.875rem] text-text-tertiary">
             This is an independent personal project, not affiliated with or endorsed by any school,
             course, or instructor. Generated questions are practice material only. They&apos;re not
             guaranteed to be accurate and are not official exam content. Always check your own

@@ -65,7 +65,7 @@ function CollapsibleSection({
           type="button"
           onClick={() => setOpen(!open)}
           aria-expanded={open}
-          className="-mx-2 flex items-center gap-2 rounded-lg px-2 py-1 text-[19px] font-semibold text-text-secondary hover:bg-surface-alt hover:text-text-primary"
+          className="-mx-2 flex items-center gap-2 rounded-lg px-2 py-1 text-[1.1875rem] font-semibold text-text-secondary hover:bg-surface-alt hover:text-text-primary"
         >
           <Chevron open={open} />
           <span className="text-text-primary">{title}</span>
@@ -92,12 +92,12 @@ function ResultRow({
 
   return (
     <>
-      <span className="font-mono text-[14px] font-bold text-text-primary">{number}.</span>
+      <span className="font-mono text-[0.875rem] font-bold text-text-primary">{number}.</span>
       {/* A set's listing is shown once above by `GroupBlock`; a prose stimulus
           on a standalone question has no block of its own, so it rides here. */}
       {!inGroup && question.stimulus && <StimulusQuote stimulus={question.stimulus} />}
       <p
-        className={`mt-2 text-[15px] leading-relaxed whitespace-pre-wrap text-text-primary ${
+        className={`mt-2 text-[0.9375rem] leading-relaxed whitespace-pre-wrap text-text-primary ${
           // A set's listing lives in the shared block above, so only a
           // standalone Timeline/Code question carries preformatted text itself.
           isPreformatted(question.type) && !inGroup ? "font-mono" : ""
@@ -105,7 +105,7 @@ function ResultRow({
       >
         {question.question}
       </p>
-      <dl className="mt-3 flex flex-col gap-1 text-[15px]">
+      <dl className="mt-3 flex flex-col gap-1 text-[0.9375rem]">
         <div className="flex gap-2">
           <dt className="text-text-secondary">Your answer:</dt>
           <dd className={given === question.correctIndex ? "text-success" : "text-error"}>
@@ -127,12 +127,12 @@ function ResultRow({
         </div>
       </dl>
       {question.explanation && (
-        <p className="mt-2 text-[14px] leading-relaxed text-text-secondary">
+        <p className="mt-2 text-[0.875rem] leading-relaxed text-text-secondary">
           {question.explanation}
         </p>
       )}
       {question.whyOthersWrong && (
-        <p className="mt-2 text-[14px] leading-relaxed text-text-secondary">
+        <p className="mt-2 text-[0.875rem] leading-relaxed text-text-secondary">
           {question.whyOthersWrong}
         </p>
       )}
@@ -167,10 +167,10 @@ function GroupBlock({
         className="-mx-2 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-text-secondary hover:bg-surface-alt hover:text-text-primary"
       >
         <Chevron open={open} />
-        <span className="text-[15px] font-semibold text-text-primary">
+        <span className="text-[0.9375rem] font-semibold text-text-primary">
           {group.title || (group.questions[0].type === "code" ? "The program" : "The problem")}
         </span>
-        <span className="text-[14px]">
+        <span className="text-[0.875rem]">
           — {count} {noun}
           {count === 1 ? "" : "s"} {outcome}
         </span>
@@ -296,21 +296,21 @@ export default function QuizResults({
         <button
           type="button"
           onClick={onBack}
-          className="self-start text-[15px] text-text-secondary hover:text-text-primary"
+          className="self-start text-[0.9375rem] text-text-secondary hover:text-text-primary"
         >
           ← Your attempts
         </button>
       ) : (
         <Link
           href={`/reviewer/${reviewerId}`}
-          className="self-start text-[15px] text-text-secondary hover:text-text-primary"
+          className="self-start text-[0.9375rem] text-text-secondary hover:text-text-primary"
         >
           ← {reviewerName}
         </Link>
       )}
 
-      <h1 className="mt-4 text-[26px] font-semibold text-text-primary">Quiz results</h1>
-      <p className="mt-1 text-[15px] text-text-secondary">
+      <h1 className="mt-4 text-[1.625rem] font-semibold text-text-primary">Quiz results</h1>
+      <p className="mt-1 text-[0.9375rem] text-text-secondary">
         {reviewerName}
         {takenAt &&
           ` · taken ${new Date(takenAt).toLocaleString(undefined, {
@@ -322,12 +322,12 @@ export default function QuizResults({
           })}`}
       </p>
 
-      <p className={`mt-6 text-[34px] font-bold tracking-tight ${scoreTone(percent)}`}>
+      <p className={`mt-6 text-[2.125rem] font-bold tracking-tight ${scoreTone(percent)}`}>
         {score}/{questions.length}
-        <span className="ml-2 text-[19px] font-medium">({percent}%)</span>
+        <span className="ml-2 text-[1.1875rem] font-medium">({percent}%)</span>
       </p>
       {durationSec ? (
-        <p className="mt-1 text-[15px] text-text-secondary">
+        <p className="mt-1 text-[0.9375rem] text-text-secondary">
           {timedOut ? "Time ran out — submitted automatically" : "Finished"} in{" "}
           {formatCountdown(durationSec)}
         </p>
@@ -342,10 +342,10 @@ export default function QuizResults({
               key={type}
               className="min-w-[124px] rounded-lg border border-border bg-surface-alt px-3.5 py-2.5"
             >
-              <p className="font-mono text-[12px] tracking-wide text-text-tertiary uppercase">
+              <p className="font-mono text-[0.75rem] tracking-wide text-text-tertiary uppercase">
                 {typeLabelOf(format, type)}
               </p>
-              <p className="mt-1 text-[19px] font-semibold text-text-primary">
+              <p className="mt-1 text-[1.1875rem] font-semibold text-text-primary">
                 {right}
                 <span className="text-text-secondary">/{ofType.length}</span>
               </p>
@@ -357,7 +357,7 @@ export default function QuizResults({
       <div className="mt-6 flex justify-center">
         <button
           onClick={onRetake}
-          className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-on-accent hover:bg-accent-hover"
+          className="rounded-lg bg-accent px-4 py-2.5 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover"
         >
           Retake quiz
         </button>
@@ -365,19 +365,19 @@ export default function QuizResults({
 
       <CollapsibleSection title="Incorrect" count={missed.length} defaultOpen>
         {missed.length === 0 ? (
-          <p className="mt-2 text-[15px] text-success">
+          <p className="mt-2 text-[0.9375rem] text-success">
             Nothing missed — you got every question right.
           </p>
         ) : (
           <>
             {missedTypes.length > 1 && (
               <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-alt px-4 py-3">
-                <span className="text-[14px] text-text-secondary">Type</span>
+                <span className="text-[0.875rem] text-text-secondary">Type</span>
                 {(["all", ...missedTypes] as const).map((t) => (
                   <button
                     key={t}
                     onClick={() => setMissedType(t)}
-                    className={`rounded-lg px-2.5 py-1 text-[14px] font-medium ${
+                    className={`rounded-lg px-2.5 py-1 text-[0.875rem] font-medium ${
                       missedType === t
                         ? "bg-accent text-on-accent"
                         : "border border-border-strong text-text-secondary hover:text-text-primary"
@@ -386,7 +386,7 @@ export default function QuizResults({
                     {t === "all" ? "All" : typeLabelOf(format, t)}
                   </button>
                 ))}
-                <span className="ml-auto text-[14px] text-text-tertiary">
+                <span className="ml-auto text-[0.875rem] text-text-tertiary">
                   {visibleMissed.length} shown
                 </span>
               </div>
@@ -404,7 +404,7 @@ export default function QuizResults({
 
       <CollapsibleSection title="Correct" count={correct.length}>
         {correct.length === 0 ? (
-          <p className="mt-2 text-[15px] text-text-secondary">
+          <p className="mt-2 text-[0.9375rem] text-text-secondary">
             You didn&apos;t get any questions right this attempt.
           </p>
         ) : (
@@ -419,12 +419,12 @@ export default function QuizResults({
       </CollapsibleSection>
 
       <CollapsibleSection title="Marked unsure" count={unsure.length} defaultOpen>
-        <p className="mt-1 text-[14px] text-text-secondary">
+        <p className="mt-1 text-[0.875rem] text-text-secondary">
           Questions you flagged as unsure during the quiz, regardless of whether you got them
           right.
         </p>
         {unsure.length === 0 ? (
-          <p className="mt-2 text-[15px] text-text-secondary">
+          <p className="mt-2 text-[0.9375rem] text-text-secondary">
             You didn&apos;t flag any questions this attempt.
           </p>
         ) : (

@@ -8,7 +8,7 @@
 // block, headed "PROBLEM · QUESTIONS 2-2".
 export default function StimulusQuote({ stimulus }: { stimulus: string }) {
   return (
-    <blockquote className="mt-2 border-l-2 border-accent pl-3 text-[15px] leading-relaxed whitespace-pre-wrap text-text-secondary italic">
+    <blockquote className="mt-2 border-l-2 border-accent pl-3 text-[0.9375rem] leading-relaxed whitespace-pre-wrap text-text-secondary italic">
       {stimulus}
     </blockquote>
   );

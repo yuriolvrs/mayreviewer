@@ -24,8 +24,8 @@ function Section({
 }) {
   return (
     <section className="mt-10">
-      <h2 className="text-[15px] font-semibold text-text-primary">{title}</h2>
-      {note && <p className="mt-0.5 text-[13px] text-text-secondary">{note}</p>}
+      <h2 className="text-[0.9375rem] font-semibold text-text-primary">{title}</h2>
+      {note && <p className="mt-0.5 text-[0.8125rem] text-text-secondary">{note}</p>}
       <div className="mt-2 border-t border-border">{children}</div>
     </section>
   );
@@ -46,8 +46,8 @@ function Row({
   return (
     <div className="flex min-h-[60px] flex-wrap items-center gap-x-4 gap-y-2 border-b border-border py-3">
       <div className="min-w-0 flex-1">
-        <div className="text-[15px] font-medium text-text-primary">{label}</div>
-        {hint && <div className="mt-px text-[13px] text-text-secondary">{hint}</div>}
+        <div className="text-[0.9375rem] font-medium text-text-primary">{label}</div>
+        {hint && <div className="mt-px text-[0.8125rem] text-text-secondary">{hint}</div>}
       </div>
       <div className="flex w-[200px] flex-none items-center justify-end max-sm:w-full max-sm:justify-start">
         {children}
@@ -72,8 +72,8 @@ function ToggleRow({
   return (
     <label className="flex min-h-[60px] cursor-pointer flex-wrap items-center gap-x-4 gap-y-2 border-b border-border py-3">
       <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-medium text-text-primary">{label}</span>
-        {hint && <span className="mt-px block text-[13px] text-text-secondary">{hint}</span>}
+        <span className="block text-[0.9375rem] font-medium text-text-primary">{label}</span>
+        {hint && <span className="mt-px block text-[0.8125rem] text-text-secondary">{hint}</span>}
       </span>
       <span className="flex w-[200px] flex-none items-center justify-end max-sm:w-auto">
         <input
@@ -207,16 +207,16 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
-      <h1 className="text-[26px] font-semibold text-text-primary">Settings</h1>
-      <p className="mt-1 text-[15px] text-text-secondary">Study defaults, appearance, reminders, and your data.</p>
+      <h1 className="text-[1.625rem] font-semibold text-text-primary">Settings</h1>
+      <p className="mt-1 text-[0.9375rem] text-text-secondary">Study defaults, appearance, reminders, and your data.</p>
 
-      {notice && <p role="status" className="mt-4 rounded-lg bg-surface-alt px-3 py-2 text-[14px] text-text-secondary">{notice}</p>}
+      {notice && <p role="status" className="mt-4 rounded-lg bg-surface-alt px-3 py-2 text-[0.875rem] text-text-secondary">{notice}</p>}
 
       <div className="mt-6">
         <Section title="Study defaults">
           <fieldset>
-            <legend className="pt-3 text-[15px] font-medium text-text-primary">Feedback mode</legend>
-            <p className="mt-px text-[13px] text-text-secondary">Starting choice on new quizzes.</p>
+            <legend className="pt-3 text-[0.9375rem] font-medium text-text-primary">Feedback mode</legend>
+            <p className="mt-px text-[0.8125rem] text-text-secondary">Starting choice on new quizzes.</p>
             <div className="mt-1">
               {FEEDBACK_MODES.map((option) => (
                 <label
@@ -231,8 +231,8 @@ export default function SettingsPage() {
                     className="mt-1 h-[18px] w-[18px] flex-none accent-accent"
                   />
                   <span>
-                    <span className="block text-[15px] font-medium text-text-primary">{option.label}</span>
-                    <span className="mt-px block text-[13px] text-text-secondary">{option.hint}</span>
+                    <span className="block text-[0.9375rem] font-medium text-text-primary">{option.label}</span>
+                    <span className="mt-px block text-[0.8125rem] text-text-secondary">{option.hint}</span>
                   </span>
                 </label>
               ))}
@@ -247,7 +247,7 @@ export default function SettingsPage() {
               value={settings.defaultCount}
               onChange={(e) => patch({ defaultCount: Number(e.target.value) })}
               aria-label="Default question count"
-              className="h-11 w-full rounded-lg border border-border bg-surface px-2 py-2 text-[15px] text-text-primary outline-none focus:border-accent"
+              className="h-11 w-full rounded-lg border border-border bg-surface px-2 py-2 text-[0.9375rem] text-text-primary outline-none focus:border-accent"
             />
           </Row>
           <ToggleRow
@@ -265,7 +265,7 @@ export default function SettingsPage() {
               value={settings.dailyGoal}
               onChange={(e) => patch({ dailyGoal: Number(e.target.value) })}
               aria-label="Daily goal"
-              className="h-11 w-full rounded-lg border border-border bg-surface px-2 py-2 text-[15px] text-text-primary outline-none focus:border-accent"
+              className="h-11 w-full rounded-lg border border-border bg-surface px-2 py-2 text-[0.9375rem] text-text-primary outline-none focus:border-accent"
             />
           </Row>
         </Section>
@@ -282,7 +282,7 @@ export default function SettingsPage() {
                   key={t.value}
                   onClick={() => patch({ theme: t.value })}
                   aria-pressed={settings.theme === t.value}
-                  className={`flex min-h-8 flex-1 items-center justify-center rounded-md px-2 py-1.5 text-[15px] ${
+                  className={`flex min-h-8 flex-1 items-center justify-center rounded-md px-2 py-1.5 text-[0.9375rem] ${
                     settings.theme === t.value
                       ? "bg-accent font-semibold text-on-accent"
                       : "text-text-secondary hover:text-text-primary"
@@ -330,7 +330,7 @@ export default function SettingsPage() {
               disabled={!settings.remindersEnabled}
               onChange={(e) => patch({ reminderTime: e.target.value })}
               aria-label="Reminder time"
-              className="h-11 w-full rounded-lg border border-border bg-surface px-2 py-2 text-[15px] text-text-primary outline-none focus:border-accent disabled:opacity-40"
+              className="h-11 w-full rounded-lg border border-border bg-surface px-2 py-2 text-[0.9375rem] text-text-primary outline-none focus:border-accent disabled:opacity-40"
             />
           </Row>
         </Section>
@@ -346,19 +346,19 @@ export default function SettingsPage() {
           <div className="flex flex-wrap gap-3 py-4">
             <button
               onClick={exportAll}
-              className="min-h-[44px] rounded-lg border border-border-strong px-4 py-2 text-[15px] font-medium text-text-primary"
+              className="min-h-[44px] rounded-lg border border-border-strong px-4 py-2 text-[0.9375rem] font-medium text-text-primary"
             >
               Export all backup
             </button>
             <button
               onClick={() => setConfirmingDelete(true)}
-              className="min-h-[44px] rounded-lg border border-error px-4 py-2 text-[15px] font-medium text-error"
+              className="min-h-[44px] rounded-lg border border-error px-4 py-2 text-[0.9375rem] font-medium text-error"
             >
               Delete all local data
             </button>
           </div>
           {storageFull && (
-            <p role="alert" className="border-b border-border pb-3 text-[14px] font-medium text-warning">
+            <p role="alert" className="border-b border-border pb-3 text-[0.875rem] font-medium text-warning">
               Storage is over 80% full — export a backup, then delete old reviewers to free space.
             </p>
           )}

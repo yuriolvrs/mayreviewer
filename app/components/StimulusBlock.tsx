@@ -39,7 +39,7 @@ export default function StimulusBlock({
       <pre
         ref={measure}
         onScroll={(e) => measure(e.currentTarget)}
-        className="overflow-x-auto rounded-lg border border-border bg-surface-alt p-4 font-mono text-[14px] leading-relaxed text-text-primary"
+        className="overflow-x-auto rounded-lg border border-border bg-surface-alt p-4 font-mono text-[0.875rem] leading-relaxed text-text-primary"
       >
         {parts.map((part, i) => {
           const match = /^_{2,}\((\d+)\)_{2,}$/.exec(part);

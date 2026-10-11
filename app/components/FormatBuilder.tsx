@@ -331,7 +331,7 @@ export default function FormatBuilder({
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5">
-          <span className="text-[14px] text-text-secondary">
+          <span className="text-[0.875rem] text-text-secondary">
             Format name <span className="text-error">*</span>
           </span>
           <input
@@ -343,7 +343,7 @@ export default function FormatBuilder({
           />
         </label>
         <label className="flex flex-col gap-1.5">
-          <span className="text-[14px] text-text-secondary">Description (optional)</span>
+          <span className="text-[0.875rem] text-text-secondary">Description (optional)</span>
           <input
             type="text"
             value={description}
@@ -355,10 +355,10 @@ export default function FormatBuilder({
       </div>
 
       <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
-        <p className="text-[15px] font-semibold text-text-primary">
+        <p className="text-[0.9375rem] font-semibold text-text-primary">
           Learn from a past exam <span className="font-normal text-text-tertiary">(optional)</span>
         </p>
-        <p className="mt-1 text-[14px] text-text-secondary">
+        <p className="mt-1 text-[0.875rem] text-text-secondary">
           Upload or paste a past exam. The AI suggests question types from it, and you review
           each one before saving. The exam stays attached to the format for later.
         </p>
@@ -370,7 +370,7 @@ export default function FormatBuilder({
               role="tab"
               aria-selected={pastMode === "upload"}
               onClick={() => setPastMode("upload")}
-              className={`-mb-px border-b-2 py-2 text-[15px] font-medium ${
+              className={`-mb-px border-b-2 py-2 text-[0.9375rem] font-medium ${
                 pastMode === "upload"
                   ? "border-accent text-text-primary"
                   : "border-transparent text-text-secondary hover:text-text-primary"
@@ -383,7 +383,7 @@ export default function FormatBuilder({
               role="tab"
               aria-selected={pastMode === "paste"}
               onClick={() => setPastMode("paste")}
-              className={`-mb-px border-b-2 py-2 text-[15px] font-medium ${
+              className={`-mb-px border-b-2 py-2 text-[0.9375rem] font-medium ${
                 pastMode === "paste"
                   ? "border-accent text-text-primary"
                   : "border-transparent text-text-secondary hover:text-text-primary"
@@ -416,7 +416,7 @@ export default function FormatBuilder({
                   if (e.dataTransfer.files) void addPastFiles(Array.from(e.dataTransfer.files));
                 }}
                 onClick={() => pastInputRef.current?.click()}
-                className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed p-5 text-center text-[14px] text-text-secondary hover:border-border-strong ${
+                className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed p-5 text-center text-[0.875rem] text-text-secondary hover:border-border-strong ${
                   dragOver ? "border-accent bg-accent-subtle" : "border-border"
                 }`}
               >
@@ -437,12 +437,12 @@ export default function FormatBuilder({
                   }}
                 />
               </div>
-              {pastFileError && <p className="text-[14px] text-error">{pastFileError}</p>}
+              {pastFileError && <p className="text-[0.875rem] text-error">{pastFileError}</p>}
 
               {(storedFiles.length > 0 || extracted.length > 0) && (
                 <ul className="divide-y divide-border">
               {storedFiles.map((a) => (
-                <li key={a.id} className="flex items-center justify-between gap-3 py-2 text-[14px]">
+                <li key={a.id} className="flex items-center justify-between gap-3 py-2 text-[0.875rem]">
                   <span className="break-words text-text-primary">{a.name}</span>
                   <button
                     type="button"
@@ -455,7 +455,7 @@ export default function FormatBuilder({
                 </li>
               ))}
               {extracted.map((f) => (
-                <li key={f.id} className="flex items-center justify-between gap-3 py-2 text-[14px]">
+                <li key={f.id} className="flex items-center justify-between gap-3 py-2 text-[0.875rem]">
                   <span className="break-words text-text-primary">
                     {f.name} <span className="text-text-tertiary">(text extracted)</span>
                   </span>
@@ -486,12 +486,12 @@ export default function FormatBuilder({
                     ? "Paste or upload a past exam first"
                     : undefined
               }
-              className="rounded-lg border border-accent bg-surface px-4 py-2 text-[15px] font-medium text-accent enabled:hover:bg-accent-subtle disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-lg border border-accent bg-surface px-4 py-2 text-[0.9375rem] font-medium text-accent enabled:hover:bg-accent-subtle disabled:cursor-not-allowed disabled:opacity-40"
             >
               {inferState === "running" ? "Reading exam…" : "Infer question types"}
             </button>
             {inferError && (
-              <span role="alert" className="text-[14px] text-error">
+              <span role="alert" className="text-[0.875rem] text-error">
                 {inferError}
               </span>
             )}
@@ -500,7 +500,7 @@ export default function FormatBuilder({
           {unsupported.length > 0 && (
             <div className="flex flex-col gap-2">
               {unsupported.map((u, i) => (
-                <p key={i} className="rounded-lg border border-warning bg-warning-subtle px-3 py-2 text-[14px] text-text-primary">
+                <p key={i} className="rounded-lg border border-warning bg-warning-subtle px-3 py-2 text-[0.875rem] text-text-primary">
                   <span className="font-semibold">Not supported — {u.label}:</span> {u.reason}
                 </p>
               ))}
@@ -512,21 +512,21 @@ export default function FormatBuilder({
       {types.map((t, i) => (
         <div key={t.key} className="rounded-lg border border-border bg-surface p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[15px] font-semibold text-text-primary">
+            <p className="text-[0.9375rem] font-semibold text-text-primary">
               Type {i + 1}
               {t.label.trim() ? ` — ${t.label.trim()}` : ""}
             </p>
             <button
               type="button"
               onClick={() => setTypes((prev) => prev.filter((_, j) => j !== i))}
-              className="shrink-0 text-[14px] font-medium text-error hover:underline"
+              className="shrink-0 text-[0.875rem] font-medium text-error hover:underline"
             >
               Remove
             </button>
           </div>
 
           <label className="mt-3 flex flex-col gap-1.5">
-            <span className="text-[14px] text-text-secondary">
+            <span className="text-[0.875rem] text-text-secondary">
               Label <span className="text-error">*</span>
             </span>
             <input
@@ -540,7 +540,7 @@ export default function FormatBuilder({
 
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <label className="flex flex-col gap-1.5">
-              <span className="text-[14px] text-text-secondary">Answer format</span>
+              <span className="text-[0.875rem] text-text-secondary">Answer format</span>
               <OptionSelect
                 label="Answer format"
                 options={FORMAT_OPTIONS}
@@ -549,7 +549,7 @@ export default function FormatBuilder({
               />
             </label>
             <label className="flex flex-col gap-1.5">
-              <span className="text-[14px] text-text-secondary">Layout</span>
+              <span className="text-[0.875rem] text-text-secondary">Layout</span>
               <OptionSelect
                 label="Layout"
                 options={SHAPE_OPTIONS}
@@ -558,7 +558,7 @@ export default function FormatBuilder({
               />
             </label>
             <label className="flex flex-col gap-1.5">
-              <span className="text-[14px] text-text-secondary">Material</span>
+              <span className="text-[0.875rem] text-text-secondary">Material</span>
               <OptionSelect
                 label="Material"
                 options={STIMULUS_OPTIONS}
@@ -569,7 +569,7 @@ export default function FormatBuilder({
           </div>
 
           <label className="mt-3 flex flex-col gap-1.5">
-            <span className="text-[14px] text-text-secondary">
+            <span className="text-[0.875rem] text-text-secondary">
               Guidance <span className="text-text-tertiary">(plain words, compiled into the prompt)</span>
             </span>
             <textarea
@@ -582,7 +582,7 @@ export default function FormatBuilder({
           </label>
 
           <div className="mt-3 flex flex-col gap-2">
-            <span className="text-[14px] text-text-secondary">
+            <span className="text-[0.875rem] text-text-secondary">
               Past-exam examples <span className="text-text-tertiary">(optional, format reference only)</span>
             </span>
             {t.examples.map((ex, j) => (
@@ -610,7 +610,7 @@ export default function FormatBuilder({
               <button
                 type="button"
                 onClick={() => patch(i, { examples: [...t.examples, ""] })}
-                className="self-start text-[14px] font-medium text-accent hover:underline"
+                className="self-start text-[0.875rem] font-medium text-accent hover:underline"
               >
                 + Add example
               </button>
@@ -618,7 +618,7 @@ export default function FormatBuilder({
           </div>
 
           <label className="mt-3 flex items-center gap-2">
-            <span className="text-[14px] text-text-secondary">Default count</span>
+            <span className="text-[0.875rem] text-text-secondary">Default count</span>
             <input
               type="number"
               min={0}
@@ -637,17 +637,17 @@ export default function FormatBuilder({
           onClick={() => setTypes((prev) => [...prev, blankDraft()])}
           disabled={types.length >= MAX_FORMAT_TYPES}
           title={types.length >= MAX_FORMAT_TYPES ? `At most ${MAX_FORMAT_TYPES} types per format` : undefined}
-          className="flex h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong text-[15px] font-medium text-text-secondary enabled:hover:border-accent enabled:hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong text-[0.9375rem] font-medium text-text-secondary enabled:hover:border-accent enabled:hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
         >
           + Add question type
         </button>
-        <p className="mt-2 text-[14px] text-text-secondary">
+        <p className="mt-2 text-[0.875rem] text-text-secondary">
           {totalDefault} question{totalDefault === 1 ? "" : "s"} by default.
         </p>
       </div>
 
       {error && (
-        <p role="alert" className="text-[15px] text-error">
+        <p role="alert" className="text-[0.9375rem] text-error">
           {error}
         </p>
       )}
@@ -656,7 +656,7 @@ export default function FormatBuilder({
         <button
           type="button"
           onClick={handleSave}
-          className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-on-accent hover:bg-accent-hover"
+          className="rounded-lg bg-accent px-4 py-2.5 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover"
         >
           {saveLabel}
         </button>

@@ -74,7 +74,7 @@ function ReviewerSpace() {
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
         <p className="text-text-secondary">Reviewer not found.</p>
-        <Link href="/" className="text-[15px] font-medium text-accent underline">
+        <Link href="/" className="text-[0.9375rem] font-medium text-accent underline">
           Back to Home
         </Link>
       </div>
@@ -90,7 +90,7 @@ function ReviewerSpace() {
             the tab content changes. */}
         <nav
           aria-label="Breadcrumb"
-          className="mb-2 flex items-center gap-1.5 text-[12px] tracking-wide uppercase"
+          className="mb-2 flex items-center gap-1.5 text-[0.75rem] tracking-wide uppercase"
         >
           <Link href="/" className="text-text-secondary hover:text-text-primary">
             Reviewers
@@ -102,14 +102,14 @@ function ReviewerSpace() {
         </nav>
 
         <div className="flex items-center justify-between gap-3">
-          <h1 className="min-w-0 break-words text-[26px] font-semibold text-text-primary">
+          <h1 className="min-w-0 break-words text-[1.625rem] font-semibold text-text-primary">
             {reviewer.reviewerName}
           </h1>
           <div className="flex shrink-0 items-center gap-4">
             {hasQuestions ? (
               <Link
                 href={`/reviewer/${reviewer.id}/quiz`}
-                className="rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-on-accent hover:bg-accent-hover"
+                className="rounded-lg bg-accent px-4 py-2 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover"
               >
                 Take Quiz
               </Link>
@@ -119,7 +119,7 @@ function ReviewerSpace() {
                 disabled
                 title="Generate questions first"
                 aria-disabled="true"
-                className="cursor-not-allowed rounded-lg bg-accent px-4 py-2 text-[15px] font-medium text-on-accent opacity-40"
+                className="cursor-not-allowed rounded-lg bg-accent px-4 py-2 text-[0.9375rem] font-medium text-on-accent opacity-40"
               >
                 Take Quiz
               </button>
@@ -141,7 +141,7 @@ function ReviewerSpace() {
               role="tab"
               aria-selected={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`-mb-px shrink-0 rounded-t-md border-b-2 px-2.5 py-2 text-[15px] font-medium whitespace-nowrap sm:px-3 sm:text-[17px] ${
+              className={`-mb-px shrink-0 rounded-t-md border-b-2 px-2.5 py-2 text-[0.9375rem] font-medium whitespace-nowrap sm:px-3 sm:text-[1.0625rem] ${
                 activeTab === tab.id
                   ? "border-accent bg-accent-subtle text-text-primary"
                   : "border-transparent text-text-secondary hover:text-text-primary"
@@ -158,7 +158,7 @@ function ReviewerSpace() {
         <div>
           {activeTab === "details" && (
             <>
-              <p className="mb-4 text-[15px] text-text-secondary">
+              <p className="mb-4 text-[0.9375rem] text-text-secondary">
                 {reviewer.questions.length} question
                 {reviewer.questions.length === 1 ? "" : "s"} ·{" "}
                 {new Date(reviewer.createdAt).toLocaleDateString(undefined, {
@@ -168,7 +168,7 @@ function ReviewerSpace() {
                 })}
               </p>
               {!hasQuestions && (
-                <p className="mb-4 text-[15px] text-text-secondary">
+                <p className="mb-4 text-[0.9375rem] text-text-secondary">
                   No questions yet — add your source material below, then generate them from the
                   Questions tab.
                 </p>

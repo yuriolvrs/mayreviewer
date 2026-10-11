@@ -105,10 +105,10 @@ export default function EmptyReviewers() {
   return (
     <div className="flex flex-col items-center">
       {Icon && <Icon aria-hidden="true" size={56} className="text-text-tertiary" />}
-      <p className={`text-[17px] font-semibold text-text-primary ${Icon ? "mt-4" : ""}`}>
+      <p className={`text-[1.0625rem] font-semibold text-text-primary ${Icon ? "mt-4" : ""}`}>
         {variant.title}
       </p>
-      <p className="mt-1 text-[15px] text-text-secondary">{variant.body}</p>
+      <p className="mt-1 text-[0.9375rem] text-text-secondary">{variant.body}</p>
       {variant.meter && (
         <>
           <div
@@ -117,7 +117,7 @@ export default function EmptyReviewers() {
           >
             <div className="h-full w-0 bg-accent" />
           </div>
-          <p className="mt-3 font-mono text-[13px] text-text-tertiary">
+          <p className="mt-3 font-mono text-[0.8125rem] text-text-tertiary">
             reviewers? 0. quizzes taken? 0. excuses left? a lot
           </p>
         </>

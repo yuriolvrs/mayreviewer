@@ -3,8 +3,8 @@ import { SUPPORT_EMAIL } from "@/app/lib/feedback";
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="border-t border-border py-6">
-      <h2 className="text-[15px] font-medium text-text-primary">{title}</h2>
-      <div className="mt-2 flex flex-col gap-2 text-[15px] text-text-secondary">{children}</div>
+      <h2 className="text-[0.9375rem] font-medium text-text-primary">{title}</h2>
+      <div className="mt-2 flex flex-col gap-2 text-[0.9375rem] text-text-secondary">{children}</div>
     </section>
   );
 }
@@ -12,8 +12,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function PrivacyPage() {
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
-      <h1 className="text-[26px] font-semibold text-text-primary">Privacy Policy</h1>
-      <p className="mt-1 text-[15px] text-text-secondary">Last updated September 12, 2026.</p>
+      <h1 className="text-[1.625rem] font-semibold text-text-primary">Privacy Policy</h1>
+      <p className="mt-1 text-[0.9375rem] text-text-secondary">Last updated September 12, 2026.</p>
 
       <div className="mt-6 flex flex-col">
         <Section title="The short version">

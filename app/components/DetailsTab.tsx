@@ -244,12 +244,12 @@ export default function DetailsTab({
     <div className={`flex flex-col ${dirty || justSaved ? "pb-36 sm:pb-24" : ""}`}>
       <div className="grid grid-cols-1 gap-6 py-6 md:grid-cols-[160px_1fr]">
         <div>
-          <p className="text-[15px] font-medium text-text-primary">Reviewer info</p>
-          <p className="mt-1 text-[14px] text-text-secondary">Name and subject for this reviewer.</p>
+          <p className="text-[0.9375rem] font-medium text-text-primary">Reviewer info</p>
+          <p className="mt-1 text-[0.875rem] text-text-secondary">Name and subject for this reviewer.</p>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className="flex flex-col gap-1.5">
-            <span className="text-[14px] text-text-secondary">
+            <span className="text-[0.875rem] text-text-secondary">
               Reviewer name <span className="text-error">*</span>
             </span>
             <input
@@ -264,10 +264,10 @@ export default function DetailsTab({
                 nameError ? "border-error focus:border-error" : "border-border focus:border-accent"
               }`}
             />
-            {nameError && <span className="text-[13px] text-error">Reviewer name is required.</span>}
+            {nameError && <span className="text-[0.8125rem] text-error">Reviewer name is required.</span>}
           </label>
           <label className="flex flex-col gap-1.5">
-            <span className="text-[14px] text-text-secondary">Subject (optional)</span>
+            <span className="text-[0.875rem] text-text-secondary">Subject (optional)</span>
             <input
               type="text"
               value={subject}
@@ -281,8 +281,8 @@ export default function DetailsTab({
 
       <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
         <div>
-          <p className="text-[15px] font-medium text-text-primary">Topics</p>
-          <p className="mt-1 text-[14px] text-text-secondary">
+          <p className="text-[0.9375rem] font-medium text-text-primary">Topics</p>
+          <p className="mt-1 text-[0.875rem] text-text-secondary">
             Optional. Weights question generation toward these topics.
           </p>
         </div>
@@ -325,7 +325,7 @@ export default function DetailsTab({
           <button
             type="button"
             onClick={addTopic}
-            className="col-span-full flex h-11 items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong text-[15px] font-medium text-text-secondary hover:border-accent hover:text-accent"
+            className="col-span-full flex h-11 items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong text-[0.9375rem] font-medium text-text-secondary hover:border-accent hover:text-accent"
           >
             + Add topic
           </button>
@@ -334,8 +334,8 @@ export default function DetailsTab({
 
       <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
         <div>
-          <p className="text-[15px] font-medium text-text-primary">Exam format</p>
-          <p className="mt-1 text-[14px] text-text-secondary">
+          <p className="text-[0.9375rem] font-medium text-text-primary">Exam format</p>
+          <p className="mt-1 text-[0.875rem] text-text-secondary">
             The question formats this reviewer generates.
           </p>
         </div>
@@ -359,8 +359,8 @@ export default function DetailsTab({
 
       <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
         <div>
-          <p className="text-[15px] font-medium text-text-primary">Question count</p>
-          <p className="mt-1 text-[14px] text-text-secondary">How many questions to generate per type.</p>
+          <p className="text-[0.9375rem] font-medium text-text-primary">Question count</p>
+          <p className="mt-1 text-[0.875rem] text-text-secondary">How many questions to generate per type.</p>
         </div>
         <QuestionCountControl format={format} value={countByType} onChange={setCountByType} />
       </div>
@@ -380,14 +380,14 @@ export default function DetailsTab({
 
       <div className="flex flex-col gap-3 rounded-lg border border-error px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-[15px] font-semibold text-error">Danger zone</p>
-          <p className="mt-1 text-[14px] text-text-secondary">
+          <p className="text-[0.9375rem] font-semibold text-error">Danger zone</p>
+          <p className="mt-1 text-[0.875rem] text-text-secondary">
             Deleting this reviewer removes all of its questions and content. This can&apos;t be undone.
           </p>
         </div>
         <button
           onClick={onDeleteRequest}
-          className="shrink-0 rounded-lg border border-error px-4 py-2 text-[15px] font-medium text-error hover:bg-error hover:text-on-error"
+          className="shrink-0 rounded-lg border border-error px-4 py-2 text-[0.9375rem] font-medium text-error hover:bg-error hover:text-on-error"
         >
           Delete reviewer
         </button>
@@ -407,14 +407,14 @@ export default function DetailsTab({
               <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface px-5 py-4 shadow-menu sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 {/* A failed save leaves the bar up, so its own status line is the
                     only place a validation message is certain to be seen. */}
-                <span className={`text-[15px] ${error ? "text-error" : "text-text-secondary"}`}>
+                <span className={`text-[0.9375rem] ${error ? "text-error" : "text-text-secondary"}`}>
                   {error || "You have unsaved changes"}
                 </span>
                 <div className="flex shrink-0 items-center justify-end gap-3">
                   <button
                     type="button"
                     onClick={resetFields}
-                    className="rounded-lg px-4 py-2.5 text-[15px] font-medium text-text-secondary hover:bg-surface-alt hover:text-text-primary"
+                    className="rounded-lg px-4 py-2.5 text-[0.9375rem] font-medium text-text-secondary hover:bg-surface-alt hover:text-text-primary"
                   >
                     Discard
                   </button>
@@ -423,7 +423,7 @@ export default function DetailsTab({
                     onClick={handleSave}
                     disabled={!name.trim()}
                     title={name.trim() ? undefined : "Reviewer name is required"}
-                    className="rounded-lg bg-accent px-4 py-2.5 text-[15px] font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-lg bg-accent px-4 py-2.5 text-[0.9375rem] font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Save details
                   </button>
@@ -431,7 +431,7 @@ export default function DetailsTab({
               </div>
             ) : (
               <div className="flex items-center justify-end rounded-lg border border-border bg-surface px-5 py-4 shadow-menu">
-                <span className="text-[15px] text-success">✓ Saved</span>
+                <span className="text-[0.9375rem] text-success">✓ Saved</span>
               </div>
             )}
           </div>

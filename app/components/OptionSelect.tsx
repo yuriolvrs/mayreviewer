@@ -82,7 +82,7 @@ export default function OptionSelect({
         aria-label={label}
         onClick={() => (open ? setOpen(false) : openList())}
         onKeyDown={onKeyDown}
-        className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-border bg-surface px-2 text-[15px] text-text-primary outline-none focus:border-accent"
+        className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-border bg-surface px-2 text-[0.9375rem] text-text-primary outline-none focus:border-accent"
       >
         <span className="truncate">{current.label}</span>
         <svg width="14" height="14" viewBox="0 0 10 10" fill="none" aria-hidden="true" className="shrink-0">
@@ -113,13 +113,13 @@ export default function OptionSelect({
               }`}
             >
               <span
-                className={`text-[15px] ${
+                className={`text-[0.9375rem] ${
                   o.value === value ? "font-semibold text-text-primary" : "text-text-primary"
                 }`}
               >
                 {o.label}
               </span>
-              {o.hint && <span className="text-[13px] text-text-secondary">{o.hint}</span>}
+              {o.hint && <span className="text-[0.8125rem] text-text-secondary">{o.hint}</span>}
             </li>
           ))}
         </ul>

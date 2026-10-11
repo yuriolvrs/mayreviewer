@@ -48,7 +48,7 @@ function FileTypeBadge({ name }: { name: string }) {
   return (
     <span
       aria-hidden="true"
-      className={`shrink-0 rounded px-1.5 py-0.5 text-[12px] font-semibold ${className}`}
+      className={`shrink-0 rounded px-1.5 py-0.5 text-[0.75rem] font-semibold ${className}`}
     >
       {label}
     </span>
@@ -249,7 +249,7 @@ export default function ContentField({
           role="tab"
           aria-selected={mode === "upload"}
           onClick={() => setMode("upload")}
-          className={`-mb-px border-b-2 py-2 text-[15px] font-medium ${
+          className={`-mb-px border-b-2 py-2 text-[0.9375rem] font-medium ${
             mode === "upload"
               ? "border-accent text-text-primary"
               : "border-transparent text-text-secondary hover:text-text-primary"
@@ -262,7 +262,7 @@ export default function ContentField({
           role="tab"
           aria-selected={mode === "paste"}
           onClick={() => setMode("paste")}
-          className={`-mb-px border-b-2 py-2 text-[15px] font-medium ${
+          className={`-mb-px border-b-2 py-2 text-[0.9375rem] font-medium ${
             mode === "paste"
               ? "border-accent text-text-primary"
               : "border-transparent text-text-secondary hover:text-text-primary"
@@ -284,7 +284,7 @@ export default function ContentField({
           }}
           placeholder={placeholder}
           aria-label={placeholder}
-          className={`min-h-[220px] rounded-lg border border-border ${surfaceClassName} p-4 font-mono text-[16px] leading-[22px] text-text-primary outline-none focus:border-accent`}
+          className={`min-h-[220px] rounded-lg border border-border ${surfaceClassName} p-4 font-mono text-[1rem] leading-[1.375rem] text-text-primary outline-none focus:border-accent`}
         />
       ) : (
         <div className="flex flex-col gap-3">
@@ -307,7 +307,7 @@ export default function ContentField({
             <UploadIcon />
             <p>Drop PDF, image, DOCX, TXT, or CPP files here, or click to browse.</p>
             {fileError && (
-              <p className="mx-auto mt-2 max-w-md text-[14px] text-error">{fileError}</p>
+              <p className="mx-auto mt-2 max-w-md text-[0.875rem] text-error">{fileError}</p>
             )}
 
             {/* Visually hidden but focusable, so keyboard users reach a
@@ -336,18 +336,18 @@ export default function ContentField({
                       href={fileUrls[a.id]}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="break-words text-[15px] text-text-primary hover:text-accent hover:underline"
+                      className="break-words text-[0.9375rem] text-text-primary hover:text-accent hover:underline"
                     >
                       {a.name}
                     </a>
                   </div>
                   <div className="flex shrink-0 items-center gap-4">
-                    <span className="text-[14px] text-text-tertiary">sent as-is</span>
+                    <span className="text-[0.875rem] text-text-tertiary">sent as-is</span>
                     <button
                       type="button"
                       onClick={() => removeFileAttachment(a.id)}
                       aria-label={`Remove ${a.name}`}
-                      className="text-[15px] text-text-secondary hover:text-error"
+                      className="text-[0.9375rem] text-text-secondary hover:text-error"
                     >
                       Remove
                     </button>
@@ -362,22 +362,22 @@ export default function ContentField({
                       href={textUrls[f.id]}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="break-words text-[15px] text-text-primary hover:text-accent hover:underline"
+                      className="break-words text-[0.9375rem] text-text-primary hover:text-accent hover:underline"
                     >
                       {f.name}
                     </a>
                   </div>
                   <div className="flex shrink-0 items-center gap-4">
-                    <span aria-live="polite" className="text-[14px] text-text-tertiary">
+                    <span aria-live="polite" className="text-[0.875rem] text-text-tertiary">
                       {f.status === "extracting" && "Extracting…"}
                       {f.status === "done" && "converted to text"}
                     </span>
-                    {f.status === "error" && <span className="text-[14px] text-error">{f.error}</span>}
+                    {f.status === "error" && <span className="text-[0.875rem] text-error">{f.error}</span>}
                     <button
                       type="button"
                       onClick={() => removeTextFile(f.id)}
                       aria-label={`Remove ${f.name}`}
-                      className="text-[15px] text-text-secondary hover:text-error"
+                      className="text-[0.9375rem] text-text-secondary hover:text-error"
                     >
                       Remove
                     </button>

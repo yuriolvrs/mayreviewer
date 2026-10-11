@@ -34,10 +34,10 @@ function SourceRow({
   return (
     <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
       <div>
-        <p className="text-[15px] font-medium text-text-primary">{title}</p>
-        <p className="mt-1 text-[14px] text-text-secondary">{description}</p>
-        {status === "saving" && <p className="mt-1 text-[14px] text-text-tertiary">Saving…</p>}
-        {status === "saved" && <p className="mt-1 text-[14px] text-success">✓ Saved</p>}
+        <p className="text-[0.9375rem] font-medium text-text-primary">{title}</p>
+        <p className="mt-1 text-[0.875rem] text-text-secondary">{description}</p>
+        {status === "saving" && <p className="mt-1 text-[0.875rem] text-text-tertiary">Saving…</p>}
+        {status === "saved" && <p className="mt-1 text-[0.875rem] text-success">✓ Saved</p>}
       </div>
       <ContentField
         key={`${reviewerId}-${field}`}

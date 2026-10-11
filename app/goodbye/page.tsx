@@ -6,8 +6,8 @@ import Link from "next/link";
 export default function GoodbyePage() {
   return (
     <div className="mx-auto w-full max-w-md flex-1 px-6 py-10">
-      <h1 className="text-[26px] font-semibold text-text-primary">Your data was deleted</h1>
-      <p className="mt-1 text-[15px] text-text-secondary">
+      <h1 className="text-[1.625rem] font-semibold text-text-primary">Your data was deleted</h1>
+      <p className="mt-1 text-[0.9375rem] text-text-secondary">
         Your synced reviewers, questions, history, formats, and settings were removed from the
         cloud and this device. Uploaded files never left this device — clearing the browser&apos;s
         site data removes any leftovers.
@@ -15,13 +15,13 @@ export default function GoodbyePage() {
       <div className="mt-6 flex flex-wrap gap-3">
         <Link
           href="/"
-          className="inline-flex min-h-[44px] items-center rounded-lg bg-accent px-4 py-2 text-[15px] font-semibold text-on-accent"
+          className="inline-flex min-h-[44px] items-center rounded-lg bg-accent px-4 py-2 text-[0.9375rem] font-semibold text-on-accent"
         >
           Start fresh
         </Link>
         <Link
           href="/login"
-          className="inline-flex min-h-[44px] items-center rounded-lg border border-border-strong px-4 py-2 text-[15px] font-medium text-text-primary"
+          className="inline-flex min-h-[44px] items-center rounded-lg border border-border-strong px-4 py-2 text-[0.9375rem] font-medium text-text-primary"
         >
           Sign in again
         </Link>

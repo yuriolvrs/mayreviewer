@@ -59,7 +59,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <ThemeFlashScript />
         <AuthProvider>        <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[60] focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2 focus:text-[15px] focus:font-medium focus:text-accent"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[60] focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2 focus:text-[0.9375rem] focus:font-medium focus:text-accent"
         >
           Skip to content
         </a>
@@ -71,25 +71,25 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-5">
             <Link
               href="/about"
-              className="inline-block py-2 text-[13px] text-text-secondary hover:text-text-primary"
+              className="inline-block py-2 text-[0.8125rem] text-text-secondary hover:text-text-primary"
             >
               About
             </Link>
             <Link
               href="/privacy"
-              className="inline-block py-2 text-[13px] text-text-secondary hover:text-text-primary"
+              className="inline-block py-2 text-[0.8125rem] text-text-secondary hover:text-text-primary"
             >
               Privacy
             </Link>
             <Link
               href="/terms"
-              className="inline-block py-2 text-[13px] text-text-secondary hover:text-text-primary"
+              className="inline-block py-2 text-[0.8125rem] text-text-secondary hover:text-text-primary"
             >
               Terms
             </Link>
             <Link
               href="/about#feedback"
-              className="inline-block py-2 text-[13px] text-text-secondary hover:text-text-primary"
+              className="inline-block py-2 text-[0.8125rem] text-text-secondary hover:text-text-primary"
             >
               Feedback
             </Link>

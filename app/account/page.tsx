@@ -23,9 +23,9 @@ function Row({
   return (
     <div className="flex min-h-[60px] flex-wrap items-center gap-x-4 gap-y-2 border-b border-border py-3">
       <div className="min-w-0 flex-1">
-        <div className="text-[15px] font-medium text-text-primary">{label}</div>
+        <div className="text-[0.9375rem] font-medium text-text-primary">{label}</div>
         {hint && (
-          <div role="status" className="mt-px text-[13px] text-text-secondary">
+          <div role="status" className="mt-px text-[0.8125rem] text-text-secondary">
             {hint}
           </div>
         )}
@@ -152,34 +152,34 @@ export default function AccountPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
-      <h1 className="text-[26px] font-semibold text-text-primary">Account</h1>
+      <h1 className="text-[1.625rem] font-semibold text-text-primary">Account</h1>
 
-      {notice && <p role="status" className="mt-4 rounded-lg bg-surface-alt px-3 py-2 text-[14px] text-text-secondary">{notice}</p>}
+      {notice && <p role="status" className="mt-4 rounded-lg bg-surface-alt px-3 py-2 text-[0.875rem] text-text-secondary">{notice}</p>}
 
       <div className="mt-2 border-t border-border">
         {!user ? (
           configured ? (
             <Link
               href="/login"
-              className="flex min-h-[44px] items-center border-b border-border py-2 text-[15px] font-medium text-accent underline"
+              className="flex min-h-[44px] items-center border-b border-border py-2 text-[0.9375rem] font-medium text-accent underline"
             >
               Sign in to sync
             </Link>
           ) : (
-            <p className="border-b border-border py-3 text-[15px] text-text-secondary">
+            <p className="border-b border-border py-3 text-[0.9375rem] text-text-secondary">
               Sync isn&apos;t set up on this build yet — everything stays on this device.
             </p>
           )
         ) : (
           <>
             <Row label="Signed in as">
-              <p className="break-all text-[15px] text-text-primary">{user.email}</p>
+              <p className="break-all text-[0.9375rem] text-text-primary">{user.email}</p>
             </Row>
             <div className="border-b border-border py-3">
-              <label htmlFor="display-name" className="text-[15px] font-medium text-text-primary">
+              <label htmlFor="display-name" className="text-[0.9375rem] font-medium text-text-primary">
                 Display name
               </label>
-              <p className="mt-px text-[13px] text-text-secondary">Shown on your account on every device.</p>
+              <p className="mt-px text-[0.8125rem] text-text-secondary">Shown on your account on every device.</p>
               <div className="mt-2 flex gap-2">
                 <input
                   id="display-name"
@@ -188,12 +188,12 @@ export default function AccountPage() {
                   onChange={(e) => setDisplayName(e.target.value)}
                   maxLength={60}
                   autoComplete="nickname"
-                  className="h-11 min-w-0 flex-1 rounded-lg border border-border bg-surface px-2 py-2 text-[15px] text-text-primary outline-none focus:border-accent"
+                  className="h-11 min-w-0 flex-1 rounded-lg border border-border bg-surface px-2 py-2 text-[0.9375rem] text-text-primary outline-none focus:border-accent"
                 />
                 <button
                   onClick={() => void saveDisplayName()}
                   disabled={savingName || displayName.trim() === savedName}
-                  className="min-h-[44px] flex-none rounded-lg border border-border-strong px-4 py-2 text-[15px] font-medium text-text-primary disabled:opacity-40"
+                  className="min-h-[44px] flex-none rounded-lg border border-border-strong px-4 py-2 text-[0.9375rem] font-medium text-text-primary disabled:opacity-40"
                 >
                   {savingName ? "Saving…" : "Save"}
                 </button>
@@ -206,14 +206,14 @@ export default function AccountPage() {
               <button
                 onClick={() => void syncNowManual()}
                 disabled={syncing}
-                className="min-h-[44px] rounded-lg border border-border-strong px-4 py-2 text-[15px] font-medium text-text-primary disabled:opacity-40"
+                className="min-h-[44px] rounded-lg border border-border-strong px-4 py-2 text-[0.9375rem] font-medium text-text-primary disabled:opacity-40"
               >
                 {syncing ? "Syncing…" : "Sync now"}
               </button>
             </Row>
             <div className="border-b border-border py-3">
-              <div className="text-[15px] font-medium text-text-primary">Change password</div>
-              <p className="mt-px text-[13px] text-text-secondary">At least 6 characters.</p>
+              <div className="text-[0.9375rem] font-medium text-text-primary">Change password</div>
+              <p className="mt-px text-[0.8125rem] text-text-secondary">At least 6 characters.</p>
               <div className="mt-2 grid max-w-sm gap-2">
                 <PasswordInput
                   autoComplete="new-password"
@@ -236,7 +236,7 @@ export default function AccountPage() {
                   ariaLabel="Confirm new password"
                 />
                 {pwError && (
-                  <p role="alert" className="text-[14px] font-medium text-error">
+                  <p role="alert" className="text-[0.875rem] font-medium text-error">
                     {pwError}
                   </p>
                 )}
@@ -244,7 +244,7 @@ export default function AccountPage() {
                   <button
                     onClick={() => void changePassword()}
                     disabled={changingPw}
-                    className="min-h-[44px] rounded-lg border border-border-strong px-4 py-2 text-[15px] font-medium text-text-primary disabled:opacity-40"
+                    className="min-h-[44px] rounded-lg border border-border-strong px-4 py-2 text-[0.9375rem] font-medium text-text-primary disabled:opacity-40"
                   >
                     {changingPw ? "Updating…" : "Update password"}
                   </button>
@@ -254,7 +254,7 @@ export default function AccountPage() {
             <Row label="Log out" hint="Clears this device; signing back in restores your data.">
               <button
                 onClick={() => void signOutKept()}
-                className="min-h-[44px] rounded-lg border border-border-strong px-4 py-2 text-[15px] font-medium text-text-primary"
+                className="min-h-[44px] rounded-lg border border-border-strong px-4 py-2 text-[0.9375rem] font-medium text-text-primary"
               >
                 Log out
               </button>
@@ -262,7 +262,7 @@ export default function AccountPage() {
             <Row label="Delete account" hint="Wipes your data from the cloud and this device. Can't be undone.">
               <button
                 onClick={() => setConfirmingAccountDelete(true)}
-                className="min-h-[44px] rounded-lg border border-error px-4 py-2 text-[15px] font-medium text-error"
+                className="min-h-[44px] rounded-lg border border-error px-4 py-2 text-[0.9375rem] font-medium text-error"
               >
                 Delete account
               </button>

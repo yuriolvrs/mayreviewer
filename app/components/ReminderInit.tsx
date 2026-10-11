@@ -24,19 +24,32 @@ export default function ReminderInit() {
       }
       const now = new Date();
       if (!shouldFireReminder(now, settings.reminderTime, lastFired)) return;
-      try {
-        new Notification("Time to review", {
-          body: "Open May Reviewer for a quick practice round.",
+      void showReminder()
+        .then(() => window.localStorage.setItem(REMINDER_FIRED_KEY, todayKey(now)))
+        .catch(() => {
+          // Notifications are best-effort; a blocked or failed show must never
+          // break the app. The fired stamp stays unset so it retries next check.
         });
-        window.localStorage.setItem(REMINDER_FIRED_KEY, todayKey(now));
-      } catch {
-        // Notifications are best-effort; a blocked or failed show must never
-        // break the app. The fired stamp stays unset so it retries next check.
-      }
     }
     check();
     const id = window.setInterval(check, CHECK_INTERVAL_MS);
     return () => window.clearInterval(id);
   }, []);
   return null;
+}
+
+const TITLE = "Time to review";
+const OPTIONS: NotificationOptions = { body: "Open May Reviewer for a quick practice round." };
+
+// Android Chrome throws on `new Notification()` — pages there must show
+// notifications through a service worker registration. Use the worker when
+// one is active, and fall back to the constructor (desktop, dev mode).
+async function showReminder(): Promise<void> {
+  const registration =
+    "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : undefined;
+  if (registration) {
+    await registration.showNotification(TITLE, OPTIONS);
+    return;
+  }
+  new Notification(TITLE, OPTIONS);
 }

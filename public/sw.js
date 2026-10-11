@@ -68,3 +68,17 @@ self.addEventListener("fetch", (event) => {
     );
   }
 });
+
+// Reminders are shown through this worker (Android requires it), so tapping
+// one lands here. Focus an open tab if there is one, else open the app.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    (async () => {
+      const tabs = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      const open = tabs.find((c) => new URL(c.url).origin === self.location.origin);
+      if (open) return open.focus();
+      return self.clients.openWindow("/");
+    })(),
+  );
+});

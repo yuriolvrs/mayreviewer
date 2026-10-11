@@ -1,6 +1,6 @@
 import { del } from "@vercel/blob";
 import { GoogleGenAI, createPartFromUri, createUserContent, type ContentListUnion } from "@google/genai";
-import { createRateLimiter, clientKey } from "@/app/lib/rateLimit";
+import { createSharedRateLimiter, clientKey } from "@/app/lib/rateLimit";
 import {
   MAX_SUBJECT_CHARS,
   SYSTEM_INSTRUCTION,
@@ -35,7 +35,7 @@ export const maxDuration = 60;
 // match generate's without multiplying quota risk.
 const RATE_LIMIT = 8;
 const RATE_LIMIT_WINDOW_MS = 10 * 60_000;
-const checkRateLimiter = createRateLimiter(RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
+const checkRateLimiter = createSharedRateLimiter("infer-format", RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const MAX_INFER_TEXT_CHARS = 30_000;
@@ -147,7 +147,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Server is missing GEMINI_API_KEY." }, { status: 500 });
   }
 
-  const limit = checkRateLimiter(clientKey(request));
+  const limit = await checkRateLimiter(clientKey(request));
   if (!limit.allowed) {
     return Response.json(
       { error: `Too many inference requests. Try again in about ${Math.ceil(limit.retryAfterSeconds / 60)} minute(s).` },

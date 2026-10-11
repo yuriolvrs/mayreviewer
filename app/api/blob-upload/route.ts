@@ -1,5 +1,5 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
-import { createRateLimiter, clientKey } from "@/app/lib/rateLimit";
+import { createSharedRateLimiter, clientKey } from "@/app/lib/rateLimit";
 import { ALLOWED_ATTACHMENT_MIME_TYPES, MAX_ATTACHMENT_BYTES } from "@/app/lib/attachmentLimits";
 
 export const runtime = "nodejs";
@@ -10,10 +10,10 @@ export const runtime = "nodejs";
 // free, no Gemini call required.
 const RATE_LIMIT = 30;
 const RATE_LIMIT_WINDOW_MS = 10 * 60_000;
-const checkRateLimit = createRateLimiter(RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
+const checkRateLimit = createSharedRateLimiter("blob-upload", RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
 
 export async function POST(request: Request) {
-  const limit = checkRateLimit(clientKey(request));
+  const limit = await checkRateLimit(clientKey(request));
   if (!limit.allowed) {
     return Response.json(
       { error: "Too many uploads. Try again shortly." },

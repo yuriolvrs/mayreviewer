@@ -1,10 +1,14 @@
-// Fixed-window rate limiting for the one route that costs money to call.
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+
+// Fixed-window rate limiting for the routes that spend AI quota or Blob space.
 //
-// Counters live in this process's memory. That's the right fit for the
-// single-instance deploy this app runs on, but it is NOT a distributed limiter:
-// on a multi-instance or serverless host each instance keeps its own counters,
-// so the effective limit multiplies by the instance count. Moving to a shared
-// store (Redis/Upstash) means replacing the Map below, not the callers.
+// Two layers. createRateLimiter keeps counters in this process's memory: on
+// Vercel each serverless instance has its own, so alone it lets the limit
+// multiply by the instance count. createSharedRateLimiter puts the counters in
+// Upstash Redis so every instance shares one count, and falls back to the
+// in-memory limiter when Upstash isn't configured (local dev) or doesn't
+// answer in time — a limiter outage must never take generation down.
 
 type Bucket = { count: number; resetAt: number };
 
@@ -23,7 +27,7 @@ export function createRateLimiter(limit: number, windowMs: number): RateLimiter 
   const MAX_KEYS = 10_000;
 
   return function check(rawKey: string, now = Date.now()): RateLimitResult {
-    const key = rawKey.trim().toLowerCase().slice(0, 64) || "unknown";
+    const key = normalizeKey(rawKey);
     const bucket = buckets.get(key);
 
     if (!bucket || now >= bucket.resetAt) {
@@ -50,6 +54,45 @@ export function createRateLimiter(limit: number, windowMs: number): RateLimiter 
       };
     }
     return { allowed: true, remaining: limit - bucket.count, retryAfterSeconds: 0 };
+  };
+}
+
+function normalizeKey(rawKey: string): string {
+  return rawKey.trim().toLowerCase().slice(0, 64) || "unknown";
+}
+
+export type SharedRateLimiter = (key: string) => Promise<RateLimitResult>;
+
+// Upstash answers over HTTP in a few ms from the same region. Past this, the
+// request falls back to the in-memory count rather than waiting.
+const SHARED_TIMEOUT_MS = 1000;
+
+// `name` keeps each route's counters apart in the shared store. Reads the
+// env names Upstash uses directly and the ones the Vercel integration sets.
+export function createSharedRateLimiter(name: string, limit: number, windowMs: number): SharedRateLimiter {
+  const local = createRateLimiter(limit, windowMs);
+  const url = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
+  if (!url || !token) return async (key) => local(key);
+
+  const shared = new Ratelimit({
+    redis: new Redis({ url, token }),
+    limiter: Ratelimit.fixedWindow(limit, `${windowMs} ms`),
+    prefix: `mayreviewer:ratelimit:${name}`,
+    timeout: SHARED_TIMEOUT_MS,
+  });
+  return async (rawKey) => {
+    const key = normalizeKey(rawKey);
+    try {
+      const result = await shared.limit(key);
+      return {
+        allowed: result.success,
+        remaining: result.remaining,
+        retryAfterSeconds: result.success ? 0 : Math.max(Math.ceil((result.reset - Date.now()) / 1000), 1),
+      };
+    } catch {
+      return local(key);
+    }
   };
 }
 

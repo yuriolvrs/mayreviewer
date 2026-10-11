@@ -18,7 +18,7 @@ import {
   type ChunkPlan,
   type TopicTarget,
 } from "@/app/lib/generationPlan";
-import { createRateLimiter, clientKey } from "@/app/lib/rateLimit";
+import { createSharedRateLimiter, clientKey } from "@/app/lib/rateLimit";
 import {
   MAX_SUBJECT_CHARS,
   SYSTEM_INSTRUCTION,
@@ -92,7 +92,7 @@ export function fitTextBudget(texts: string[]): string[] {
 // (generate, edit, regenerate a few times) never trips it.
 const RATE_LIMIT = 8;
 const RATE_LIMIT_WINDOW_MS = 10 * 60_000;
-const checkRateLimit = createRateLimiter(RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
+const checkRateLimit = createSharedRateLimiter("generate", RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
 
 // The request body itself is now just JSON metadata (blob URLs, notes,
 // topics) — the actual file bytes live in Blob storage and get fetched
@@ -1131,7 +1131,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Server is missing GEMINI_API_KEY." }, { status: 500 });
   }
 
-  const limit = checkRateLimit(clientKey(request));
+  const limit = await checkRateLimit(clientKey(request));
   if (!limit.allowed) {
     return Response.json(
       { error: `Too many generation requests. Try again in about ${Math.ceil(limit.retryAfterSeconds / 60)} minute(s).` },

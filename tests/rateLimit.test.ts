@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { clientKey, createRateLimiter } from "@/app/lib/rateLimit";
+import { clientKey, createRateLimiter, createSharedRateLimiter } from "@/app/lib/rateLimit";
+
+describe("createSharedRateLimiter", () => {
+  it("falls back to the in-memory limiter when Upstash is not configured", async () => {
+    // The test env sets no UPSTASH_/KV_ vars, like local dev.
+    const check = createSharedRateLimiter("test", 2, 60_000);
+    expect(await check("a")).toMatchObject({ allowed: true, remaining: 1 });
+    expect(await check("a")).toMatchObject({ allowed: true, remaining: 0 });
+    expect(await check("a")).toMatchObject({ allowed: false, remaining: 0 });
+  });
+});
 
 describe("createRateLimiter", () => {
   it("allows up to the limit, then blocks", () => {

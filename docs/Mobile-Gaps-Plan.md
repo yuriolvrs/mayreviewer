@@ -194,7 +194,7 @@ Status: done (verified: tsc, lint, 313 unit, 74 e2e incl. new
 `e2e/mobile.spec.ts`, `npm run build`).
 
 - ✅ Footer links sat under the fixed bottom bar on phones: the bar padding was on `main`, but the footer comes after `main`. Padding moved to `body` and includes the safe-area inset.
-- ✅ Bottom bar: 5 tabs with icons (Reviewers, Formats, History, Progress, Settings). Below md the top Navbar drops its duplicate text links and keeps only the logo + account menu (one header row instead of two).
+- ✅ Bottom bar: tabs with icons. Below md the top Navbar drops its duplicate text links and keeps only the logo + account menu (one header row instead of two). Revised 2026-10-12 to 4 tabs (Reviewers, Progress, History, Settings); Formats moved to a row in Settings (setup, not the daily loop).
 - ✅ Web app manifest (`app/manifest.ts`), 192/512 icons, maskable 512, Apple touch icon, `appleWebApp` metadata. The app is now installable.
 - ✅ Reminders never fired on Android: Chrome there throws on `new Notification()`. Reminders now show through the service worker registration, and `sw.js` handles the tap (focus or open the app).
 - ✅ "Large text" did almost nothing: 434 text sizes were fixed px, so the root-size bump skipped them. All converted to the same size in rem.
@@ -208,10 +208,11 @@ Status: done (verified: tsc, lint, 313 unit, 74 e2e incl. new
 ## Web hardening — do before Phase 6 (todo)
 
 These affect the live web app now, not only the Play build.
-- [todo] Shared rate-limit store for `app/lib/rateLimit.ts`. The app deploys to Vercel (serverless), so the in-memory `Map` is per instance and the limit multiplies. Upstash Redis or a Supabase table. Moved here from Phase 6.
+- [in progress] Shared rate-limit store: code done (`createSharedRateLimiter` in `app/lib/rateLimit.ts`, Upstash Redis fixed window, in-memory fallback when unconfigured or slow). Live once an Upstash for Redis store is connected to the Vercel project (`KV_REST_API_URL` / `KV_REST_API_TOKEN`).
 - [todo] Incremental sync: every run pulls every row's full JSON. Pull ids for delete detection, but full rows only where `updated_at` > watermark. Matters most on mobile data.
 - [todo] Service worker: offline load of an uncached `/reviewer/<id>` falls back to the cached home HTML, so the wrong page renders. Also, old hashed `/_next/static` files are never pruned from the cache.
-- [todo] `/api/generate` and `/api/infer-format` accept anonymous calls. Consider requiring sign-in (or a bot check) before generation once the app is public in a store.
+- [todo] `/api/generate` and `/api/infer-format` accept anonymous calls. Decided 2026-10-12: Cloudflare Turnstile (free, mostly invisible) after the landing ships; keeps no-account use. Needs a site key + secret key.
+- [x] Landing page on `/` for first-time visitors (2026-10-12). `EntryScript` picks before first paint: saved reviewers, a Supabase session, or a prior app entry show the reviewers home; everyone else sees the landing. `/` stays static. Product record in `PRODUCT.md`; direction contract in `.impeccable/surfaces/`.
 
 ---
 

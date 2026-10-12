@@ -12,12 +12,24 @@ const RATE_LIMIT = 30;
 const RATE_LIMIT_WINDOW_MS = 10 * 60_000;
 const checkRateLimit = createSharedRateLimiter("blob-upload", RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
 
+// Kill switch across all callers. Sized above generate's daily cap because one
+// generation uploads one blob per file.
+const GLOBAL_DAILY_LIMIT = 500;
+const checkGlobalLimit = createSharedRateLimiter("blob-upload-global", GLOBAL_DAILY_LIMIT, 24 * 60 * 60_000);
+
 export async function POST(request: Request) {
   const limit = await checkRateLimit(clientKey(request));
   if (!limit.allowed) {
     return Response.json(
       { error: "Too many uploads. Try again shortly." },
       { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
+  }
+
+  if (!(await checkGlobalLimit("all")).allowed) {
+    return Response.json(
+      { error: "Uploads have reached their daily limit. Try again tomorrow." },
+      { status: 503, headers: { "Retry-After": "3600" } },
     );
   }
 

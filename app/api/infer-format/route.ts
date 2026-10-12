@@ -38,6 +38,10 @@ const RATE_LIMIT = 8;
 const RATE_LIMIT_WINDOW_MS = 10 * 60_000;
 const checkRateLimiter = createSharedRateLimiter("infer-format", RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
 
+// Kill switch across all callers: the per-IP limit does nothing against many IPs.
+const GLOBAL_DAILY_LIMIT = 200;
+const checkGlobalLimit = createSharedRateLimiter("infer-format-global", GLOBAL_DAILY_LIMIT, 24 * 60 * 60_000);
+
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const MAX_INFER_TEXT_CHARS = 30_000;
 // One model call carries the whole inference — cap the files so a 10-file
@@ -157,6 +161,14 @@ export async function POST(request: Request) {
   }
 
   if (!(await verifyTurnstile(request))) return turnstileRejection();
+
+  // After the per-IP and bot checks, so a blocked caller cannot drain the budget.
+  if (!(await checkGlobalLimit("all")).allowed) {
+    return Response.json(
+      { error: "Format inference has reached its daily limit. Try again tomorrow." },
+      { status: 503, headers: { "Retry-After": "3600" } },
+    );
+  }
 
   const declaredLength = Number(request.headers.get("content-length"));
   if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {

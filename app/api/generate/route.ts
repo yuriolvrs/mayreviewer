@@ -95,6 +95,12 @@ const RATE_LIMIT = 8;
 const RATE_LIMIT_WINDOW_MS = 10 * 60_000;
 const checkRateLimit = createSharedRateLimiter("generate", RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
 
+// Kill switch across all callers. The per-IP limit above does nothing against
+// many IPs, and one generation can fan out into dozens of model calls. When
+// this daily budget is spent, the route refuses until the window rolls over.
+const GLOBAL_DAILY_LIMIT = 300;
+const checkGlobalLimit = createSharedRateLimiter("generate-global", GLOBAL_DAILY_LIMIT, 24 * 60 * 60_000);
+
 // The request body itself is now just JSON metadata (blob URLs, notes,
 // topics) — the actual file bytes live in Blob storage and get fetched
 // server-side below — but an unbounded body is still a cheap memory-
@@ -1141,6 +1147,14 @@ export async function POST(request: Request) {
   }
 
   if (!(await verifyTurnstile(request))) return turnstileRejection();
+
+  // After the per-IP and bot checks, so a blocked caller cannot drain the budget.
+  if (!(await checkGlobalLimit("all")).allowed) {
+    return Response.json(
+      { error: "Generation has reached its daily limit. Try again tomorrow." },
+      { status: 503, headers: { "Retry-After": "3600" } },
+    );
+  }
 
   const declaredLength = Number(request.headers.get("content-length"));
   if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {

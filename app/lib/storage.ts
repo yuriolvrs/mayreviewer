@@ -3,6 +3,7 @@ import { CSOPESY_FINAL, formatTypeKeys, resolveFormat } from "@/app/lib/examForm
 import { newId } from "@/app/lib/ids";
 import { markDeleted } from "@/app/lib/tombstones";
 import { notifyLocalChange } from "@/app/lib/localChange";
+import { getSettings } from "@/app/lib/settings";
 import type { Question, QuizAttempt, Reviewer, ShortGrade } from "@/app/types";
 
 // The ONLY file that touches localStorage. Swapping to Supabase later means
@@ -282,6 +283,7 @@ export function saveQuizAttempt(
     timedOut: timing?.timedOut ?? false,
     timeLimitSec: timing?.timeLimitSec ?? null,
     parSec: timing?.parSec ?? null,
+    dailyGoal: getSettings().dailyGoal,
   };
   writeJson(ATTEMPTS_KEY, [...getAllAttempts(), attempt]);
   notifyLocalChange();

@@ -105,7 +105,9 @@ export function getStreakState(): StreakState {
   const settings = getSettings();
   const granted = ensureMonthlyGrant(settings.streak, new Date());
   if (granted.grantedMonth !== settings.streak.grantedMonth) {
-    return updateSettings({ streak: granted }).streak;
+    // Keep the old stamp: a top-up is not a user edit, and stamping "now"
+    // would let default settings after logout beat the cloud row on login.
+    return replaceSettings({ ...settings, streak: granted }, getSettingsUpdatedAt()).streak;
   }
   return granted;
 }

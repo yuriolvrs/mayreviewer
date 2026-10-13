@@ -154,6 +154,10 @@ export type QuizAttempt = {
   // par the Speedster badge measures against. Null when unknown (untimed
   // quizzes and attempts saved before this existed).
   parSec?: number | null;
+  // The daily goal setting when this attempt was taken, so the Goal Getter
+  // badge measures each day against its own goal. Absent on attempts saved
+  // before this existed (unknown, not backfilled).
+  dailyGoal?: number;
 };
 
 export type Reviewer = {

@@ -8,6 +8,7 @@ import {
   type SyncCollection,
 } from "@/app/lib/tombstones";
 import { getAllQuizHistory, getReviewers } from "@/app/lib/storage";
+import { mergeStreakState, normalizeStreakState } from "@/app/lib/streaks";
 import { getSupabaseClient } from "@/app/lib/supabase";
 
 // Local-first sync. Reads and writes stay synchronous against localStorage
@@ -337,10 +338,24 @@ async function runSync(userId: string): Promise<SyncResult> {
       settingsRow?.updated_at ?? null,
     );
 
+    // Streak state is the one part of settings that must not be last-write-
+    // wins: the losing side's spent restores and claimed levels would vanish.
+    // Merge it into the picked set; the picked stamp stays.
+    const loserStreak = picked.fromCloud
+      ? localSettings.streak
+      : cloudSettings
+        ? normalizeStreakState(cloudSettings.streak)
+        : null;
+    const finalSettings: UserSettings = loserStreak
+      ? { ...picked.settings, streak: mergeStreakState(normalizeStreakState(picked.settings.streak), loserStreak) }
+      : picked.settings;
+
     replaceAllReviewers(mergedReviewers);
     replaceAllAttempts(mergedAttempts);
     replaceCustomFormats(mergedFormats);
-    if (picked.fromCloud) replaceSettings(picked.settings, picked.updatedAt);
+    if (picked.fromCloud || JSON.stringify(finalSettings) !== JSON.stringify(localSettings)) {
+      replaceSettings(finalSettings, picked.updatedAt);
+    }
     notifySyncApplied();
 
     const tableFor: Record<SyncCollection, string> = {
@@ -378,7 +393,7 @@ async function runSync(userId: string): Promise<SyncResult> {
       ),
       client.from("settings").upsert({
         user_id: userId,
-        data: picked.settings,
+        data: finalSettings,
         updated_at: picked.updatedAt ?? startedAt,
       }),
     ];

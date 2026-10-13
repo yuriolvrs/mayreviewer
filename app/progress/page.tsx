@@ -14,8 +14,10 @@ import {
   DEFAULT_DAILY_GOAL,
   familyValue,
   restorableDay,
+  RESTORES_CAP,
   shiftDay,
   spendRestore,
+  STREAK_DAY_MIN_QUESTIONS,
   todayProgress,
   type BadgeFamily,
   type BadgeFamilyId,
@@ -189,6 +191,7 @@ export default function ProgressPage() {
     const claimedUpTo = streak.claimedLevels[family.id] ?? 0;
     return { family, value, status, claimable: status.level > claimedUpTo };
   });
+  const bankFull = streak.banked >= RESTORES_CAP;
   const unlockedCount = badges.filter((b) => b.status.level > 0).length;
 
   // The streak a restore would return to — what the button names.
@@ -297,7 +300,7 @@ export default function ProgressPage() {
           </p>
         ) : (
           <p className="mt-2 text-[0.9375rem] text-text-secondary">
-            No streak yet — answer 5+ questions today to start one.
+            No streak yet — answer {STREAK_DAY_MIN_QUESTIONS}+ questions today to start one.
           </p>
         )}
         {/* Connected track: one line with the seven days as nodes, so the week
@@ -333,8 +336,8 @@ export default function ProgressPage() {
         {current.count > 0 && (
           <p className="mt-3 text-[0.875rem] text-text-secondary">
             {current.todayDone
-              ? "Answer 5 questions tomorrow to keep it going."
-              : `Answer ${Math.max(0, 5 - progress.answered)} today to keep it going.`}
+              ? `Answer ${STREAK_DAY_MIN_QUESTIONS} questions tomorrow to keep it going.`
+              : `Answer ${Math.max(0, STREAK_DAY_MIN_QUESTIONS - progress.answered)} today to keep it going.`}
           </p>
         )}
         <p className="mt-2 text-[0.875rem] text-text-secondary">
@@ -393,16 +396,26 @@ export default function ProgressPage() {
                     style={{ width: `${Math.round(fraction * 100)}%` }}
                   />
                 </span>
-                {claimable && (
-                  <button
-                    type="button"
-                    onClick={() => onClaim(family)}
-                    aria-label={`Claim ${family.label} level ${status.level}, plus 1 restore`}
-                    className="mt-1.5 shrink-0 rounded-lg bg-accent px-4 py-1.5 text-[0.8125rem] font-semibold text-on-accent hover:bg-accent-hover"
-                  >
-                    Claim +1
-                  </button>
-                )}
+                {claimable &&
+                  (bankFull ? (
+                    <button
+                      type="button"
+                      disabled
+                      aria-label={`Claim ${family.label} level ${status.level} unavailable, restore bank is full`}
+                      className="mt-1.5 shrink-0 rounded-lg bg-surface-alt px-4 py-1.5 text-[0.8125rem] font-semibold text-text-tertiary"
+                    >
+                      Bank full
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onClaim(family)}
+                      aria-label={`Claim ${family.label} level ${status.level}, plus 1 restore`}
+                      className="mt-1.5 shrink-0 rounded-lg bg-accent px-4 py-1.5 text-[0.8125rem] font-semibold text-on-accent hover:bg-accent-hover"
+                    >
+                      Claim +1
+                    </button>
+                  ))}
               </div>
             );
           })}

@@ -159,10 +159,39 @@ export function spendRestore(state: StreakState, day: string): StreakState | nul
   return { ...state, banked: state.banked - 1, restoredDays: [...state.restoredDays, day] };
 }
 
+// Sync merge of two streak states (winner = the settings side that won
+// last-write-wins). Nothing either side spent or claimed is lost: restored
+// days union, claimed levels take the per-family max, and the bank follows the
+// winner plus the claims (+1 each) and spends (-1 each) only the loser made.
+export function mergeStreakState(winner: StreakState, loser: StreakState): StreakState {
+  const restoredDays = [...new Set([...winner.restoredDays, ...loser.restoredDays])].slice(0, 366);
+  const claimedLevels: Partial<Record<BadgeFamilyId, number>> = { ...winner.claimedLevels };
+  let loserOnlyClaims = 0;
+  for (const [key, n] of Object.entries(loser.claimedLevels)) {
+    const family = key as BadgeFamilyId;
+    const won = winner.claimedLevels[family] ?? 0;
+    if (n > won) {
+      claimedLevels[family] = n;
+      loserOnlyClaims += n - won;
+    }
+  }
+  const winnerDays = new Set(winner.restoredDays);
+  const loserOnlySpends = new Set(loser.restoredDays.filter((d) => !winnerDays.has(d))).size;
+  return {
+    banked: Math.min(
+      RESTORES_CAP,
+      Math.max(0, winner.banked + loserOnlyClaims - loserOnlySpends),
+    ),
+    grantedMonth: winner.grantedMonth,
+    restoredDays,
+    claimedLevels,
+  };
+}
+
 // Badge families: every achievement is one tile with levels inside. Each
 // level-up banks one restore. Progress extractors read attempts the app
 // already stores — hours are device-local, like every other day boundary
-// here; goal days measure against the current goal setting.
+// here; goal days measure against the goal of that day.
 export type BadgeFamilyId =
   | "streak"
   | "questions"
@@ -201,6 +230,8 @@ export type BadgeAttempt = {
   timeLimitSec?: number | null;
   durationSec?: number;
   parSec?: number | null;
+  // Goal setting when the attempt was taken; absent on legacy attempts.
+  dailyGoal?: number;
 };
 
 function finiteTotal(total: unknown): number {
@@ -228,15 +259,26 @@ export function familyValue(
       return attempts.filter((a) => a.total > 0 && a.score === a.total).length;
     case "goals": {
       if (!(opts.goal > 0)) return 0;
-      const perDay = new Map<string, number>();
+      // A day's goal is the highest one stamped on its attempts. An unstamped
+      // (legacy) attempt counts as the higher of the current goal and the
+      // default, so lowering the goal cannot reopen old days.
+      const legacyGoal = Math.max(opts.goal, DEFAULT_DAILY_GOAL);
+      const perDay = new Map<string, { total: number; goal: number }>();
       for (const a of attempts) {
         const ms = Date.parse(a.takenAt);
         if (Number.isNaN(ms)) continue;
         const key = dayKey(new Date(ms));
-        perDay.set(key, (perDay.get(key) ?? 0) + finiteTotal(a.total));
+        const day = perDay.get(key) ?? { total: 0, goal: 0 };
+        day.total += finiteTotal(a.total);
+        const stamped =
+          typeof a.dailyGoal === "number" && Number.isFinite(a.dailyGoal) && a.dailyGoal >= MIN_DAILY_GOAL
+            ? a.dailyGoal
+            : legacyGoal;
+        day.goal = Math.max(day.goal, stamped);
+        perDay.set(key, day);
       }
       let days = 0;
-      for (const total of perDay.values()) if (total >= opts.goal) days++;
+      for (const day of perDay.values()) if (day.total >= day.goal) days++;
       return days;
     }
     case "speed":
@@ -284,7 +326,7 @@ export function badgeStatus(family: BadgeFamily, value: number): BadgeStatus {
 }
 
 // Claims the next unclaimed reached level (+1 restore). Null when nothing new
-// is reached, the id is unknown, or the bank interaction is illegal — callers
+// is reached, the id is unknown, or the bank is full — callers
 // check badgeStatus first for whether a claim is meaningful.
 export function claimBadgeLevel(
   state: StreakState,
@@ -295,6 +337,8 @@ export function claimBadgeLevel(
   const claimed = state.claimedLevels[family.id] ?? 0;
   const { level } = badgeStatus(family, value);
   if (level <= claimed) return null;
+  // A full bank would swallow the award: keep the level claimable instead.
+  if (state.banked >= RESTORES_CAP) return null;
   return {
     ...state,
     banked: Math.min(RESTORES_CAP, state.banked + 1),

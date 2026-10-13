@@ -101,6 +101,21 @@ test.describe("Progress page", () => {
     await expect(page.getByRole("button", { name: "Claim Riddler level 1" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Claim/ })).toHaveCount(0);
   });
+
+  test("shows a disabled Bank full button instead of a claim when the bank is at the cap", async ({ page }) => {
+    await seedAttempts(page, [
+      attempt("a1", at(0), 30, 40),
+      attempt("a2", at(0), 30, 40),
+      attempt("a3", at(0), 30, 48),
+    ]);
+    await seedSettings(page, { streak: { ...BANKED_TWO, banked: 6 }, dailyGoal: 200 });
+    await page.goto("/progress");
+    const full = page.getByRole("button", { name: /Riddler level 1 unavailable, restore bank is full/ });
+    await expect(full).toBeVisible();
+    await expect(full).toBeDisabled();
+    await expect(full).toHaveText("Bank full");
+    await expect(page.getByRole("button", { name: "Claim +1" })).toHaveCount(0);
+  });
 });
 
 test.describe("Home strip", () => {

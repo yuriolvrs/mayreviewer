@@ -26,6 +26,7 @@ import {
   DEFAULT_SETTINGS,
   getSettings,
   getSettingsUpdatedAt,
+  getStreakState,
   replaceSettings,
   SETTINGS_CHANGED_EVENT,
   updateSettings,
@@ -362,6 +363,64 @@ describe("runSync", () => {
     expect(getAllQuizHistory()).toHaveLength(1500);
   });
 
+  it("keeps the loser's streak claims and spends when cloud settings win", async () => {
+    const streak = { banked: 3, grantedMonth: "2026-03", restoredDays: [] as string[], claimedLevels: {} };
+    replaceSettings(
+      {
+        ...DEFAULT_SETTINGS,
+        streak: { ...streak, restoredDays: ["2026-02-10"], claimedLevels: { questions: 2 } },
+      },
+      "2026-01-01T00:00:00.000Z",
+    );
+    const fake = makeFakeCloud({
+      reviewers: [],
+      attempts: [],
+      formats: [],
+      settings: {
+        data: { ...DEFAULT_SETTINGS, theme: "dark", streak: { ...streak, claimedLevels: { questions: 1 } } },
+        updated_at: "2026-03-01T00:00:00.000Z",
+      },
+    });
+    mockHolder.client = fake.client as unknown as SupabaseClient;
+
+    const result = await syncNow("user-1");
+
+    expect(result.ok).toBe(true);
+    const expected = { banked: 3, restoredDays: ["2026-02-10"], claimedLevels: { questions: 2 } };
+    expect(getSettings().theme).toBe("dark");
+    expect(getSettings().streak).toMatchObject(expected);
+    expect(getSettingsUpdatedAt()).toBe("2026-03-01T00:00:00.000Z");
+    const pushed = fake.calls.upserts.settings as { data: { streak: unknown }; updated_at: string };
+    expect(pushed.data.streak).toMatchObject(expected);
+    expect(pushed.updated_at).toBe("2026-03-01T00:00:00.000Z");
+  });
+
+  it("keeps the cloud's streak claims when local settings win", async () => {
+    const streak = { banked: 3, grantedMonth: "2026-03", restoredDays: [] as string[] };
+    replaceSettings(
+      { ...DEFAULT_SETTINGS, theme: "dark", streak: { ...streak, claimedLevels: { questions: 1 } } },
+      "2026-04-01T00:00:00.000Z",
+    );
+    const fake = makeFakeCloud({
+      reviewers: [],
+      attempts: [],
+      formats: [],
+      settings: {
+        data: { ...DEFAULT_SETTINGS, streak: { ...streak, claimedLevels: { questions: 2 } } },
+        updated_at: "2026-03-01T00:00:00.000Z",
+      },
+    });
+    mockHolder.client = fake.client as unknown as SupabaseClient;
+
+    await syncNow("user-1");
+
+    expect(getSettings().streak.claimedLevels).toEqual({ questions: 2 });
+    expect(getSettings().streak.banked).toBe(4);
+    expect(getSettingsUpdatedAt()).toBe("2026-04-01T00:00:00.000Z");
+    const pushed = fake.calls.upserts.settings as { data: { streak: { claimedLevels: unknown } } };
+    expect(pushed.data.streak.claimedLevels).toEqual({ questions: 2 });
+  });
+
   it("records whose data converged, for the account-switch guard", async () => {
     const fake = makeFakeCloud({ reviewers: [], attempts: [], formats: [], settings: null });
     mockHolder.client = fake.client as unknown as SupabaseClient;
@@ -396,5 +455,16 @@ describe("clearLocalSyncedData", () => {
     expect(getTombstones("reviewers")).toEqual({});
     expect(applied).toHaveBeenCalledTimes(1);
     window.removeEventListener(SYNC_APPLIED_EVENT, applied);
+  });
+
+  it("leaves the settings stamp null when the monthly top-up runs afterwards", async () => {
+    await clearLocalSyncedData();
+    expect(getSettingsUpdatedAt()).toBeNull();
+
+    const granted = getStreakState();
+
+    expect(granted.banked).toBeGreaterThan(0);
+    expect(getSettings().streak.banked).toBe(granted.banked);
+    expect(getSettingsUpdatedAt()).toBeNull();
   });
 });

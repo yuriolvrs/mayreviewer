@@ -9,6 +9,7 @@ import {
   DEFAULT_STREAK_STATE,
   ensureMonthlyGrant,
   familyValue,
+  mergeStreakState,
   monthKey,
   normalizeStreakState,
   restorableDay,
@@ -176,6 +177,49 @@ describe("spendRestore", () => {
   });
 });
 
+describe("mergeStreakState", () => {
+  const base = { ...DEFAULT_STREAK_STATE, banked: 3, grantedMonth: "2026-09" };
+
+  it("keeps a claim only the loser made, and banks it", () => {
+    const loser = { ...base, claimedLevels: { questions: 2 } };
+    expect(mergeStreakState({ ...base, claimedLevels: { questions: 1 } }, loser)).toEqual({
+      ...base,
+      banked: 4,
+      claimedLevels: { questions: 2 },
+    });
+  });
+
+  it("keeps a spend only the loser made", () => {
+    const loser = { ...base, banked: 2, restoredDays: ["2026-09-10"] };
+    expect(mergeStreakState(base, loser)).toEqual({
+      ...base,
+      banked: 2,
+      restoredDays: ["2026-09-10"],
+    });
+  });
+
+  it("does not double-count a level claimed or a day restored on both sides", () => {
+    const both = { ...base, claimedLevels: { streak: 1 }, restoredDays: ["2026-09-10"] };
+    expect(mergeStreakState(both, both)).toEqual(both);
+  });
+
+  it("takes the winner's grant month and the per-family max", () => {
+    const winner = { ...base, grantedMonth: "2026-09", claimedLevels: { streak: 3, owl: 1 } };
+    const loser = { ...base, grantedMonth: "2026-08", claimedLevels: { streak: 1, bird: 2 } };
+    const merged = mergeStreakState(winner, loser);
+    expect(merged.grantedMonth).toBe("2026-09");
+    expect(merged.claimedLevels).toEqual({ streak: 3, owl: 1, bird: 2 });
+  });
+
+  it("clamps the bank at 0 and at the cap", () => {
+    const spent = { ...base, banked: 0 };
+    const loserSpent = { ...base, banked: 1, restoredDays: ["2026-09-01", "2026-09-02"] };
+    expect(mergeStreakState(spent, loserSpent).banked).toBe(0);
+    const full = { ...base, banked: 6 };
+    expect(mergeStreakState(full, { ...base, claimedLevels: { questions: 3 } }).banked).toBe(6);
+  });
+});
+
 describe("badge families", () => {
   // One kitchen-sink attempt per signal. Hours are device-local noon unless
   // noted, so owl/bird assertions hold in any timezone.
@@ -242,11 +286,40 @@ describe("badge families", () => {
     expect(claimBadgeLevel(state, questions, 0)).toBeNull();
   });
 
-  it("caps awards at the bank cap", () => {
+  it("refuses a claim at the bank cap, so the level stays claimable", () => {
     const questions = BADGE_FAMILIES.find((f) => f.id === "questions")!;
-    const state = { ...DEFAULT_STREAK_STATE, banked: 6 };
-    expect(claimBadgeLevel(state, questions, 250)!.banked).toBe(6);
-    expect(claimBadgeLevel(state, questions, 250)!.claimedLevels).toEqual({ questions: 1 });
+    const full = { ...DEFAULT_STREAK_STATE, banked: 6 };
+    expect(claimBadgeLevel(full, questions, 250)).toBeNull();
+    // After a restore is spent, the same level claims.
+    const spent = { ...full, banked: 5 };
+    expect(claimBadgeLevel(spent, questions, 250)).toEqual({
+      ...spent,
+      banked: 6,
+      claimedLevels: { questions: 1 },
+    });
+  });
+
+  it("measures each day against its own goal, not the current one", () => {
+    const stamped = (d: number, total: number, dailyGoal?: number): BadgeAttempt => ({
+      takenAt: ISO(d),
+      total,
+      score: 0,
+      reviewerId: "rv1",
+      dailyGoal,
+    });
+    // Stamped days: lowering the current goal to 1 changes nothing.
+    const days = [stamped(16, 12, 20), stamped(17, 12, 10)];
+    expect(familyValue("goals", days, { goal: 1 })).toBe(1);
+    expect(familyValue("goals", days, { goal: 50 })).toBe(1);
+    // Legacy day (no stamp): floor is the default goal, even if goal is lowered.
+    expect(familyValue("goals", [stamped(16, 5)], { goal: 1 })).toBe(0);
+    expect(familyValue("goals", [stamped(16, 10)], { goal: 1 })).toBe(1);
+    // A raised current goal still applies to legacy days.
+    expect(familyValue("goals", [stamped(16, 10)], { goal: 15 })).toBe(0);
+    // Mixed day: the max goal among its attempts wins.
+    const mixed = [stamped(16, 6, 5), stamped(16, 6, 20)];
+    expect(familyValue("goals", mixed, { goal: 1 })).toBe(0);
+    expect(familyValue("goals", [stamped(16, 6, 5), stamped(16, 6)], { goal: 1 })).toBe(1);
   });
 });
 

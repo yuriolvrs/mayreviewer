@@ -241,7 +241,7 @@ export default function Landing() {
             Paste or upload your notes or an old exam. May Reviewer writes practice questions you can answer,
             check, and drill before the real one.
           </p>
-          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3 pb-8">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-3 pb-8">
             <Link
               href="/reviewer/new"
               className="rounded-lg bg-accent px-5 py-3.5 text-[1rem] font-semibold text-on-accent hover:bg-accent-hover"
@@ -289,7 +289,7 @@ export default function Landing() {
         </Bubble>
         <Bubble from="me" delay="0ms">gawa ka rin, libre lang</Bubble>
       </div>
-      <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3">
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-3">
         <Link
           href="/reviewer/new"
           className="rounded-lg bg-accent px-5 py-3.5 text-[1rem] font-semibold text-on-accent hover:bg-accent-hover"

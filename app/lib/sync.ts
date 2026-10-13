@@ -119,13 +119,18 @@ export function mergeReviewers(local: Reviewer[], cloud: Reviewer[]): Reviewer[]
   return mergeByUpdatedAt(local, cloud);
 }
 
-// Attempts are append-only snapshots — no updatedAt, nothing to last-write
-// against. Union by id; a taken attempt is immutable so either copy is the
-// same copy.
+// Attempts are append-only snapshots, with one exception: short-answer grades
+// can be added or overridden after the fact, which stamps `gradedAt`. Union by
+// id; when both sides hold the same attempt, the later `gradedAt` wins, and a
+// tie (or no stamp on either side) keeps local, as before.
 export function mergeAttempts(local: QuizAttempt[], cloud: QuizAttempt[]): QuizAttempt[] {
   const merged = new Map<string, QuizAttempt>();
   for (const attempt of cloud) merged.set(attempt.id, attempt);
-  for (const attempt of local) merged.set(attempt.id, attempt);
+  for (const attempt of local) {
+    const other = merged.get(attempt.id);
+    if (other && timeOf(other.gradedAt) > timeOf(attempt.gradedAt)) continue;
+    merged.set(attempt.id, attempt);
+  }
   return [...merged.values()];
 }
 

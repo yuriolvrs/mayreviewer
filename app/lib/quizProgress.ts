@@ -9,6 +9,9 @@ export type QuizProgress = {
   reviewerId: string;
   quizQuestions: Question[];
   answers: Answers;
+  // Typed short answers by question id. Optional so snapshots saved before
+  // short answers existed still resume.
+  textAnswers?: Record<string, string>;
   unsureIds: string[];
   // Persisted too: without it a refresh would unlock locked immediate-mode
   // answers and let the reader change them after seeing feedback.
@@ -42,6 +45,11 @@ function isAnswers(value: unknown): value is Answers {
   );
 }
 
+function isTextAnswers(value: unknown): value is Record<string, string> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  return Object.values(value as Record<string, unknown>).every((v) => typeof v === "string");
+}
+
 function isQuestionArray(value: unknown): value is Question[] {
   return (
     Array.isArray(value) &&
@@ -63,6 +71,7 @@ function isProgress(value: unknown): value is QuizProgress {
     typeof v.reviewerId === "string" &&
     isQuestionArray(v.quizQuestions) &&
     isAnswers(v.answers) &&
+    (v.textAnswers === undefined || isTextAnswers(v.textAnswers)) &&
     isStringArray(v.unsureIds) &&
     (v.confirmedIds === undefined || isStringArray(v.confirmedIds)) &&
     (v.timeLimitSec === null ||
@@ -97,7 +106,12 @@ export function getQuizProgress(reviewerId: string): QuizProgress | null {
   const raw = readAll()[reviewerId];
   if (!isProgress(raw)) return null;
   if (raw.reviewerId !== reviewerId) return null;
-  return { ...raw, confirmedIds: raw.confirmedIds ?? [], parSec: raw.parSec ?? 0 };
+  return {
+    ...raw,
+    confirmedIds: raw.confirmedIds ?? [],
+    parSec: raw.parSec ?? 0,
+    textAnswers: raw.textAnswers ?? {},
+  };
 }
 
 export function saveQuizProgress(progress: QuizProgress): void {

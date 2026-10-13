@@ -177,6 +177,31 @@ segment relies on documented provider support + the shared code path.
 
 ---
 
+## Chapter 6 — Short-answer + AI grading
+
+Adds one answer format: short answer (1-3 sentences). The model writes a model
+answer and 1-5 key points at generation time. One batched call grades the typed
+answers at submit. The model returns which key points were met; the server
+computes the credit.
+
+- [x] 6.1. Types, validator, and helpers: `answerKind`, `modelAnswer`,
+  `keyPoints`, `ShortGrade`; `questionCredit`/`sumCredit`/`missedIds`; fractional
+  `score` in `saveQuizAttempt`; `overrideGrade`; sync prefers the later `gradedAt`.
+- [x] 6.2. Format builder + generation: `short-answer` format (standalone, no
+  stimulus), `shortAnswers` schema array only when needed, verify pass can drop
+  but never "correct" a short answer, `infer-format` knows the type.
+- [x] 6.3. `/api/grade`: own rate limit + daily cap, Turnstile, fenced student
+  text, server-side credit, blank answers graded locally, Mistral fallback.
+- [x] 6.4. Quiz UI: textarea + counter, saved with resume, "Grading…" modal with
+  Retry / Save without grading, results with key points, feedback, override, and
+  "Grade now".
+- [x] 6.5. Questions tab editing, import/export round trip, unit + e2e tests.
+- [x] 6.6. About-page limits note. (Live pass with real quota: not run.)
+
+Still deferred: "Ask the reviewer" long-context Q&A (premium tier or BYOK).
+
+---
+
 ## Appendix — build order
 
 1. MTF as 5th type (Chapter 1) — shippable alone, proves the path.
@@ -185,8 +210,8 @@ segment relies on documented provider support + the shared code path.
 4. Past-exam inference + reviewer-level exam (Chapter 4).
 5. Verification + rollout (Chapter 5).
 
-Deferred deliberately (unchanged): free-text/numeric answers (breaks shuffle +
-verify + scoring) and multi-select. Raw prompt input stays out; per-type
+Deferred deliberately: numeric answers and multi-select. Free text is now
+supported only as short answers (Chapter 6); long essays stay out. Raw prompt input stays out; per-type
 plain-language guidance is the power-user path.
 
 ## Post-plan hardening (injection review + quality pass)

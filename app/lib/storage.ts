@@ -1,9 +1,9 @@
-import { DEFAULT_QUESTION_COUNT, splitCountEvenly, sumCounts } from "@/app/lib/questions";
+import { DEFAULT_QUESTION_COUNT, splitCountEvenly, sumCounts, sumCredit } from "@/app/lib/questions";
 import { CSOPESY_FINAL, formatTypeKeys, resolveFormat } from "@/app/lib/examFormats";
 import { newId } from "@/app/lib/ids";
 import { markDeleted } from "@/app/lib/tombstones";
 import { notifyLocalChange } from "@/app/lib/localChange";
-import type { Question, QuizAttempt, Reviewer } from "@/app/types";
+import type { Question, QuizAttempt, Reviewer, ShortGrade } from "@/app/types";
 
 // The ONLY file that touches localStorage. Swapping to Supabase later means
 // rewriting the insides of these functions, not the components that call them.
@@ -215,6 +215,8 @@ function normalizeAttempt(
     ...attempt,
     questions: attempt.questions ?? [],
     answers: attempt.answers ?? {},
+    textAnswers: attempt.textAnswers ?? {},
+    grades: attempt.grades ?? {},
     unsureIds: attempt.unsureIds ?? [],
     // Falls back to the fixed sentinel only for an orphaned attempt whose
     // Reviewer was deleted — there's no set to match it to.
@@ -250,23 +252,28 @@ export function getAllQuizHistory(): QuizAttempt[] {
 // Scored here rather than by the caller so the stored score can never drift
 // from the stored answers it's supposed to summarise. Takes the whole
 // Reviewer, not just its id, so the attempt can snapshot which generated set
-// `questions` was sampled from.
+// `questions` was sampled from. Short answers arrive as typed text plus the
+// grades the grade route returned; a choice-only attempt omits both.
 export function saveQuizAttempt(
   reviewer: Reviewer,
   questions: Question[],
   answers: Record<string, number>,
   unsureIds: string[],
   timing?: { durationSec: number; timedOut: boolean; timeLimitSec?: number | null; parSec?: number | null },
+  short?: { textAnswers: Record<string, string>; grades: Record<string, ShortGrade> },
 ): QuizAttempt {
   const format = resolveFormat(reviewer.examFormatId);
+  const grades = short?.grades ?? {};
   const attempt: QuizAttempt = {
     id: newId(),
     reviewerId: reviewer.id,
     takenAt: new Date().toISOString(),
-    score: questions.filter((q) => answers[q.id] === q.correctIndex).length,
+    score: sumCredit(questions, answers, grades),
     total: questions.length,
     questions,
     answers,
+    textAnswers: short?.textAnswers ?? {},
+    grades,
     unsureIds,
     questionSetGeneratedAt: reviewer.questionsGeneratedAt,
     examFormatId: format.id,
@@ -279,6 +286,54 @@ export function saveQuizAttempt(
   writeJson(ATTEMPTS_KEY, [...getAllAttempts(), attempt]);
   notifyLocalChange();
   return attempt;
+}
+
+// Writes grades onto a saved attempt — the "Grade now" retry for an ungraded
+// save, or a by-hand override. The score is recomputed from the stored answers
+// and merged grades, never patched, so it cannot drift. `gradedAt` is what
+// lets sync prefer this copy over the stale one on another device.
+// Returns the updated attempt, or null when the id no longer exists.
+export function updateAttemptGrades(
+  attemptId: string,
+  grades: Record<string, ShortGrade>,
+): QuizAttempt | null {
+  const all = getAllAttempts();
+  const index = all.findIndex((a) => a.id === attemptId);
+  if (index === -1) return null;
+
+  const current = all[index];
+  const merged = { ...(current.grades ?? {}), ...grades };
+  const updated: QuizAttempt = {
+    ...current,
+    grades: merged,
+    score: sumCredit(current.questions, current.answers, merged),
+    gradedAt: new Date().toISOString(),
+  };
+  const next = [...all];
+  next[index] = updated;
+  writeJson(ATTEMPTS_KEY, next);
+  notifyLocalChange();
+  return updated;
+}
+
+// Credit is 0 or 1: an override says "this was right" or "this was wrong",
+// not "give it two thirds". The AI's `met` list and feedback stay as written.
+export function overrideGrade(
+  attemptId: string,
+  questionId: string,
+  credit: 0 | 1,
+): QuizAttempt | null {
+  const attempt = getAllAttempts().find((a) => a.id === attemptId);
+  if (!attempt) return null;
+  const existing = attempt.grades?.[questionId];
+  return updateAttemptGrades(attemptId, {
+    [questionId]: {
+      met: existing?.met ?? [],
+      feedback: existing?.feedback ?? "",
+      credit,
+      overridden: true,
+    },
+  });
 }
 
 export function deleteQuizHistory(reviewerId: string): void {

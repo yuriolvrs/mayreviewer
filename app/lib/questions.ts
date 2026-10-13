@@ -1,4 +1,4 @@
-import type { Question, QuestionSource, QuestionType, QuizAttempt } from "@/app/types";
+import type { Question, QuestionSource, QuestionType, QuizAttempt, ShortGrade } from "@/app/types";
 
 // Shared question presentation + validation. These were duplicated across the
 // edit/quiz/results screens and split between two divergent validators (the
@@ -52,6 +52,72 @@ export function splitCountEvenly(total: number, keys: string[] = QUESTION_TYPES)
 
 export function sumCounts(byType: Record<string, number>): number {
   return Object.values(byType).reduce((sum, n) => sum + (typeof n === "number" && Number.isFinite(n) ? n : 0), 0);
+}
+
+// Short-answer bounds, shared by the validator, the generate route's schema
+// checks, the grade route, and the quiz textarea so all of them agree.
+export const MAX_SHORT_ANSWER_CHARS = 600;
+export const MAX_MODEL_ANSWER_CHARS = 800;
+export const MAX_KEY_POINTS = 5;
+export const MAX_KEY_POINT_CHARS = 300;
+
+export function isShortAnswer(question: Pick<Question, "answerKind">): boolean {
+  return question.answerKind === "short";
+}
+
+// What a question earned, 0..1. A choice question is all or nothing; a short
+// answer earns the share of key points its grade found met. A short answer
+// with no grade yet earns 0, which is also what an ungraded save records.
+export function questionCredit(
+  question: Question,
+  answers: Record<string, number>,
+  grades?: Record<string, ShortGrade>,
+): number {
+  if (isShortAnswer(question)) {
+    const credit = grades?.[question.id]?.credit;
+    return typeof credit === "number" && Number.isFinite(credit) ? Math.min(1, Math.max(0, credit)) : 0;
+  }
+  return answers[question.id] === question.correctIndex ? 1 : 0;
+}
+
+// "Correct" means full credit. A short answer with partial credit is a miss
+// for the Incorrect/Correct split, but still adds its share to the score.
+export function isFullCredit(
+  question: Question,
+  answers: Record<string, number>,
+  grades?: Record<string, ShortGrade>,
+): boolean {
+  return questionCredit(question, answers, grades) >= 1;
+}
+
+// Two decimals is enough for 1-of-3 style credit and keeps float noise out of
+// the stored score (so a perfect attempt still equals `total` exactly).
+export function sumCredit(
+  questions: Question[],
+  answers: Record<string, number>,
+  grades?: Record<string, ShortGrade>,
+): number {
+  const sum = questions.reduce((total, q) => total + questionCredit(q, answers, grades), 0);
+  return Math.round(sum * 100) / 100;
+}
+
+// Whole scores read as integers; fractional ones keep one decimal, or two
+// when rounding to one would make a partial score look whole.
+export function formatScore(score: number): string {
+  if (Number.isInteger(score)) return String(score);
+  const rounded = Math.round(score * 10) / 10;
+  return Number.isInteger(rounded) ? score.toFixed(2) : rounded.toFixed(1);
+}
+
+// Has the reader given this question any answer yet? A short answer counts
+// once it holds non-blank text; a choice question once an option is picked.
+export function isAnswered(
+  question: Question,
+  answers: Record<string, number>,
+  textAnswers?: Record<string, string>,
+): boolean {
+  if (isShortAnswer(question)) return (textAnswers?.[question.id] ?? "").trim().length > 0;
+  return answers[question.id] !== undefined;
 }
 
 export const TYPE_LABELS: Record<QuestionType, string> = {
@@ -129,6 +195,8 @@ export function formatCountdown(totalSeconds: number): string {
 // or listing costs a slower read (~90s).
 export const STANDALONE_QUESTION_SECONDS = 30;
 export const SET_QUESTION_SECONDS = 90;
+// Typing one to three sentences from memory takes longer than picking one.
+export const SHORT_QUESTION_SECONDS = 60;
 
 // Usable attempts needed before the estimate trusts the user's own pace over
 // the cold-start costs above.
@@ -216,6 +284,34 @@ export function isValidQuestionFields(value: unknown): value is Omit<Question, "
     options.length <= 4 &&
     options.every((o) => typeof o === "string" && o.trim().length > 0 && o.length <= 5000) &&
     new Set(options.map((o) => (o as string).trim().toLowerCase())).size === options.length;
+  const choiceOk =
+    optionsOk &&
+    typeof q.correctIndex === "number" &&
+    Number.isInteger(q.correctIndex) &&
+    q.correctIndex >= 0 &&
+    q.correctIndex < (options as unknown[]).length;
+
+  // A short answer has no options at all; its rubric takes their place.
+  const points = q.keyPoints;
+  const shortOk =
+    Array.isArray(options) &&
+    options.length === 0 &&
+    q.correctIndex === -1 &&
+    typeof q.modelAnswer === "string" &&
+    q.modelAnswer.trim().length > 0 &&
+    q.modelAnswer.length <= MAX_MODEL_ANSWER_CHARS &&
+    Array.isArray(points) &&
+    points.length >= 1 &&
+    points.length <= MAX_KEY_POINTS &&
+    points.every((p) => typeof p === "string" && p.trim().length > 0 && p.length <= MAX_KEY_POINT_CHARS);
+
+  const kindOk =
+    q.answerKind === undefined || q.answerKind === "choice"
+      ? choiceOk
+      : q.answerKind === "short"
+        ? shortOk
+        : false;
+
   return (
     isOptionalString(q.groupId) &&
     isOptionalString(q.groupTitle) &&
@@ -227,11 +323,7 @@ export function isValidQuestionFields(value: unknown): value is Omit<Question, "
     q.type.length > 0 &&
     typeof q.question === "string" &&
     q.question.trim().length > 0 &&
-    optionsOk &&
-    typeof q.correctIndex === "number" &&
-    Number.isInteger(q.correctIndex) &&
-    q.correctIndex >= 0 &&
-    q.correctIndex < (options as unknown[]).length &&
+    kindOk &&
     typeof q.source === "string" &&
     QUESTION_SOURCES.includes(q.source as QuestionSource)
   );
@@ -255,6 +347,8 @@ function shuffle<T>(items: T[]): T[] {
 // Reorders a question's options fresh for each attempt, so the correct
 // answer isn't always sitting in the same slot on a retake.
 export function shuffleOptions(question: Question): Question {
+  // A short answer has no options to reorder.
+  if (isShortAnswer(question)) return question;
   const order = shuffle(question.options.map((_, i) => i));
   const correctIndex = order.indexOf(question.correctIndex);
   // Corrupt data (a correctIndex pointing nowhere) keeps its original order
@@ -267,11 +361,16 @@ export function shuffleOptions(question: Question): Question {
   };
 }
 
-// Ids the attempt got wrong, blanks included (an unanswered question's entry
-// is missing from `answers`, which never equals the correct index). Feeds the
-// quiz setup's "missed last time" scope.
-export function missedIds(questions: Question[], answers: Record<string, number>): string[] {
-  return questions.filter((q) => answers[q.id] !== q.correctIndex).map((q) => q.id);
+// Ids the attempt did not earn full credit on, blanks included (an unanswered
+// question's entry is missing from `answers`, which never equals the correct
+// index, and a short answer without a grade earns nothing). Feeds the quiz
+// setup's "missed last time" scope.
+export function missedIds(
+  questions: Question[],
+  answers: Record<string, number>,
+  grades?: Record<string, ShortGrade>,
+): string[] {
+  return questions.filter((q) => !isFullCredit(q, answers, grades)).map((q) => q.id);
 }
 
 // Picking the first N questions in stored order would skew a shortened quiz

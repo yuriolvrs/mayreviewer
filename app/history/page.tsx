@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { formatTakenAt, scoreTone } from "@/app/lib/questions";
+import { formatScore, formatTakenAt, scoreTone } from "@/app/lib/questions";
 import { getAllQuizHistory, getReviewers } from "@/app/lib/storage";
 import { SYNC_APPLIED_EVENT } from "@/app/lib/sync";
 import type { QuizAttempt, Reviewer } from "@/app/types";
@@ -142,7 +142,7 @@ export default function HistoryPage() {
                           {formatTakenAt(attempt.takenAt)}
                         </span>
                         <span className={`ml-auto shrink-0 font-medium ${scoreTone(percent)}`}>
-                          {attempt.score}/{attempt.total} ({percent}%)
+                          {formatScore(attempt.score)}/{attempt.total} ({percent}%)
                         </span>
                       </>
                     );

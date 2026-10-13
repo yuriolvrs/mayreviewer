@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment } from "react";
-import { formatTakenAt, scoreTone } from "@/app/lib/questions";
+import { formatScore, formatTakenAt, scoreTone } from "@/app/lib/questions";
 import type { QuizAttempt } from "@/app/types";
 
 function ChevronRightIcon() {
@@ -126,7 +126,7 @@ export default function QuizAttempts({
                       />
                     )}
                     <span className={`font-medium ${scoreTone(percent)}`}>
-                      {attempt.score}/{attempt.total} ({percent}%)
+                      {formatScore(attempt.score)}/{attempt.total} ({percent}%)
                     </span>
                   </span>
                 </>

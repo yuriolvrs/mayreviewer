@@ -2,20 +2,49 @@
 
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
-import { getQuizHistory, getReviewer, saveQuizAttempt } from "@/app/lib/storage";
+import { Suspense, useEffect, useRef, useState } from "react";
+import {
+  getQuizHistory,
+  getReviewer,
+  overrideGrade,
+  saveQuizAttempt,
+  updateAttemptGrades,
+} from "@/app/lib/storage";
+import { gradeShortAnswers } from "@/app/lib/grade";
+import { blankGrade, buildGradeItems } from "@/app/lib/grading";
 import { clearQuizProgress, getQuizProgress, saveQuizProgress } from "@/app/lib/quizProgress";
 import { getSettings } from "@/app/lib/settings";
 import { resolveFromList } from "@/app/lib/examFormats";
 import { useFormats, useFormatsLoaded } from "@/app/lib/useFormats";
 import { shuffleOptions } from "@/app/lib/questions";
-import type { FeedbackMode, Question, QuizAttempt, Reviewer } from "@/app/types";
+import type { FeedbackMode, Question, QuizAttempt, Reviewer, ShortGrade } from "@/app/types";
 import QuizTaking, { type Answers } from "@/app/components/QuizTaking";
 import QuizResults from "@/app/components/QuizResults";
 import QuizSetup from "@/app/components/QuizSetup";
 import QuizAttempts from "@/app/components/QuizAttempts";
+import GradingModal, { type GradingState } from "@/app/components/GradingModal";
 
 type Stage = "setup" | "taking" | "results";
+
+// What the results screen shows: the answers, any typed short answers with
+// their grades, and the saved attempt they belong to (null only before the
+// attempt is written), which grading retries and overrides write back to.
+type Submitted = {
+  answers: Answers;
+  textAnswers: Record<string, string>;
+  grades: Record<string, ShortGrade>;
+  unsureIds: string[];
+  attemptId: string | null;
+};
+
+// An attempt waiting on its grades. Held while the grade call runs so a failed
+// call can be retried, or saved ungraded, without the reader typing it again.
+type PendingSubmit = {
+  answers: Answers;
+  unsureIds: string[];
+  timing: { durationSec: number; timedOut: boolean };
+  textAnswers: Record<string, string>;
+};
 
 export default function QuizPage() {
   return (
@@ -37,7 +66,14 @@ function QuizPageInner() {
   const [history, setHistory] = useState<QuizAttempt[]>([]);
   const [feedbackMode, setFeedbackMode] = useState<FeedbackMode>("immediate");
   const [stage, setStage] = useState<Stage>("setup");
-  const [submitted, setSubmitted] = useState<{ answers: Answers; unsureIds: string[] } | null>(null);
+  const [submitted, setSubmitted] = useState<Submitted | null>(null);
+  // Set while short answers are being graded at submit, or while that failed
+  // and the reader is choosing between retry and saving without grades.
+  const [grading, setGrading] = useState<GradingState | null>(null);
+  const pendingRef = useRef<PendingSubmit | null>(null);
+  // Guards against a second submit while grading is in flight — the countdown
+  // can expire during the call and would otherwise save the attempt twice.
+  const submittingRef = useRef(false);
   // The sampled subset for this attempt — scoring and results must run against
   // exactly what was asked, not the reviewer's whole pool.
   const [quizQuestions, setQuizQuestions] = useState<Question[]>([]);
@@ -58,6 +94,7 @@ function QuizPageInner() {
   // Seeded answers for the mounted QuizTaking — empty on a fresh start,
   // restored from progress after a refresh.
   const [initialAnswers, setInitialAnswers] = useState<Answers>({});
+  const [initialTextAnswers, setInitialTextAnswers] = useState<Record<string, string>>({});
   const [initialUnsureIds, setInitialUnsureIds] = useState<string[]>([]);
   const [initialConfirmedIds, setInitialConfirmedIds] = useState<string[]>([]);
   // Timing of the attempt on screen, for the results line. Set on submit and
@@ -84,7 +121,13 @@ function QuizPageInner() {
     const attempt = attemptId ? attempts.find((a) => a.id === attemptId) : undefined;
     if (attempt) {
       setQuizQuestions(attempt.questions);
-      setSubmitted({ answers: attempt.answers, unsureIds: attempt.unsureIds });
+      setSubmitted({
+        answers: attempt.answers,
+        textAnswers: attempt.textAnswers ?? {},
+        grades: attempt.grades ?? {},
+        unsureIds: attempt.unsureIds,
+        attemptId: attempt.id,
+      });
       setReviewedAt(attempt.takenAt);
       setFormatId(attempt.examFormatId);
       setStage("results");
@@ -101,6 +144,7 @@ function QuizPageInner() {
         setFormatId(progress.formatId);
         setStartedAt(progress.startedAt);
         setInitialAnswers(progress.answers);
+        setInitialTextAnswers(progress.textAnswers ?? {});
         setInitialUnsureIds(progress.unsureIds);
         setInitialConfirmedIds(progress.confirmedIds);
         setStage("taking");
@@ -124,6 +168,117 @@ function QuizPageInner() {
   const total = reviewer.questions.length;
   const format = resolveFromList(formats, formatId ?? reviewer.examFormatId);
 
+  // Writes the finished attempt and moves to the results screen. Grades are
+  // whatever the grade call returned (or the ungraded placeholders).
+  const recordAttempt = (pending: PendingSubmit, grades: Record<string, ShortGrade>) => {
+    // The budget and the par travel with the attempt so milestones can tell
+    // timed quizzes apart — and fast ones — later.
+    const attempt = saveQuizAttempt(
+      reviewer,
+      quizQuestions,
+      pending.answers,
+      pending.unsureIds,
+      { ...pending.timing, timeLimitSec, parSec },
+      { textAnswers: pending.textAnswers, grades },
+    );
+    clearQuizProgress(reviewer.id);
+    setHistory(getQuizHistory(reviewer.id));
+    setSubmitted({
+      answers: pending.answers,
+      textAnswers: pending.textAnswers,
+      grades,
+      unsureIds: pending.unsureIds,
+      attemptId: attempt.id,
+    });
+    setResultTiming(pending.timing);
+    setStartedAt(null);
+    setInitialAnswers({});
+    setInitialTextAnswers({});
+    setInitialUnsureIds([]);
+    setInitialConfirmedIds([]);
+    setGrading(null);
+    pendingRef.current = null;
+    submittingRef.current = false;
+    setStage("results");
+    window.scrollTo({ top: 0 });
+  };
+
+  // Submit: grade the short answers (if any) in one call, then save. Choice-
+  // only attempts skip straight to saving. A blank answer is graded locally
+  // and never sent, so an attempt of blanks needs no call at all.
+  const submitAttempt = async (pending: PendingSubmit) => {
+    submittingRef.current = true;
+    const items = buildGradeItems(quizQuestions, pending.textAnswers);
+    const sendable = items.filter((item) => item.answer.trim() !== "");
+
+    if (sendable.length === 0) {
+      const grades: Record<string, ShortGrade> = {};
+      for (const item of items) grades[item.id] = blankGrade();
+      recordAttempt(pending, grades);
+      return;
+    }
+
+    pendingRef.current = pending;
+    setGrading({ phase: "running" });
+    try {
+      const result = await gradeShortAnswers(items);
+      const grades: Record<string, ShortGrade> = { ...result.grades };
+      // An item the grader skipped is saved ungraded, not as a zero.
+      for (const item of items) {
+        if (!grades[item.id]) grades[item.id] = { met: [], feedback: "", credit: 0, ungraded: true };
+      }
+      recordAttempt(pending, grades);
+    } catch (err) {
+      submittingRef.current = false;
+      setGrading({
+        phase: "error",
+        message: err instanceof Error ? err.message : "Grading failed.",
+      });
+    }
+  };
+
+  // The reader chose to keep the attempt without grades. Typed text is kept,
+  // so it can be graded later from the results screen.
+  const saveUngraded = () => {
+    const pending = pendingRef.current;
+    if (!pending) return;
+    const grades: Record<string, ShortGrade> = {};
+    for (const item of buildGradeItems(quizQuestions, pending.textAnswers)) {
+      grades[item.id] =
+        item.answer.trim() === "" ? blankGrade() : { met: [], feedback: "", credit: 0, ungraded: true };
+    }
+    recordAttempt(pending, grades);
+  };
+
+  // Results screen: grade the answers that were saved without one.
+  const gradeNow = async (): Promise<string | null> => {
+    if (!submitted?.attemptId) return "This attempt can't be graded again.";
+    const items = buildGradeItems(quizQuestions, submitted.textAnswers).filter((item) => {
+      const grade = submitted.grades[item.id];
+      return !grade || grade.ungraded === true;
+    });
+    if (items.length === 0) return null;
+    try {
+      const result = await gradeShortAnswers(items);
+      const updated = updateAttemptGrades(submitted.attemptId, result.grades);
+      if (!updated) return "This attempt no longer exists.";
+      setSubmitted({ ...submitted, grades: updated.grades ?? {} });
+      setHistory(getQuizHistory(reviewer.id));
+      return result.failed.length > 0 ? "Some answers still couldn't be graded. Try again." : null;
+    } catch (err) {
+      return err instanceof Error ? err.message : "Grading failed.";
+    }
+  };
+
+  // Results screen: count one short answer as fully right or fully wrong.
+  const overrideShortGrade = (questionId: string, credit: 0 | 1) => {
+    if (!submitted?.attemptId) return;
+    const updated = overrideGrade(submitted.attemptId, questionId, credit);
+    if (!updated) return;
+    setSubmitted({ ...submitted, grades: updated.grades ?? {} });
+    setHistory(getQuizHistory(reviewer.id));
+  };
+
   if (stage === "taking") {
     return (
       <div className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
@@ -138,37 +293,33 @@ function QuizPageInner() {
           formatId={formatId}
           startedAt={startedAt ?? undefined}
           initialAnswers={initialAnswers}
+          initialTextAnswers={initialTextAnswers}
           initialUnsureIds={initialUnsureIds}
           initialConfirmedIds={initialConfirmedIds}
           onCancel={() => {
             clearQuizProgress(reviewer.id);
             setStartedAt(null);
             setInitialAnswers({});
+            setInitialTextAnswers({});
             setInitialUnsureIds([]);
             setInitialConfirmedIds([]);
             setStage("setup");
             window.scrollTo({ top: 0 });
           }}
-          onSubmit={(answers, unsureIds, timing) => {
-            // The budget and the par travel with the attempt so milestones
-            // can tell timed quizzes apart — and fast ones — later.
-            saveQuizAttempt(reviewer, quizQuestions, answers, unsureIds, {
-              ...timing,
-              timeLimitSec,
-              parSec,
-            });
-            clearQuizProgress(reviewer.id);
-            setHistory(getQuizHistory(reviewer.id));
-            setSubmitted({ answers, unsureIds });
-            setResultTiming(timing);
-            setStartedAt(null);
-            setInitialAnswers({});
-            setInitialUnsureIds([]);
-            setInitialConfirmedIds([]);
-            setStage("results");
-            window.scrollTo({ top: 0 });
+          onSubmit={(answers, unsureIds, timing, textAnswers) => {
+            if (submittingRef.current) return;
+            void submitAttempt({ answers, unsureIds, timing, textAnswers });
           }}
         />
+        {grading && (
+          <GradingModal
+            state={grading}
+            onRetry={() => {
+              if (pendingRef.current) void submitAttempt(pendingRef.current);
+            }}
+            onSaveUngraded={saveUngraded}
+          />
+        )}
       </div>
     );
   }
@@ -182,6 +333,10 @@ function QuizPageInner() {
           format={format}
           questions={quizQuestions}
           answers={submitted.answers}
+          textAnswers={submitted.textAnswers}
+          grades={submitted.grades}
+          onOverride={submitted.attemptId ? overrideShortGrade : undefined}
+          onGradeNow={submitted.attemptId ? gradeNow : undefined}
           unsureIds={submitted.unsureIds}
           takenAt={reviewedAt ?? undefined}
           durationSec={resultTiming?.durationSec}
@@ -197,6 +352,7 @@ function QuizPageInner() {
             setQuizQuestions(next);
             setStartedAt(now);
             setInitialAnswers({});
+            setInitialTextAnswers({});
             setInitialUnsureIds([]);
             setInitialConfirmedIds([]);
             saveQuizProgress({
@@ -299,7 +455,13 @@ function QuizPageInner() {
               // The attempt carries its own copy of what it asked, so reopening
               // it doesn't depend on those questions still being in the pool.
               setQuizQuestions(attempt.questions);
-              setSubmitted({ answers: attempt.answers, unsureIds: attempt.unsureIds });
+              setSubmitted({
+                answers: attempt.answers,
+                textAnswers: attempt.textAnswers ?? {},
+                grades: attempt.grades ?? {},
+                unsureIds: attempt.unsureIds,
+                attemptId: attempt.id,
+              });
               setReviewedAt(attempt.takenAt);
               setResultTiming({ durationSec: attempt.durationSec ?? 0, timedOut: attempt.timedOut ?? false });
               setFormatId(attempt.examFormatId);

@@ -7,6 +7,10 @@ import {
   MAX_QUESTION_COUNT,
   MIN_QUESTION_COUNT,
   isValidQuestionFields,
+  isShortAnswer,
+  MAX_KEY_POINTS,
+  MAX_KEY_POINT_CHARS,
+  MAX_MODEL_ANSWER_CHARS,
   dedupeQuestions,
   takeWithinBudget,
   takeWithinTypeBudget,
@@ -28,7 +32,14 @@ import {
   fence,
   newFenceToken,
 } from "@/app/lib/promptSafety";
-import { sanitizeFormatDef, setKeys, standaloneKeys, formatTypeKeys, CSOPESY_FINAL } from "@/app/lib/examFormats";
+import {
+  sanitizeFormatDef,
+  setKeys,
+  shortAnswerKeys,
+  standaloneKeys,
+  formatTypeKeys,
+  CSOPESY_FINAL,
+} from "@/app/lib/examFormats";
 import type { AnswerFormat, ExamFormat, StimulusKind, TypeShape } from "@/app/lib/examFormats";
 import type { Question } from "@/app/types";
 import {
@@ -131,54 +142,79 @@ const MC_FIELDS = {
 // standalone and which arrive as sets. For the built-in format these are the
 // same lists the hardcoded schema always carried; a future format with
 // different members reshapes the schema without touching this code.
-function buildResponseSchema(standalone: string[], sets: string[]) {
-  return {
-    type: "object",
-    properties: {
-      questions: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            type: { type: "string", enum: standalone },
-            ...MC_FIELDS,
-            source: { type: "string", enum: ["notes", "project", "pastexam"] },
-          },
-          required: [
-            "type",
-            "question",
-            "options",
-            "correctIndex",
-            "explanation",
-            "whyOthersWrong",
-            "source",
-          ],
+function buildResponseSchema(standalone: string[], sets: string[], shortTypes: string[] = []) {
+  const properties: Record<string, unknown> = {
+    questions: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          // An empty enum is invalid for the API, and a short-answer-only
+          // format has no standalone choice types. The placeholder never
+          // matches a requested type, so anything returned under it is
+          // filtered out at parse time.
+          type: { type: "string", enum: standalone.length > 0 ? standalone : ["none"] },
+          ...MC_FIELDS,
+          source: { type: "string", enum: ["notes", "project", "pastexam"] },
         },
-      },
-      sets: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            type: { type: "string", enum: sets },
-            title: { type: "string" },
-            stimulus: { type: "string" },
-            source: { type: "string", enum: ["notes", "project", "pastexam"] },
-            questions: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: MC_FIELDS,
-                required: ["question", "options", "correctIndex", "explanation", "whyOthersWrong"],
-              },
-            },
-          },
-          required: ["type", "title", "stimulus", "source", "questions"],
-        },
+        required: [
+          "type",
+          "question",
+          "options",
+          "correctIndex",
+          "explanation",
+          "whyOthersWrong",
+          "source",
+        ],
       },
     },
-    required: ["questions", "sets"],
-  } as const;
+    sets: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          type: { type: "string", enum: sets },
+          title: { type: "string" },
+          stimulus: { type: "string" },
+          source: { type: "string", enum: ["notes", "project", "pastexam"] },
+          questions: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: MC_FIELDS,
+              required: ["question", "options", "correctIndex", "explanation", "whyOthersWrong"],
+            },
+          },
+        },
+        required: ["type", "title", "stimulus", "source", "questions"],
+      },
+    },
+  };
+  const required = ["questions", "sets"];
+
+  // Short answers have no options: the rubric (a model answer plus the key
+  // points a grader checks later) takes their place. Present only when the
+  // format has such a type, so choice-only formats keep their exact schema.
+  if (shortTypes.length > 0) {
+    properties.shortAnswers = {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          type: { type: "string", enum: shortTypes },
+          question: { type: "string" },
+          modelAnswer: { type: "string" },
+          keyPoints: { type: "array", items: { type: "string" }, minItems: 1, maxItems: MAX_KEY_POINTS },
+          explanation: { type: "string" },
+          source: { type: "string", enum: ["notes", "project", "pastexam"] },
+        },
+        required: ["type", "question", "modelAnswer", "keyPoints", "source"],
+      },
+    };
+    required.push("shortAnswers");
+  }
+
+  return { type: "object", properties, required };
 }
 
 type ResponseSchema = ReturnType<typeof buildResponseSchema>;
@@ -274,6 +310,21 @@ function standaloneDescription(
   return `${def.label.toUpperCase()}: ${guidance}${stimulusNote} Present each question with 4 multiple-choice options and mark exactly one correct. Wrong options should be plausible neighboring concepts, not nonsense.${target}${exampleBlock(def, fenceToken)}`;
 }
 
+// One entry per short-answer type. These come back in "shortAnswers" with a
+// rubric instead of options; the grader later checks a student's answer
+// against the key points alone, so each one has to stand by itself.
+function shortAnswerDescription(def: ResolvedDef, target: string, fenceToken: string): string {
+  const guidance =
+    def.guidance.trim() ||
+    "Ask something a student can answer from memory in one to three sentences.";
+  return `${def.label.toUpperCase()} (type "${def.key}"): ${guidance}${target}
+  "question": the question, answerable in 1-3 sentences from the material. No options.
+  "modelAnswer": a model answer of 1-3 sentences.
+  "keyPoints": 2-4 short points a correct answer must contain. Each one must be independently
+    checkable on its own (a fact, a term, a step, a reason) — never a vague point such as
+    "answers the question" or "is clear". Together they must cover the model answer.${exampleBlock(def, fenceToken)}`;
+}
+
 function stimulusLayoutLine(kind: StimulusKind): string {
   switch (kind) {
     case "table":
@@ -359,12 +410,19 @@ outside the material for it.`
   };
 
   const standaloneDescriptions = defs
-    .filter((d) => d.shape === "standalone" && wants(d.key))
+    .filter((d) => d.shape === "standalone" && d.format !== "short-answer" && wants(d.key))
     .map((d) => standaloneDescription(d, target(d.key), fenceToken));
+
+  const shortDescriptions = defs
+    .filter((d) => d.format === "short-answer" && wants(d.key))
+    .map((d) => shortAnswerDescription(d, target(d.key), fenceToken));
+  const formatHasShort = defs.some((d) => d.format === "short-answer");
 
   const standaloneBlock =
     standaloneDescriptions.length === 0
-      ? `Return an empty "questions" array — this batch is problem sets only.`
+      ? shortDescriptions.length > 0
+        ? `Return an empty "questions" array — this batch has no multiple-choice standalone questions.`
+        : `Return an empty "questions" array — this batch is problem sets only.`
       : `Return standalone questions in "questions"${
           standaloneDescriptions.length > 1 && !typeCounts
             ? ` — a mix of these ${standaloneDescriptions.length} types`
@@ -506,9 +564,20 @@ Every question in a set must be answerable from that set's stimulus alone. Repro
 tables and listings from the source material faithfully — never drop rows or shorten a
 program to make it fit. Two sets must never pose the same problem twice.`;
 
+  // Present whenever the format has a short-answer type, because the schema
+  // then requires the array: a chunk that wants none says so explicitly.
+  const shortBlock = !formatHasShort
+    ? ""
+    : shortDescriptions.length === 0
+      ? `\n\nReturn an empty "shortAnswers" array — this batch has no short-answer questions.`
+      : `\n\nAlso return short-answer questions in "shortAnswers". They have no options and no
+"whyOthersWrong"; "explanation" is optional (one sentence on why the model answer is right).
+
+${shortDescriptions.map((d, i) => `${i + 1}. ${d}`).join("\n\n")}`;
+
   return `Generate exactly ${count} practice exam questions for a ${course} final.
 
-${standaloneBlock}
+${standaloneBlock}${shortBlock}
 ${setsBlock}${focus}
 
 Stay inside the source material. Every question must be answerable from the topics,
@@ -564,6 +633,8 @@ type PromptContext = {
   // set types in "sets" — both in the schema and when flattening it back.
   schema: ResponseSchema;
   setTypes: string[];
+  // Keys of the format's short-answer types, returned in "shortAnswers".
+  shortTypes: string[];
   // The facts the Reviewer's existing pool already tests, sent so a
   // regeneration over unchanged material lands on different ones.
   avoid: { question: string; answer: string }[];
@@ -627,6 +698,33 @@ function flattenSets(sets: unknown, setTypes: string[]): Omit<Question, "id">[] 
   });
 }
 
+// Short answers arrive with a rubric instead of options. Lengths are clamped
+// rather than rejected — a model that writes a long model answer should lose
+// its tail, not the whole question — and the shared validator then decides.
+function shapeShortAnswers(raw: unknown, shortTypes: string[]): Omit<Question, "id">[] {
+  if (!Array.isArray(raw)) return [];
+
+  return raw.flatMap((item) => {
+    if (typeof item !== "object" || item === null) return [];
+    const r = item as Record<string, unknown>;
+    if (typeof r.type !== "string" || !shortTypes.includes(r.type)) return [];
+    const candidate = {
+      ...r,
+      answerKind: "short",
+      options: [],
+      correctIndex: -1,
+      modelAnswer:
+        typeof r.modelAnswer === "string" ? r.modelAnswer.trim().slice(0, MAX_MODEL_ANSWER_CHARS) : r.modelAnswer,
+      keyPoints: Array.isArray(r.keyPoints)
+        ? r.keyPoints
+            .slice(0, MAX_KEY_POINTS)
+            .map((p) => (typeof p === "string" ? p.trim().slice(0, MAX_KEY_POINT_CHARS) : p))
+        : r.keyPoints,
+    };
+    return isValidQuestionFields(candidate) ? [candidate] : [];
+  });
+}
+
 // Shared between both providers: their raw JSON text differs only in how it
 // was produced, not in shape, since both are constrained to the format's
 // response schema.
@@ -647,11 +745,16 @@ function parseQuestionResponse(
     return { error: `${providerLabel}'s response wasn't in the expected format.` };
   }
 
-  const { questions: standalone, sets } = parsed as { questions?: unknown; sets?: unknown };
+  const { questions: standalone, sets, shortAnswers } = parsed as {
+    questions?: unknown;
+    sets?: unknown;
+    shortAnswers?: unknown;
+  };
   const types = context.types;
   const questions = [
     ...flattenSets(sets, context.setTypes),
     ...(Array.isArray(standalone) ? standalone : []).filter(isValidQuestionFields),
+    ...shapeShortAnswers(shortAnswers, context.shortTypes),
   ]
     // The response schema still permits every type, so a model that
     // ignores the prompt's restriction gets filtered out here.
@@ -791,6 +894,13 @@ function renderVerifyBlock(questions: Question[], indices: number[], fenceToken:
       blocks.push(`Problem (${q.groupTitle ?? "set"}):\n${q.stimulus ?? ""}`);
     }
     lastGroupId = q.groupId;
+    if (isShortAnswer(q)) {
+      blocks.push(
+        `[${i}] ${q.question}\n  Model answer: ${q.modelAnswer ?? ""}\n` +
+          (q.keyPoints ?? []).map((p, pi) => `  Key point ${pi + 1}: ${p}`).join("\n"),
+      );
+      continue;
+    }
     blocks.push(
       `[${i}] ${q.question}\n` +
         q.options.map((opt, oi) => `  ${OPTION_LETTERS[oi]}) ${opt}`).join("\n") +
@@ -818,7 +928,15 @@ for that question's [index]:
 - "correct" — the marked option is genuinely right.
 - "wrong" — a different option is actually right. Include "correctIndex" (0-3) for it.
 - "drop" — none of the options is right, or the question can't be answered from the
-  information given.
+  information given.${
+    indices.some((i) => isShortAnswer(questions[i]))
+      ? `
+
+A question shown with a "Model answer" and "Key point" lines has no options. For those, check
+that the model answer actually answers the question and that every key point is true and
+checkable on its own. Report "correct" if so, or "drop" if not — never "wrong" for these.`
+      : ""
+  }
 
 ${renderVerifyBlock(questions, indices, fenceToken)}`;
 
@@ -880,7 +998,13 @@ async function verifyQuestions(
       if (!allowed.has(r.index)) continue;
       const q = questions[r.index];
       if (!q) continue;
-      if (r.verdict === "wrong" && typeof r.correctIndex === "number" && r.correctIndex >= 0 && r.correctIndex <= 3) {
+      if (
+        r.verdict === "wrong" &&
+        !isShortAnswer(q) &&
+        typeof r.correctIndex === "number" &&
+        r.correctIndex >= 0 &&
+        r.correctIndex <= 3
+      ) {
         next[r.index] = { ...q, correctIndex: r.correctIndex };
         corrected++;
       } else if (r.verdict === "drop" && !q.groupId) {
@@ -1278,8 +1402,9 @@ export async function POST(request: Request) {
     topics: clampTopics(Array.isArray(body.topics) ? body.topics.filter((t) => typeof t === "string") : []),
     types: requestedTypes.length > 0 ? requestedTypes : formatKeys,
     format,
-    schema: buildResponseSchema(standaloneKeys(format), setKeys(format)),
+    schema: buildResponseSchema(standaloneKeys(format), setKeys(format), shortAnswerKeys(format)),
     setTypes: setKeys(format),
+    shortTypes: shortAnswerKeys(format),
     avoid,
     fenceToken: newFenceToken(),
   };

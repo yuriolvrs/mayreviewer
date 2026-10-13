@@ -72,6 +72,11 @@ export default function AboutPage() {
               uploads are limited to 30 per 10 minutes.
             </li>
             <li>
+              Short-answer questions are graded by AI against a key-point rubric when you
+              submit. Grading can miss nuance, so you can override any grade on the results
+              screen. Answers are limited to 600 characters, and long essays aren&apos;t supported.
+            </li>
+            <li>
               A past exam can be attached to a reviewer or kept on a format. The AI drafts
               question types from it, but every draft needs your review before it becomes part
               of a format — and generated questions still need checking before you study them.

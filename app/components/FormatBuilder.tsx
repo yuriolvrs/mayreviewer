@@ -58,6 +58,7 @@ const FORMAT_OPTIONS: { value: AnswerFormat; label: string; hint: string }[] = [
   { value: "mc", label: "Multiple choice", hint: "4 options, one correct" },
   { value: "true-false", label: "True / False", hint: "2 options" },
   { value: "modified-tf", label: "Modified True/False", hint: "statements + combination options" },
+  { value: "short-answer", label: "Short answer", hint: "1-3 sentences, graded by AI" },
 ];
 
 const SHAPE_OPTIONS: { value: TypeShape; label: string; hint: string }[] = [
@@ -195,12 +196,13 @@ export default function FormatBuilder({
   }
 
   function draftFromInferred(t: InferredType): TypeDraft {
+    const short = t.answerFormat === "short-answer";
     return {
       key: newTypeKey(t.label),
       label: t.label,
       format: t.answerFormat,
-      shape: t.shape,
-      stimulus: t.stimulusKind,
+      shape: short ? "standalone" : t.shape,
+      stimulus: short ? "none" : t.stimulusKind,
       guidance: t.guidance,
       examples: t.example ? [t.example] : [],
       countText: String(t.suggestedCount),
@@ -267,7 +269,11 @@ export default function FormatBuilder({
   }
 
   function patch(index: number, change: Partial<TypeDraft>) {
-    setTypes((prev) => prev.map((t, i) => (i === index ? { ...t, ...change } : t)));
+    // A short answer has no set to share and no material slot, so choosing it
+    // pins both — the saved format would be rejected otherwise.
+    const next: Partial<TypeDraft> =
+      change.format === "short-answer" ? { ...change, shape: "standalone", stimulus: "none" } : change;
+    setTypes((prev) => prev.map((t, i) => (i === index ? { ...t, ...next } : t)));
   }
 
   function handleSave() {
@@ -549,24 +555,34 @@ export default function FormatBuilder({
                 onChange={(v) => patch(i, { format: v as AnswerFormat })}
               />
             </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[0.875rem] text-text-secondary">Layout</span>
-              <OptionSelect
-                label="Layout"
-                options={SHAPE_OPTIONS}
-                value={t.shape}
-                onChange={(v) => patch(i, { shape: v as TypeShape })}
-              />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[0.875rem] text-text-secondary">Material</span>
-              <OptionSelect
-                label="Material"
-                options={STIMULUS_OPTIONS}
-                value={t.stimulus}
-                onChange={(v) => patch(i, { stimulus: v as StimulusKind })}
-              />
-            </label>
+            {t.format === "short-answer" ? (
+              <p className="text-[0.875rem] leading-relaxed text-text-secondary sm:col-span-2">
+                Each question is answered in one to three typed sentences and graded by AI against
+                key points when the quiz is submitted. Short answers are always single questions
+                with no attached material.
+              </p>
+            ) : (
+              <>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[0.875rem] text-text-secondary">Layout</span>
+                  <OptionSelect
+                    label="Layout"
+                    options={SHAPE_OPTIONS}
+                    value={t.shape}
+                    onChange={(v) => patch(i, { shape: v as TypeShape })}
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[0.875rem] text-text-secondary">Material</span>
+                  <OptionSelect
+                    label="Material"
+                    options={STIMULUS_OPTIONS}
+                    value={t.stimulus}
+                    onChange={(v) => patch(i, { stimulus: v as StimulusKind })}
+                  />
+                </label>
+              </>
+            )}
           </div>
 
           <label className="mt-3 flex flex-col gap-1.5">

@@ -2,7 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
-import { formatCountdown, groupQuestions, isLowTime, isPreformatted, optionLetter } from "@/app/lib/questions";
+import {
+  MAX_SHORT_ANSWER_CHARS,
+  formatCountdown,
+  groupQuestions,
+  isAnswered as isQuestionAnswered,
+  isLowTime,
+  isPreformatted,
+  isShortAnswer,
+  optionLetter,
+} from "@/app/lib/questions";
 import { saveQuizProgress } from "@/app/lib/quizProgress";
 import { isMonoKind, stimulusKindOf, type ExamFormat } from "@/app/lib/examFormats";
 import StimulusBlock from "@/app/components/StimulusBlock";
@@ -21,6 +30,7 @@ export default function QuizTaking({
   formatId,
   startedAt,
   initialAnswers,
+  initialTextAnswers,
   initialUnsureIds,
   initialConfirmedIds,
   onSubmit,
@@ -47,16 +57,24 @@ export default function QuizTaking({
   // saved value so the countdown continues instead of restarting.
   startedAt?: number;
   initialAnswers?: Answers;
+  // Typed short answers restored after a refresh, keyed by question id.
+  initialTextAnswers?: Record<string, string>;
   initialUnsureIds?: string[];
   initialConfirmedIds?: string[];
   onSubmit: (
     answers: Answers,
     unsureIds: string[],
     timing: { durationSec: number; timedOut: boolean },
+    textAnswers: Record<string, string>,
   ) => void;
   onCancel: () => void;
 }) {
   const [answers, setAnswers] = useState<Answers>(() => initialAnswers ?? {});
+  // Short answers are typed text, so they sit beside the option picks rather
+  // than inside them. Blank entries are kept; "answered" trims.
+  const [textAnswers, setTextAnswers] = useState<Record<string, string>>(
+    () => initialTextAnswers ?? {},
+  );
   const [unsureIds, setUnsureIds] = useState<string[]>(() => initialUnsureIds ?? []);
   // Immediate mode only: an option pick is provisional until confirmed, so
   // right/wrong doesn't flash before the reader has committed to it.
@@ -76,12 +94,14 @@ export default function QuizTaking({
   // Latest answers for the expiry submit, which fires from an interval
   // closure that would otherwise hold the first render's empty copies.
   const answersRef = useRef(answers);
+  const textRef = useRef(textAnswers);
   const unsureRef = useRef(unsureIds);
   // Expiry submits exactly once; the stage switch unmounts right after, but
   // the guard covers the tick between submit and unmount.
   const expiredRef = useRef(false);
   useEffect(() => {
     answersRef.current = answers;
+    textRef.current = textAnswers;
     unsureRef.current = unsureIds;
   });
 
@@ -93,6 +113,7 @@ export default function QuizTaking({
       reviewerId,
       quizQuestions: questions,
       answers,
+      textAnswers,
       unsureIds,
       confirmedIds,
       timeLimitSec,
@@ -102,7 +123,19 @@ export default function QuizTaking({
       feedbackMode,
       savedAt: Date.now(),
     });
-  }, [reviewerId, questions, answers, unsureIds, confirmedIds, timeLimitSec, parSec, resolvedStartedAt, formatId, feedbackMode]);
+  }, [
+    reviewerId,
+    questions,
+    answers,
+    textAnswers,
+    unsureIds,
+    confirmedIds,
+    timeLimitSec,
+    parSec,
+    resolvedStartedAt,
+    formatId,
+    feedbackMode,
+  ]);
 
   const elapsedSec = Math.floor((now - resolvedStartedAt) / 1000);
   const remainingSec = timeLimitSec === null ? null : timeLimitSec - elapsedSec;
@@ -125,7 +158,7 @@ export default function QuizTaking({
     if (remainingSec === null || remainingSec > 0 || expiredRef.current) return;
     expiredRef.current = true;
     const elapsed = Math.round((Date.now() - resolvedStartedAt) / 1000);
-    onSubmit(answersRef.current, unsureRef.current, { durationSec: elapsed, timedOut: true });
+    onSubmit(answersRef.current, unsureRef.current, { durationSec: elapsed, timedOut: true }, textRef.current);
   }, [remainingSec, resolvedStartedAt, onSubmit]);
 
   // Timeline/Code questions arrive as contiguous sets over one shared problem;
@@ -137,7 +170,7 @@ export default function QuizTaking({
     [questions],
   );
 
-  const answeredCount = Object.keys(answers).length;
+  const answeredCount = questions.filter((q) => isQuestionAnswered(q, answers, textAnswers)).length;
   const unansweredCount = questions.length - answeredCount;
   const showFeedback = feedbackMode === "immediate";
 
@@ -146,11 +179,12 @@ export default function QuizTaking({
   // navigation away from unsubmitted answers.
   useEffect(() => {
     function onBeforeUnload(e: BeforeUnloadEvent) {
-      if (Object.keys(answers).length > 0) e.preventDefault();
+      const typed = Object.values(textAnswers).some((text) => text.trim() !== "");
+      if (Object.keys(answers).length > 0 || typed) e.preventDefault();
     }
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [answers]);
+  }, [answers, textAnswers]);
 
   // Stable callbacks: the keyboard-shortcuts effect lists them as deps, so
   // they must not change identity every render.
@@ -161,6 +195,10 @@ export default function QuizTaking({
     },
     [confirmedIds],
   );
+
+  const setText = useCallback((questionId: string, value: string) => {
+    setTextAnswers((prev) => ({ ...prev, [questionId]: value }));
+  }, []);
 
   const toggleUnsure = useCallback((questionId: string) => {
     setUnsureIds((prev) =>
@@ -241,6 +279,12 @@ export default function QuizTaking({
       delete next[questionId];
       return next;
     });
+    setTextAnswers((prev) => {
+      if (!(questionId in prev)) return prev;
+      const next = { ...prev };
+      delete next[questionId];
+      return next;
+    });
   }
 
   function confirmAnswer(questionId: string) {
@@ -253,7 +297,7 @@ export default function QuizTaking({
       return;
     }
     const elapsed = Math.round((Date.now() - resolvedStartedAt) / 1000);
-    onSubmit(answers, unsureIds, { durationSec: elapsed, timedOut: false });
+    onSubmit(answers, unsureIds, { durationSec: elapsed, timedOut: false }, textAnswers);
   }
 
   // The grid and its legend are the same on both layouts — the sidebar can't
@@ -262,8 +306,11 @@ export default function QuizTaking({
   const jumpGrid = (
     <div className="grid grid-cols-5 gap-1.5">
       {questions.map((question, index) => {
-        const isAnswered = answers[question.id] !== undefined;
-        const isCorrect = answers[question.id] === question.correctIndex;
+        const isAnswered = isQuestionAnswered(question, answers, textAnswers);
+        // A short answer has no verdict until it is graded at submit, so the
+        // grid never shows it as right or wrong while the quiz is running.
+        const isShort = isShortAnswer(question);
+        const isCorrect = !isShort && answers[question.id] === question.correctIndex;
         const isUnsure = unsureIds.includes(question.id);
         const isActive = question.id === activeId;
 
@@ -274,14 +321,15 @@ export default function QuizTaking({
         let stateClass = "border-border bg-surface text-text-secondary";
         if (isUnsure) stateClass = "border-warning bg-warning-subtle text-warning";
         else if (isAnswered) {
-          stateClass = showFeedback
+          stateClass = showFeedback && !isShort
             ? isCorrect
               ? "border-success bg-success-subtle text-success"
               : "border-error bg-error-subtle text-error"
             : "border-border-strong bg-surface-alt text-text-primary";
         }
 
-        const answeredState = showFeedback ? (isCorrect ? "Correct" : "Incorrect") : "Answered";
+        const answeredState =
+          showFeedback && !isShort ? (isCorrect ? "Correct" : "Incorrect") : "Answered";
         const state = isUnsure
           ? isAnswered
             ? `${answeredState}, marked unsure`
@@ -422,7 +470,9 @@ export default function QuizTaking({
 
               {group.questions.map((question) => {
                 const selected = answers[question.id];
-                const isAnswered = selected !== undefined;
+                const isShort = isShortAnswer(question);
+                const typed = textAnswers[question.id] ?? "";
+                const isAnswered = isQuestionAnswered(question, answers, textAnswers);
                 const isUnsure = unsureIds.includes(question.id);
                 const isConfirmed = confirmedIds.includes(question.id);
                 const revealAnswer =
@@ -468,7 +518,7 @@ export default function QuizTaking({
                       }
                       className="rounded-lg border border-border px-2.5 py-1 text-[0.875rem] font-medium text-text-secondary enabled:hover:border-border-strong enabled:hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      Clear selection
+                      {isShort ? "Clear answer" : "Clear selection"}
                     </button>
                     <button
                       type="button"
@@ -499,6 +549,29 @@ export default function QuizTaking({
                 >
                   {question.question}
                 </p>
+
+                {isShort && (
+                  <div className="mt-4">
+                    <label htmlFor={`answer-${question.id}`} className="sr-only">
+                      Your answer to question {numbering.get(question.id)}
+                    </label>
+                    <textarea
+                      id={`answer-${question.id}`}
+                      value={typed}
+                      onChange={(e) => setText(question.id, e.target.value)}
+                      maxLength={MAX_SHORT_ANSWER_CHARS}
+                      rows={3}
+                      placeholder="Type your answer in one to three sentences…"
+                      className="w-full resize-y rounded-lg border border-border bg-surface p-3 text-[0.9375rem] text-text-primary outline-none focus:border-accent"
+                    />
+                    <div className="mt-1 flex items-center justify-between gap-3 text-[0.8125rem] text-text-tertiary">
+                      <span>Graded by AI when you submit.</span>
+                      <span>
+                        {typed.length}/{MAX_SHORT_ANSWER_CHARS}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-4 flex flex-col gap-2">
                   {question.options.map((option, optionIndex) => {
@@ -572,7 +645,7 @@ export default function QuizTaking({
                   })}
                 </div>
 
-                {showFeedback && (
+                {showFeedback && !isShort && (
                   <div className="mt-3 flex justify-end">
                     <button
                       type="button"
@@ -665,7 +738,7 @@ export default function QuizTaking({
           cancelLabel="Keep working"
           onConfirm={() => {
             const elapsed = Math.round((Date.now() - resolvedStartedAt) / 1000);
-            onSubmit(answers, unsureIds, { durationSec: elapsed, timedOut: false });
+            onSubmit(answers, unsureIds, { durationSec: elapsed, timedOut: false }, textAnswers);
           }}
           onCancel={() => setConfirmOpen(false)}
         />

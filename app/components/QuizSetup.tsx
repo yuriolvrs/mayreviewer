@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import {
+  isShortAnswer,
   missedIds,
   paceCalibrationFactor,
   sampleProportionally,
   SET_QUESTION_SECONDS,
+  SHORT_QUESTION_SECONDS,
   STANDALONE_QUESTION_SECONDS,
 } from "@/app/lib/questions";
 import { isMonoKind, formatTypeKeys, resolveFromList, stimulusKindOf, typeLabelOf } from "@/app/lib/examFormats";
@@ -40,6 +42,7 @@ const DEFAULT_TIMER_MINUTES = 10;
 const TIMER_PRESETS = [5, 10, 15, 30, 60];
 
 function questionCostSeconds(format: ExamFormat, question: Question): number {
+  if (isShortAnswer(question)) return SHORT_QUESTION_SECONDS;
   return isMonoKind(stimulusKindOf(format, question.type))
     ? SECONDS_PER_PREFORMATTED_QUESTION
     : SECONDS_PER_QUESTION;
@@ -86,7 +89,7 @@ export default function QuizSetup({
   // Ids survive question edits, so the newest attempt's misses still match the
   // current pool; questions deleted since simply fall out of the scope.
   const missed = new Set(
-    history.length > 0 ? missedIds(history[0].questions, history[0].answers) : [],
+    history.length > 0 ? missedIds(history[0].questions, history[0].answers, history[0].grades) : [],
   );
 
   const pool = poolFor(scopeTypes).filter((q) => !missedOnly || missed.has(q.id));

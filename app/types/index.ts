@@ -27,6 +27,11 @@ export type QuestionSource = "notes" | "project" | "manual" | "pastexam";
 // filtering, deleting, and importing one never has to chase a second table.
 // Questions in a set are contiguous and share `groupId`; the other three types
 // leave all three fields undefined.
+// How a question is answered: "choice" (pick an option) or "short" (type one to
+// three sentences, graded against `keyPoints`). Missing means "choice", so
+// every question stored before short answers existed stays valid.
+export type AnswerKind = "choice" | "short";
+
 export type Question = {
   id: string;
   // Opaque key into the reviewer's format type list (a built-in literal or a
@@ -52,6 +57,26 @@ export type Question = {
   // Starred by hand in the Questions tab. Optional so older stored questions
   // without it still validate — the UI treats missing as unstarred.
   favorite?: boolean;
+  // Short-answer questions only. `options` is empty and `correctIndex` is -1
+  // for these; the rubric below takes their place.
+  answerKind?: AnswerKind;
+  // What a good answer says, written at generation time.
+  modelAnswer?: string;
+  // 1-5 independently checkable points. Credit is the share a grader finds met.
+  keyPoints?: string[];
+};
+
+// One graded short answer. `met` holds indices into the question's keyPoints.
+// `credit` is 0..1 and is computed on the server (or set by an override) —
+// the model never reports a score itself.
+export type ShortGrade = {
+  met: number[];
+  feedback: string;
+  credit: number;
+  // The student overrode the AI grade by hand.
+  overridden?: boolean;
+  // Saved without grading (the grade call failed); credit 0 until graded.
+  ungraded?: boolean;
 };
 
 export type FeedbackMode = "immediate" | "end-only";
@@ -94,6 +119,14 @@ export type QuizAttempt = {
   total: number;
   questions: Question[];
   answers: Record<string, number>;
+  // Typed answers to short-answer questions, keyed by question id. Optional so
+  // attempts saved before short answers existed still validate.
+  textAnswers?: Record<string, string>;
+  // Grades for those answers, keyed the same way.
+  grades?: Record<string, ShortGrade>;
+  // Stamped when grades are saved or overridden after the attempt was taken.
+  // Sync prefers the later stamp, since the rest of an attempt is immutable.
+  gradedAt?: string;
   unsureIds: string[];
   // Snapshot of the reviewer's `questionsGeneratedAt` when this attempt was
   // taken. Two attempts sharing this value were taken against the same

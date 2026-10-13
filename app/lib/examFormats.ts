@@ -12,10 +12,12 @@ import type { QuestionType } from "@/app/types";
 // behavior comes from the format/shape/stimulus fields, never from matching
 // the key.
 
-// Choice-based answering only in v1. Free-text/numeric answers would break
-// option shuffling, the verify pass, and scoring, so they stay out until a
-// chapter takes those three on deliberately.
-export type AnswerFormat = "mc" | "true-false" | "modified-tf";
+// Three choice formats plus "short-answer": one to three typed sentences,
+// graded against a key-point rubric at quiz submit. Short answers are always
+// standalone with no stimulus — they have no options to shuffle or set of
+// blanks to number, which is what kept free text out until now. Numeric and
+// multi-select answers stay deferred.
+export type AnswerFormat = "mc" | "true-false" | "modified-tf" | "short-answer";
 export type TypeShape = "standalone" | "set";
 // Where the type's content lives when rendered: none means the question text
 // carries everything (Identification, MTF); anything else shares one
@@ -335,12 +337,18 @@ export function formatTypeKeys(format: ExamFormat): string[] {
   return format.types.map((t) => t.key);
 }
 
-// Split for the generation schema and prompt: standalone questions go in the
-// "questions" array, set types in "sets". Mirrors SET_TYPES in
-// generationPlan.ts, which keeps owning placement order; the route passes
-// this split as the planner's setTypes.
+// Split for the generation schema and prompt: standalone choice questions go
+// in the "questions" array, set types in "sets", and short-answer types in
+// "shortAnswers". Mirrors SET_TYPES in generationPlan.ts, which keeps owning
+// placement order; the route passes the set split as the planner's setTypes.
 export function standaloneKeys(format: ExamFormat): string[] {
-  return format.types.filter((t) => t.shape === "standalone").map((t) => t.key);
+  return format.types
+    .filter((t) => t.shape === "standalone" && t.format !== "short-answer")
+    .map((t) => t.key);
+}
+
+export function shortAnswerKeys(format: ExamFormat): string[] {
+  return format.types.filter((t) => t.format === "short-answer").map((t) => t.key);
 }
 
 export function setKeys(format: ExamFormat): string[] {
@@ -392,7 +400,7 @@ export const MAX_GUIDANCE_CHARS = 500;
 export const MAX_EXAMPLES = 3;
 export const MAX_EXAMPLE_CHARS = 800;
 
-const ANSWER_FORMATS: AnswerFormat[] = ["mc", "true-false", "modified-tf"];
+const ANSWER_FORMATS: AnswerFormat[] = ["mc", "true-false", "modified-tf", "short-answer"];
 const TYPE_SHAPES: TypeShape[] = ["standalone", "set"];
 const STIMULUS_KINDS: StimulusKind[] = ["none", "prose", "table", "code", "formula"];
 
@@ -413,6 +421,9 @@ function isValidTypeDef(value: unknown): value is FormatTypeDef {
     TYPE_SHAPES.includes(t.shape as TypeShape) &&
     typeof t.stimulus === "string" &&
     STIMULUS_KINDS.includes(t.stimulus as StimulusKind) &&
+    // A short answer has nothing to share across a set and no stimulus slot
+    // in its schema, so the only valid shape for it is standalone / none.
+    (t.format !== "short-answer" || (t.shape === "standalone" && t.stimulus === "none")) &&
     (t.guidance === undefined || (typeof t.guidance === "string" && t.guidance.length <= MAX_GUIDANCE_CHARS)) &&
     (t.examples === undefined ||
       (Array.isArray(t.examples) &&

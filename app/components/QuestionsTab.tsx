@@ -4,9 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { updateReviewer } from "@/app/lib/storage";
 import {
+  MAX_KEY_POINTS,
+  MAX_KEY_POINT_CHARS,
+  MAX_MODEL_ANSWER_CHARS,
   QUESTION_SOURCES,
   SOURCE_LABELS,
   isPreformatted,
+  isShortAnswer,
   optionLetter,
 } from "@/app/lib/questions";
 import {
@@ -14,6 +18,7 @@ import {
   resolveFromList,
   formatTypeKeys,
   stimulusKindOf,
+  typeDefOf,
   typeLabelOf,
   type ExamFormat,
 } from "@/app/lib/examFormats";
@@ -39,24 +44,51 @@ type Sort = "newest" | "oldest" | "type" | "number";
 // exact same draft state and editor as an existing question being edited.
 const NEW_ID = "__new__";
 
-function blankQuestion(defaultType: string): Question {
+function blankQuestion(defaultType: string, short = false): Question {
+  const answer = short
+    ? { options: [], correctIndex: -1, answerKind: "short" as const, modelAnswer: "", keyPoints: [""] }
+    : { options: ["", ""], correctIndex: 0 };
   return {
     id: NEW_ID,
     type: defaultType,
     question: "",
-    options: ["", ""],
-    correctIndex: 0,
+    ...answer,
     source: "manual",
     explanation: "",
     whyOthersWrong: "",
   };
 }
 
+// Switching a draft between a choice type and a short-answer type changes
+// what it stores, so the answer fields are swapped rather than carried over.
+// A question inside a set keeps its kind: its siblings share one problem.
+function retype(draft: Question, type: string, short: boolean): Question {
+  if (draft.groupId || short === isShortAnswer(draft)) return { ...draft, type };
+  if (short) {
+    return {
+      ...draft,
+      type,
+      options: [],
+      correctIndex: -1,
+      answerKind: "short",
+      modelAnswer: "",
+      keyPoints: [""],
+    };
+  }
+  const { answerKind: _kind, modelAnswer: _answer, keyPoints: _points, ...rest } = draft;
+  void _kind;
+  void _answer;
+  void _points;
+  return { ...rest, type, options: ["", ""], correctIndex: 0 };
+}
+
 function matchesSearch(question: Question, term: string): boolean {
   if (!term) return true;
   return (
     question.question.toLowerCase().includes(term) ||
-    question.options.some((o) => o.toLowerCase().includes(term))
+    question.options.some((o) => o.toLowerCase().includes(term)) ||
+    (question.modelAnswer ?? "").toLowerCase().includes(term) ||
+    (question.keyPoints ?? []).some((p) => p.toLowerCase().includes(term))
   );
 }
 
@@ -158,12 +190,22 @@ function QuestionEditor({
   const isCorrect = (i: number) =>
     picked && draft.correctIndex === i && draft.options[i].trim() !== "";
 
+  const isShort = isShortAnswer(draft);
+  const keyPoints = draft.keyPoints ?? [];
+  const keyPointsFilled = keyPoints.filter((p) => p.trim()).length;
   const filled = draft.options.filter((o) => o.trim()).length;
   const answerChosen = draft.options.some((_, i) => isCorrect(i));
-  const canSave = draft.question.trim() !== "" && filled >= 2 && answerChosen;
+  const canSave = isShort
+    ? draft.question.trim() !== "" && (draft.modelAnswer ?? "").trim() !== "" && keyPointsFilled >= 1
+    : draft.question.trim() !== "" && filled >= 2 && answerChosen;
 
   function saveHint(): string | undefined {
     if (draft.question.trim() === "") return "Add question text first";
+    if (isShort) {
+      if ((draft.modelAnswer ?? "").trim() === "") return "Write a model answer";
+      if (keyPointsFilled < 1) return "Add at least one key point";
+      return undefined;
+    }
     if (filled < 2) return "Fill in at least two options";
     if (!answerChosen) return "Select the radio next to the correct option";
     return undefined;
@@ -191,7 +233,11 @@ function QuestionEditor({
           <span className="relative inline-flex shrink-0 items-center rounded px-1 text-text-secondary hover:bg-surface-alt">
             <select
               value={draft.type}
-              onChange={(e) => setDraft({ ...draft, type: e.target.value })}
+              onChange={(e) =>
+                setDraft(
+                  retype(draft, e.target.value, typeDefOf(format, e.target.value)?.format === "short-answer"),
+                )
+              }
               aria-label="Question type"
               className="cursor-pointer appearance-none border-0 bg-transparent p-0 pr-4 font-mono text-[0.8125rem] tracking-wide text-inherit uppercase outline-none hover:underline focus:underline"
             >
@@ -252,6 +298,70 @@ function QuestionEditor({
         }`}
       />
 
+      {isShort ? (
+        <div className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[0.875rem] text-text-secondary">
+              Model answer — one to three sentences a good answer would say
+            </span>
+            <textarea
+              value={draft.modelAnswer ?? ""}
+              onChange={(e) => setDraft({ ...draft, modelAnswer: e.target.value })}
+              rows={3}
+              maxLength={MAX_MODEL_ANSWER_CHARS}
+              aria-label="Model answer"
+              className="w-full resize-y rounded-lg border border-border bg-surface p-3 text-[0.9375rem] text-text-primary outline-none focus:border-accent"
+            />
+          </label>
+          <div className="flex flex-col gap-2">
+            <span className="text-[0.875rem] text-text-secondary">
+              Key points — what an answer must contain. Credit is the share of these it covers.
+            </span>
+            {keyPoints.map((point, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="w-5 shrink-0 text-right font-mono text-[0.8125rem] text-text-tertiary">
+                  {i + 1}.
+                </span>
+                <input
+                  type="text"
+                  value={point}
+                  maxLength={MAX_KEY_POINT_CHARS}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      keyPoints: keyPoints.map((p, j) => (j === i ? e.target.value : p)),
+                    })
+                  }
+                  placeholder={`Key point ${i + 1}`}
+                  aria-label={`Key point ${i + 1}`}
+                  className="h-10 flex-1 rounded-lg border border-border bg-surface px-3 text-[0.9375rem] text-text-primary outline-none focus:border-accent"
+                />
+                {keyPoints.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setDraft({ ...draft, keyPoints: keyPoints.filter((_, j) => j !== i) })}
+                    title="Remove key point"
+                    aria-label={`Remove key point ${i + 1}`}
+                    className="shrink-0 text-text-tertiary hover:text-error"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+            {keyPoints.length < MAX_KEY_POINTS && (
+              <button
+                type="button"
+                onClick={() => setDraft({ ...draft, keyPoints: [...keyPoints, ""] })}
+                className="self-start rounded-lg border border-dashed border-border-strong px-3 py-1.5 text-[0.875rem] font-medium text-text-secondary hover:border-accent hover:text-accent"
+              >
+                + Add key point
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+      <>
       <div className="flex flex-col gap-2">
         {draft.options.map((option, i) => (
           <div
@@ -316,10 +426,14 @@ function QuestionEditor({
       <p className="text-[0.875rem] text-text-tertiary">
         Select the radio next to the correct option. The highlighted option is currently correct.
       </p>
+      </>
+      )}
 
       <label className="flex flex-col gap-1.5">
         <span className="text-[0.875rem] text-text-secondary">
-          Explanation — a sentence or two on why that option is correct
+          {isShort
+            ? "Explanation — optional note shown with the model answer"
+            : "Explanation — a sentence or two on why that option is correct"}
         </span>
         <textarea
           value={draft.explanation ?? ""}
@@ -330,18 +444,20 @@ function QuestionEditor({
         />
       </label>
 
-      <label className="flex flex-col gap-1.5">
-        <span className="text-[0.875rem] text-text-secondary">
-          Why not the others — a sentence or two ruling out the remaining options
-        </span>
-        <textarea
-          value={draft.whyOthersWrong ?? ""}
-          onChange={(e) => setDraft({ ...draft, whyOthersWrong: e.target.value })}
-          rows={2}
-          placeholder="Optional, shown as a second paragraph under the explanation…"
-          className="w-full resize-y rounded-lg border border-border bg-surface p-3 text-[0.9375rem] text-text-primary outline-none focus:border-accent"
-        />
-      </label>
+      {!isShort && (
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[0.875rem] text-text-secondary">
+            Why not the others — a sentence or two ruling out the remaining options
+          </span>
+          <textarea
+            value={draft.whyOthersWrong ?? ""}
+            onChange={(e) => setDraft({ ...draft, whyOthersWrong: e.target.value })}
+            rows={2}
+            placeholder="Optional, shown as a second paragraph under the explanation…"
+            className="w-full resize-y rounded-lg border border-border bg-surface p-3 text-[0.9375rem] text-text-primary outline-none focus:border-accent"
+          />
+        </label>
+      )}
     </div>
   );
 }
@@ -455,7 +571,11 @@ export default function QuestionsTab({
 
   function startEdit(question: Question) {
     setEditingId(question.id);
-    setDraft({ ...question, options: [...question.options] });
+    setDraft({
+      ...question,
+      options: [...question.options],
+      ...(question.keyPoints ? { keyPoints: [...question.keyPoints] } : {}),
+    });
     setConfirmDeleteId(null);
   }
 
@@ -463,7 +583,12 @@ function startCreate() {
   setEditingId(NEW_ID);
   // A new question starts in the format's own first type — "identification"
   // is only correct for formats that actually have it.
-  setDraft(blankQuestion(typeKeys[0] ?? "identification"));
+  setDraft(
+    blankQuestion(
+      typeKeys[0] ?? "identification",
+      typeDefOf(format, typeKeys[0] ?? "")?.format === "short-answer",
+    ),
+  );
     setConfirmDeleteId(null);
   }
 
@@ -475,9 +600,19 @@ function startCreate() {
   function saveEdit() {
     if (!draft) return;
 
-    if (draft.id === NEW_ID) {
+    // Blank key points are dropped here rather than failing the save; the
+    // editor already required at least one real one.
+    const toSave: Question = isShortAnswer(draft)
+      ? {
+          ...draft,
+          modelAnswer: (draft.modelAnswer ?? "").trim(),
+          keyPoints: (draft.keyPoints ?? []).map((p) => p.trim()).filter(Boolean).slice(0, MAX_KEY_POINTS),
+        }
+      : draft;
+
+    if (toSave.id === NEW_ID) {
       updateReviewer(reviewer.id, {
-        questions: [...reviewer.questions, { ...draft, id: newId() }],
+        questions: [...reviewer.questions, { ...toSave, id: newId() }],
       });
     } else {
       // The problem text is shared by every question in the set, so an edit to it
@@ -485,7 +620,7 @@ function startCreate() {
       // different tables depending on which question you scrolled to.
       updateReviewer(reviewer.id, {
         questions: reviewer.questions.map((q) => {
-          if (q.id === draft.id) return draft;
+          if (q.id === draft.id) return toSave;
           if (draft.groupId && q.groupId === draft.groupId) {
             return { ...q, groupTitle: draft.groupTitle, stimulus: draft.stimulus };
           }
@@ -555,7 +690,10 @@ function startCreate() {
         // nothing about what the listing was, so it can only crowd the list.
         reviewer.questions
           .filter((q) => !q.groupId)
-          .map((q) => ({ question: q.question, answer: q.options[q.correctIndex] ?? "" })),
+          .map((q) => ({
+            question: q.question,
+            answer: isShortAnswer(q) ? (q.modelAnswer ?? "") : (q.options[q.correctIndex] ?? ""),
+          })),
         controller.signal,
       );
       // A cancel that lands in the gap between the stream finishing and this
@@ -962,6 +1100,23 @@ function startCreate() {
                       >
                         {question.question}
                       </p>
+
+                      {isShortAnswer(question) && (
+                        <div className="mt-3 flex flex-col gap-2 rounded-lg bg-success-subtle px-3 py-2.5 text-[0.9375rem]">
+                          <p className="text-text-primary">
+                            <span className="font-medium text-success">Model answer:</span>{" "}
+                            {question.modelAnswer}
+                          </p>
+                          <ul className="flex flex-col gap-1 text-text-secondary">
+                            {(question.keyPoints ?? []).map((point, i) => (
+                              <li key={i} className="flex gap-2">
+                                <span className="font-mono text-[0.8125rem] text-text-tertiary">{i + 1}.</span>
+                                <span className="min-w-0 break-words">{point}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
 
                       <ol className="mt-3 flex flex-col gap-1">
                         {question.options.map((option, i) => (

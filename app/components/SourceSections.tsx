@@ -81,7 +81,7 @@ export default function SourceSections({
     <>
       <SourceRow
         title="Course material"
-        description="Notes and slides."
+        description="Optional. Use for lecture notes and slides. This is the main source of facts."
         status={notesStatus}
         reviewerId={reviewerId}
         field="notes"
@@ -92,7 +92,7 @@ export default function SourceSections({
       />
       <SourceRow
         title="Project material"
-        description="Specs and code."
+        description="Optional. Use for specs, assignments, or code the exam may cover."
         status={projectStatus}
         reviewerId={reviewerId}
         field="project"
@@ -103,7 +103,7 @@ export default function SourceSections({
       />
       <SourceRow
         title="Past exam"
-        description="A sample exam. Teaches format and supplies facts."
+        description="Optional. A sample exam. Use it to teach the format and supply facts."
         status={pastExamStatus}
         reviewerId={reviewerId}
         field="pastexam"

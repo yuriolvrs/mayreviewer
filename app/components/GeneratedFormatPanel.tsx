@@ -13,12 +13,13 @@ import { inferFormat } from "@/app/lib/inferFormatClient";
 import { MAX_QUESTION_COUNT } from "@/app/lib/questions";
 import { useOnline } from "@/app/lib/useOnline";
 
-// The "Learn from course material" panel on New Reviewer: runs inference over
-// the notes the user added below, then lists the generated types for light
+// The "Learn from my material" panel on New Reviewer: runs inference over
+// the notes and past exam the user added above, then lists the generated types for light
 // editing (label, count, remove). Deeper editing happens in the Formats page.
 export default function GeneratedFormatPanel({
   reviewerId,
   notes,
+  pastExam,
   subject,
   types,
   counts,
@@ -31,6 +32,7 @@ export default function GeneratedFormatPanel({
 }: {
   reviewerId: string;
   notes: string;
+  pastExam: string;
   subject: string;
   types: FormatTypeDef[];
   counts: Record<string, number>;
@@ -47,14 +49,14 @@ export default function GeneratedFormatPanel({
   const [error, setError] = useState("");
   const [unsupported, setUnsupported] = useState<UnsupportedNote[]>([]);
 
-  // Stored notes files live in IndexedDB; the add/remove event keeps the
-  // button state current without polling.
+  // Stored notes and past-exam files live in IndexedDB; the add/remove event
+  // keeps the button state current without polling.
   useEffect(() => {
     let cancelled = false;
     const refresh = () => {
-      getAttachments(reviewerId, "notes")
-        .then((files) => {
-          if (!cancelled) setFileCount(files.length);
+      Promise.all([getAttachments(reviewerId, "notes"), getAttachments(reviewerId, "pastexam")])
+        .then(([a, b]) => {
+          if (!cancelled) setFileCount(a.length + b.length);
         })
         .catch(() => {});
     };
@@ -66,10 +68,18 @@ export default function GeneratedFormatPanel({
     };
   }, [reviewerId]);
 
+  const hasNotes = notes.trim() !== "";
+  const hasPastExam = pastExam.trim() !== "";
+  const sources = [
+    hasNotes && "notes",
+    hasPastExam && "past exam",
+    fileCount > 0 && `${fileCount} file${fileCount === 1 ? "" : "s"}`,
+  ].filter(Boolean);
+
   const blocked = !online
     ? "Suggesting types needs an internet connection."
-    : notes.trim() === "" && fileCount === 0
-      ? "Add notes or files in Course material below first."
+    : sources.length === 0
+      ? "Add notes, a past exam, or files in the material sections above first."
       : "";
 
   async function run() {
@@ -77,7 +87,11 @@ export default function GeneratedFormatPanel({
     setError("");
     setUnsupported([]);
     try {
-      const files = (await getAttachments(reviewerId, "notes")).map((a) => ({
+      const stored = [
+        ...(await getAttachments(reviewerId, "notes")),
+        ...(await getAttachments(reviewerId, "pastexam")),
+      ];
+      const files = stored.map((a) => ({
         id: a.id,
         name: a.name,
         mimeType: a.mimeType,
@@ -85,7 +99,7 @@ export default function GeneratedFormatPanel({
       }));
       const result = await inferFormat({
         files,
-        text: notes,
+        text: [notes, pastExam].filter((t) => t.trim() !== "").join("\n\n"),
         subject: subject.trim(),
         uploadPrefix: `past-exam/${reviewerId}`,
       });
@@ -143,11 +157,14 @@ export default function GeneratedFormatPanel({
   const canSave = types.length > 0 && types.every((t) => t.label.trim() !== "");
 
   return (
-    <div className="mt-6 rounded-lg border border-border bg-surface p-4 sm:p-5">
-      <p className="text-[0.9375rem] font-semibold text-text-primary">Learn from course material</p>
+    <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
+      <p className="text-[0.9375rem] font-semibold text-text-primary">Learn from my material</p>
       <p className="mt-1 text-[0.875rem] text-text-secondary">
-        Add notes or slides in Course material below. Then the AI suggests question types from
-        them, and you can edit the list before creating the reviewer.
+        The AI suggests question types from the material you added above. You can edit the list
+        before creating the reviewer.
+      </p>
+      <p className="mt-2 text-[0.875rem] text-text-secondary">
+        Reading: {sources.length > 0 ? sources.join(", ") : "nothing yet"}
       </p>
 
       <div className="mt-3 flex flex-col items-start gap-2">

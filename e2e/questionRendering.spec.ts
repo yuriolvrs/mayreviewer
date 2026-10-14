@@ -205,8 +205,18 @@ test.describe("Delete warning", () => {
 test.describe("Exam formats", () => {
   test("the new-reviewer form offers the built-in format, preselected", async ({ page }) => {
     await page.goto("/reviewer/new");
-    await expect(page.getByRole("radio", { name: /CSOPESY Final/ })).toBeChecked();
+    await expect(page.getByRole("radio", { name: "Use a saved format" })).toBeChecked();
+    await expect(page.getByRole("combobox", { name: /Exam format: CSOPESY Final/ })).toBeVisible();
     await expect(page.getByText("Modified True/False").first()).toBeVisible();
+  });
+
+  test("learn mode shows the panel inline and keeps Create visible", async ({ page }) => {
+    await page.goto("/reviewer/new");
+    await page.getByRole("radio", { name: "Learn from my material" }).check();
+    await expect(page.getByText("Reading: nothing yet")).toBeVisible();
+    await expect(page.getByText("Counts appear after you suggest types.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Suggest question types" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Create Reviewer" })).toBeInViewport();
   });
 
   test("the library lists the built-in with its type mix and a working entry link", async ({
@@ -223,7 +233,7 @@ test.describe("Exam formats", () => {
   test("the builder offers past-exam inference", async ({ page }) => {
     await page.goto("/formats/new");
     await expect(page.getByText("Learn from a past exam")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Read the exam and suggest types" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Read the material and suggest types" })).toBeVisible();
   });
 
   test("the builder creates a custom format that the picker then offers", async ({ page }) => {
@@ -237,7 +247,8 @@ test.describe("Exam formats", () => {
     await expect(page.getByText("E2E Format")).toBeVisible();
 
     await page.goto("/reviewer/new");
-    await expect(page.getByRole("radio", { name: /E2E Format/ })).toBeVisible();
+    await page.getByRole("combobox", { name: /Exam format:/ }).click();
+    await expect(page.getByRole("option", { name: /E2E Format/ })).toBeVisible();
   });
 
   test("a pre-format reviewer migrates on open, total kept", async ({ page }) => {
@@ -338,7 +349,7 @@ test.describe("Custom formats", () => {
 
   test("deep link preselects the custom format in the picker", async ({ page }) => {
     await page.goto(`/reviewer/new?format=${CUSTOM_FORMAT_ID}`);
-    await expect(page.getByRole("radio", { name: /E2E Custom/ })).toBeChecked();
+    await expect(page.getByRole("combobox", { name: /Exam format: E2E Custom/ })).toBeVisible();
   });
 });
 

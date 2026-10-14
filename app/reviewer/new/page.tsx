@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import UploadIcon from "@/app/components/UploadIcon";
 import { newId } from "@/app/lib/ids";
 import { useTopicList } from "@/app/lib/useTopics";
 import { saveReviewer } from "@/app/lib/storage";
@@ -28,6 +27,7 @@ import {
 } from "@/app/lib/examFormats";
 import { useFormats } from "@/app/lib/useFormats";
 import { parseReviewerFile, type ParsedReviewerFile } from "@/app/lib/reviewerFile";
+import OptionSelect from "@/app/components/OptionSelect";
 import QuestionCountControl from "@/app/components/QuestionCountControl";
 import GeneratedFormatPanel from "@/app/components/GeneratedFormatPanel";
 import SourceSections from "@/app/components/SourceSections";
@@ -142,6 +142,31 @@ export default function NewReviewerPage() {
     setGenSaved(true);
   }
 
+  function selectSavedFormat(id: string) {
+    // Counts typed for another format's types are meaningless after a
+    // switch, so re-seed from the new format's mix.
+    setError("");
+    setLearn(false);
+    setExamFormatId(id);
+    setCountByType(defaultCounts(resolveFromList(formats, id)));
+  }
+
+  function selectLearn() {
+    setError("");
+    setLearn(true);
+    setCountByType(Object.fromEntries(genTypes.map((t) => [t.key, t.defaultCount])));
+  }
+
+  // Derived, so the message sits next to the total and clears as it is fixed.
+  const total = sumCounts(countByType);
+  const learnPending = learn && genTypes.length === 0;
+  const countError =
+    !learnPending &&
+    (!Number.isInteger(total) || total < MIN_QUESTION_COUNT || total > MAX_QUESTION_COUNT)
+      ? `Questions to generate must be a whole number between ${MIN_QUESTION_COUNT} and ${MAX_QUESTION_COUNT}.`
+      : "";
+  const barError = error || countError || (nameError ? "Reviewer name is required." : "");
+
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = name.trim();
@@ -157,17 +182,10 @@ export default function NewReviewerPage() {
       setError("Every generated question type needs a label.");
       return;
     }
-    const questionCount = sumCounts(countByType);
-    if (
-      !Number.isInteger(questionCount) ||
-      questionCount < MIN_QUESTION_COUNT ||
-      questionCount > MAX_QUESTION_COUNT
-    ) {
-      setError(
-        `Questions to generate must be a whole number between ${MIN_QUESTION_COUNT} and ${MAX_QUESTION_COUNT}.`,
-      );
-      return;
-    }
+    const questionCount = total;
+    // The count error is derived and already shown beside the total and in
+    // the bar, so there is nothing to set here.
+    if (countError) return;
 
     // The generated format becomes a stored custom format so every page can
     // resolve it by id. Re-saving the same id keeps one copy.
@@ -288,6 +306,99 @@ export default function NewReviewerPage() {
 
       <h1 className="text-[1.625rem] font-semibold text-text-primary">New reviewer</h1>
 
+      <input
+        ref={importInputRef}
+        type="file"
+        accept="application/json,.json,application/zip,.zip"
+        aria-label="Import a reviewer file"
+        className="sr-only"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleImportFileSelected(file);
+          e.target.value = "";
+        }}
+      />
+      <p className="mt-1 text-[0.875rem] text-text-secondary">
+        Have an exported reviewer?{" "}
+        <button
+          type="button"
+          onClick={() => importInputRef.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setImportDragOver(true);
+          }}
+          onDragLeave={() => setImportDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setImportDragOver(false);
+            const file = e.dataTransfer.files[0];
+            if (file) void handleImportFileSelected(file);
+          }}
+          className={`font-medium underline underline-offset-2 hover:text-accent ${
+            importDragOver ? "text-accent" : "text-text-primary"
+          }`}
+        >
+          Import an exported reviewer
+        </button>
+      </p>
+
+      {importPending && (
+        <div className="mt-4">
+          <div className="rounded-lg border border-border bg-surface-alt p-4">
+            <p className="text-[0.9375rem] font-medium text-text-primary">{importPending.fileName}</p>
+            <dl className="mt-3 flex flex-col gap-1 text-[0.875rem]">
+              <div className="flex gap-2">
+                <dt className="text-text-secondary">Reviewer name</dt>
+                <dd className="text-text-primary">{importPending.reviewerName}</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="text-text-secondary">Questions in file</dt>
+                <dd className="text-text-primary">{importPending.questions.length}</dd>
+              </div>
+              {importPending.topics.length > 0 && (
+                <div className="flex gap-2">
+                  <dt className="text-text-secondary">Topics in file</dt>
+                  <dd className="text-text-primary">{importPending.topics.length}</dd>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <dt className="text-text-secondary">Questions to generate</dt>
+                <dd className="text-text-primary">{importPending.questionCount}</dd>
+              </div>
+              {importPending.isArchive && (
+                <div className="flex gap-2">
+                  <dt className="text-text-secondary">Files in archive</dt>
+                  <dd className="text-text-primary">{importPending.attachments.length}</dd>
+                </div>
+              )}
+            </dl>
+            <div className="mt-4 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setImportPending(null)}
+                className="text-[0.9375rem] font-medium text-text-secondary hover:text-text-primary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmImportCreate}
+                disabled={importing}
+                className="rounded-lg bg-accent px-4 py-2 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {importing ? "Creating…" : "Create from file"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {importError && (
+        <p role="alert" className="mt-2 text-[0.875rem] text-error">
+          {importError}
+        </p>
+      )}
+
       <form onSubmit={handleCreate} className="mt-4 flex flex-col">
         <div className="grid grid-cols-1 gap-6 pb-6 md:grid-cols-[160px_1fr]">
           <div>
@@ -310,6 +421,9 @@ export default function NewReviewerPage() {
                 className={`h-11 rounded-lg border px-3 text-text-primary outline-none ${
                   nameError ? "border-error focus:border-error" : "border-border focus:border-accent"
                 }`}
+                onBlur={() => {
+                  if (!name.trim()) setNameError(true);
+                }}
                 autoFocus
               />
               {nameError && <span className="text-[0.8125rem] text-error">Reviewer name is required.</span>}
@@ -324,6 +438,108 @@ export default function NewReviewerPage() {
                 className="h-11 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent"
               />
             </label>
+          </div>
+        </div>
+
+        <SourceSections
+          reviewerId={draftId}
+          notes={notes}
+          projectMaterial={projectMaterial}
+          pastExamMaterial={pastExamMaterial}
+          onNotesChange={setNotes}
+          onProjectChange={setProjectMaterial}
+          onPastExamChange={setPastExamMaterial}
+        />
+
+        <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
+          <div>
+            <p className="text-[0.9375rem] font-medium text-text-primary">Exam format</p>
+            <p className="mt-1 text-[0.875rem] text-text-secondary">
+              The question types this reviewer generates.
+            </p>
+          </div>
+          <div className="flex flex-col gap-4">
+            <div role="radiogroup" aria-label="Format source" className="flex flex-col gap-2 sm:flex-row sm:gap-6">
+              <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-[0.9375rem] text-text-primary">
+                <input
+                  type="radio"
+                  name="exam-format-mode"
+                  checked={!learn}
+                  onChange={() => selectSavedFormat(examFormatId)}
+                  className="h-4 w-4 shrink-0 accent-accent"
+                />
+                Use a saved format
+              </label>
+              <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-[0.9375rem] text-text-primary">
+                <input
+                  type="radio"
+                  name="exam-format-mode"
+                  checked={learn}
+                  onChange={selectLearn}
+                  className="h-4 w-4 shrink-0 accent-accent"
+                />
+                Learn from my material
+              </label>
+            </div>
+
+            {learn ? (
+              <GeneratedFormatPanel
+                reviewerId={draftId}
+                notes={notes}
+                pastExam={pastExamMaterial}
+                subject={subject || name}
+                types={genTypes}
+                counts={countByType}
+                onChange={(types, counts) => {
+                  setGenTypes(types);
+                  setCountByType(counts);
+                  setGenSaved(false);
+                  setError("");
+                }}
+                formatName={genName}
+                defaultName={genDefaultName}
+                onNameChange={(v) => {
+                  setGenName(v);
+                  setGenSaved(false);
+                }}
+                onSave={saveGenerated}
+                saved={genSaved}
+              />
+            ) : (
+              <div className="flex flex-col gap-2">
+                <OptionSelect
+                  label="Exam format"
+                  options={formats.map((f) => ({ value: f.id, label: f.name }))}
+                  value={format.id}
+                  onChange={selectSavedFormat}
+                />
+                <p className="text-[0.8125rem] text-text-tertiary">
+                  {format.types.map((t) => t.label).join(" · ")}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
+          <div>
+            <p className="text-[0.9375rem] font-medium text-text-primary">Question count</p>
+            <p className="mt-1 text-[0.875rem] text-text-secondary">How many questions to generate per type.</p>
+          </div>
+          <div>
+            {learn ? (
+              learnPending ? (
+                <p className="text-[0.875rem] text-text-secondary">Counts appear after you suggest types.</p>
+              ) : (
+                <p className="text-[0.875rem] font-semibold text-text-primary">
+                  Total: {total} question{total === 1 ? "" : "s"}
+                  <span className="ml-2 font-normal text-text-secondary">Edit counts in the list above.</span>
+                </p>
+              )
+            ) : (
+              <QuestionCountControl format={format} value={countByType} onChange={setCountByType} />
+            )}
+            {countError && <p className="mt-2 text-[0.875rem] text-error">{countError}</p>}
           </div>
         </div>
 
@@ -381,242 +597,34 @@ export default function NewReviewerPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
-          <div>
-            <p className="text-[0.9375rem] font-medium text-text-primary">Exam format</p>
-            <p className="mt-1 text-[0.875rem] text-text-secondary">
-              The question formats this reviewer generates.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3">
-            {formats.map((f) => (
-              <label
-                key={f.id}
-                className={`cursor-pointer rounded-lg border p-4 ${
-                  !learn && f.id === format.id
-                    ? "border-accent bg-accent-subtle"
-                    : "border-border hover:border-border-strong"
-                }`}
-              >
-                <span className="flex items-center gap-2.5">
-                  <input
-                    type="radio"
-                    name="exam-format"
-                    checked={!learn && f.id === format.id}
-                    onChange={() => {
-                      // Counts typed for another format's types are meaningless
-                      // after a switch — re-seed from the new format's mix.
-                      setLearn(false);
-                      setExamFormatId(f.id);
-                      setCountByType(defaultCounts(resolveFromList(formats, f.id)));
-                    }}
-                    className="h-4 w-4 shrink-0 accent-accent"
-                  />
-                  <span className="text-[0.9375rem] font-semibold text-text-primary">{f.name}</span>
+        {/* Spacer so the fixed bar never hides the last field. */}
+        <div aria-hidden="true" className="h-20" />
+
+        {/* Fixed, same offset as the Format builder bar: above the mobile
+            bottom bar, flush to the bottom from md up. */}
+        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 md:bottom-0">
+          <div className="mx-auto w-full max-w-4xl px-6 pb-3 md:pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3 shadow-menu">
+              <span className="min-w-0 text-[0.875rem]">
+                <span className="font-semibold text-text-primary">
+                  {total} question{total === 1 ? "" : "s"}
                 </span>
-                <span className="mt-1 block pl-[26px] text-[0.8125rem] text-text-tertiary">
-                  {f.types.map((t) => t.label).join(" · ")}
-                </span>
-              </label>
-            ))}
-            <label
-              className={`cursor-pointer rounded-lg border p-4 ${
-                learn ? "border-accent bg-accent-subtle" : "border-border hover:border-border-strong"
-              }`}
-            >
-              <span className="flex items-center gap-2.5">
-                <input
-                  type="radio"
-                  name="exam-format"
-                  checked={learn}
-                  onChange={() => {
-                    setLearn(true);
-                    setCountByType(Object.fromEntries(genTypes.map((t) => [t.key, t.defaultCount])));
-                  }}
-                  className="h-4 w-4 shrink-0 accent-accent"
-                />
-                <span className="text-[0.9375rem] font-semibold text-text-primary">
-                  Learn from course material
-                </span>
+                {barError && (
+                  <span role="alert" className="ml-2 text-error">
+                    {barError}
+                  </span>
+                )}
               </span>
-              <span className="mt-1 block pl-[26px] text-[0.8125rem] text-text-tertiary">
-                The AI builds question types from the notes and slides you add below.
-              </span>
-            </label>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
-          <div>
-            <p className="text-[0.9375rem] font-medium text-text-primary">Question count</p>
-            <p className="mt-1 text-[0.875rem] text-text-secondary">How many questions to generate per type.</p>
-          </div>
-          {learn && genTypes.length === 0 ? (
-            <p className="text-[0.875rem] text-text-secondary">
-              Suggest question types from your course material below. Counts appear here after that.
-            </p>
-          ) : (
-            <QuestionCountControl format={format} value={countByType} onChange={setCountByType} />
-          )}
-        </div>
-
-        <p className="border-t border-border pt-6 text-[0.875rem] text-text-secondary">
-          A past exam added below gives this reviewer facts and style. To save a
-          past exam&apos;s question types for reuse, build a format instead.
-        </p>
-
-        {learn && (
-          <GeneratedFormatPanel
-            reviewerId={draftId}
-            notes={notes}
-            subject={subject || name}
-            types={genTypes}
-            counts={countByType}
-            onChange={(types, counts) => {
-              setGenTypes(types);
-              setCountByType(counts);
-              setGenSaved(false);
-              setError("");
-            }}
-            formatName={genName}
-            defaultName={genDefaultName}
-            onNameChange={(v) => {
-              setGenName(v);
-              setGenSaved(false);
-            }}
-            onSave={saveGenerated}
-            saved={genSaved}
-          />
-        )}
-
-        <SourceSections
-          reviewerId={draftId}
-          notes={notes}
-          projectMaterial={projectMaterial}
-          pastExamMaterial={pastExamMaterial}
-          onNotesChange={setNotes}
-          onProjectChange={setProjectMaterial}
-          onPastExamChange={setPastExamMaterial}
-        />
-
-        {error && (
-          <p role="alert" className="pb-2 text-[0.9375rem] text-error">
-            {error}
-          </p>
-        )}
-
-        <div className="flex justify-end border-t border-border py-6">
-          <button
-            type="submit"
-            className="rounded-lg bg-accent px-4 py-2.5 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover"
-          >
-            Create Reviewer
-          </button>
-        </div>
-      </form>
-
-      <div className="my-6 flex items-center gap-4">
-        <div className="h-px flex-1 bg-border" />
-        <span className="text-[0.75rem] font-medium tracking-wide text-text-tertiary uppercase">
-          Or import an exported reviewer
-        </span>
-        <div className="h-px flex-1 bg-border" />
-      </div>
-
-      <div className="mb-8">
-        <input
-          ref={importInputRef}
-          type="file"
-          accept="application/json,.json,application/zip,.zip"
-          aria-label="Import a reviewer file"
-          className="sr-only"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void handleImportFileSelected(file);
-            e.target.value = "";
-          }}
-        />
-
-        {importPending ? (
-          <div className="rounded-lg border border-border bg-surface-alt p-4">
-            <p className="text-[0.9375rem] font-medium text-text-primary">{importPending.fileName}</p>
-            <dl className="mt-3 flex flex-col gap-1 text-[0.875rem]">
-              <div className="flex gap-2">
-                <dt className="text-text-secondary">Reviewer name</dt>
-                <dd className="text-text-primary">{importPending.reviewerName}</dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="text-text-secondary">Questions in file</dt>
-                <dd className="text-text-primary">{importPending.questions.length}</dd>
-              </div>
-              {importPending.topics.length > 0 && (
-                <div className="flex gap-2">
-                  <dt className="text-text-secondary">Topics in file</dt>
-                  <dd className="text-text-primary">{importPending.topics.length}</dd>
-                </div>
-              )}
-              <div className="flex gap-2">
-                <dt className="text-text-secondary">Questions to generate</dt>
-                <dd className="text-text-primary">{importPending.questionCount}</dd>
-              </div>
-              {importPending.isArchive && (
-                <div className="flex gap-2">
-                  <dt className="text-text-secondary">Files in archive</dt>
-                  <dd className="text-text-primary">{importPending.attachments.length}</dd>
-                </div>
-              )}
-            </dl>
-            <div className="mt-4 flex items-center justify-end gap-3">
               <button
-                type="button"
-                onClick={() => setImportPending(null)}
-                className="text-[0.9375rem] font-medium text-text-secondary hover:text-text-primary"
+                type="submit"
+                className="min-h-11 shrink-0 rounded-lg bg-accent px-4 py-2.5 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover"
               >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmImportCreate}
-                disabled={importing}
-                className="rounded-lg bg-accent px-4 py-2 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {importing ? "Creating…" : "Create from file"}
+                Create Reviewer
               </button>
             </div>
           </div>
-        ) : (
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              setImportDragOver(true);
-            }}
-            onDragLeave={() => setImportDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setImportDragOver(false);
-              const file = e.dataTransfer.files[0];
-              if (file) void handleImportFileSelected(file);
-            }}
-            onClick={() => importInputRef.current?.click()}
-            className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
-              importDragOver ? "border-accent bg-accent-subtle" : "border-border-strong hover:border-accent"
-            }`}
-          >
-            <UploadIcon />
-            <p className="text-[0.9375rem] font-semibold text-text-primary">Already have an exported reviewer?</p>
-            <p className="mt-1 text-[0.875rem] text-text-secondary">
-              Drop a <span className="font-mono">.json</span> or <span className="font-mono">.zip</span> file
-              here, or click to browse.
-            </p>
-          </div>
-        )}
-
-        {importError && (
-          <p role="alert" className="mt-2 text-[0.875rem] text-error">
-            {importError}
-          </p>
-        )}
-      </div>
+        </div>
+      </form>
     </div>
   );
 }

@@ -100,7 +100,9 @@ export default function Navbar() {
             }
           }}
         >
-          {!loading && !user ? (
+          {loading ? (
+            <div aria-hidden="true" className="h-11 w-11 rounded-full bg-surface-alt" />
+          ) : !user ? (
             <Link
               href="/login"
               className="flex min-h-[44px] items-center text-[0.875rem] font-medium text-text-secondary hover:text-text-primary md:text-[0.9375rem]"

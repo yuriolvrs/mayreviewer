@@ -72,7 +72,7 @@ test.describe("Starred questions", () => {
   });
 
   test("star toggles, filters, and survives reload with its URL param", async ({ page }) => {
-    const items = page.locator("li").filter({ hasText: /Question \d+ ·/ });
+    const items = page.locator("li").filter({ hasText: /\d+\. ·/ });
     await expect(items).toHaveCount(SEEDED_QUESTIONS.length);
 
     await page.getByRole("button", { name: "Star question 1" }).click();

@@ -10,6 +10,8 @@ import {
   missedIds,
   optionLetter,
   scoreTone,
+  scoreVerdict,
+  attemptPercent,
   splitCountEvenly,
   dedupeQuestions,
   takeWithinBudget,
@@ -350,6 +352,33 @@ describe("scoreTone", () => {
     [100, "text-success"],
   ])("maps %i%% to %s", (percent, tone) => {
     expect(scoreTone(percent)).toBe(tone);
+  });
+
+  it("does not paint a non-finite percent", () => {
+    expect(scoreTone(NaN)).toBe("text-text-tertiary");
+  });
+});
+
+describe("attemptPercent", () => {
+  it("rounds to a whole percent", () => {
+    expect(attemptPercent({ score: 5, total: 6 })).toBe(83);
+  });
+
+  it("is null for legacy attempts with no total", () => {
+    expect(attemptPercent({ score: 0, total: 0 })).toBeNull();
+  });
+});
+
+describe("scoreVerdict", () => {
+  it.each([
+    [100, "Passing", "text-success"],
+    [80, "Passing", "text-success"],
+    [79, "Review", "text-text-primary"],
+    [50, "Review", "text-text-primary"],
+    [49, "Retake", "text-error"],
+    [0, "Retake", "text-error"],
+  ])("maps %i%% to %s", (percent, word, tone) => {
+    expect(scoreVerdict(percent)).toEqual({ word, tone });
   });
 });
 

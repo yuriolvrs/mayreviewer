@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import UploadIcon from "@/app/components/UploadIcon";
 import { upload } from "@vercel/blob/client";
 import { extractTextFromFile } from "@/app/lib/extractText";
@@ -29,6 +29,7 @@ import {
 } from "@/app/lib/examFormats";
 import {
   addFormatAttachment,
+  deleteFormatAttachments,
   getFormatAttachments,
   removeFormatAttachment,
   type FormatAttachment,
@@ -36,6 +37,7 @@ import {
 import { MAX_QUESTION_COUNT } from "@/app/lib/questions";
 import { newId } from "@/app/lib/ids";
 import { useOnline } from "@/app/lib/useOnline";
+import { useUnsavedGuard } from "@/app/lib/useUnsavedGuard";
 import { turnstileHeaders } from "@/app/lib/turnstileClient";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
 import OptionSelect from "@/app/components/OptionSelect";
@@ -52,7 +54,21 @@ type TypeDraft = {
   guidance: string;
   examples: string[];
   countText: string;
+  // Removed types stay in the list for the session so "Undo" can bring them
+  // back; they are skipped by validation, counts, and save.
+  removed?: boolean;
 };
+
+// The one problem a card shows at a time, tied to a field by `field`
+// ("label", "count", "guidance", "example-0", ...).
+type TypeError = { field: string; message: string };
+type Errors = {
+  name?: string;
+  description?: string;
+  list?: string;
+  types: Record<string, TypeError>;
+};
+const NO_ERRORS: Errors = { types: {} };
 
 const FORMAT_OPTIONS: { value: AnswerFormat; label: string; hint: string }[] = [
   { value: "mc", label: "Multiple choice", hint: "4 options, one correct" },
@@ -87,23 +103,51 @@ function toDraft(t: FormatTypeDef): TypeDraft {
   };
 }
 
-function blankDraft(label = ""): TypeDraft {  return {
-  key: newTypeKey(label || "type"),
-  label,
-  format: "mc",
-  shape: "standalone",
-  stimulus: "none",
-  guidance: "",
-  examples: [],
-  countText: "5",
+function blankDraft(label = ""): TypeDraft {
+  return {
+    key: newTypeKey(label || "type"),
+    label,
+    format: "mc",
+    shape: "standalone",
+    stimulus: "none",
+    guidance: "",
+    examples: [],
+    countText: "5",
   };
+}
+
+// Used only to decide "has anything changed since the form opened".
+function signature(name: string, description: string, types: TypeDraft[], pastText: string): string {
+  return JSON.stringify([name, description, pastText, types.filter((t) => !t.removed)]);
+}
+
+function typeDetail(t: TypeDraft): string {
+  const fmt = FORMAT_OPTIONS.find((o) => o.value === t.format)?.label ?? t.format;
+  const parts = [fmt];
+  if (t.format !== "short-answer") {
+    const layout = SHAPE_OPTIONS.find((o) => o.value === t.shape)?.label ?? t.shape;
+    const material =
+      t.stimulus === "none" ? "" : STIMULUS_OPTIONS.find((o) => o.value === t.stimulus)?.label ?? "";
+    parts.push(material ? `${layout}, ${material}` : layout);
+  }
+  const n = parseInt(t.countText, 10);
+  parts.push(Number.isInteger(n) ? `${n} by default` : "count missing");
+  return parts.join(" · ");
+}
+
+function subscribeCoarse(cb: () => void) {
+  const mq = window.matchMedia("(pointer: coarse)");
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
 }
 
 export default function FormatBuilder({
   initial,
   formatId,
   saveLabel,
+  isNew,
   onSave,
+  onDiscard,
 }: {
   // Blank for new formats, a clone for copies, the stored custom for edits.
   // Keys arrive stable and stay stable — renames must never orphan counts.
@@ -112,12 +156,20 @@ export default function FormatBuilder({
   // IndexedDB. Stable for the page's lifetime (minted once by the parent).
   formatId: string;
   saveLabel: string;
+  // True while the format is an unsaved draft (new or clone): its past-exam
+  // files are deleted if the user leaves without saving.
+  isNew: boolean;
   onSave: (format: ExamFormat) => void;
+  onDiscard: () => void;
 }) {
   const [name, setName] = useState(initial.name);
   const [description, setDescription] = useState(initial.description);
   const [types, setTypes] = useState<TypeDraft[]>(initial.types.map(toDraft));
-  const [error, setError] = useState("");
+  // Cards start collapsed to a summary; new, inferred, and invalid ones open.
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [errors, setErrors] = useState<Errors>(NO_ERRORS);
+  const [focusReq, setFocusReq] = useState<{ id: string; n: number } | null>(null);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   // Past-exam state: files live in the format-attachments store under
   // formatId from the moment they're added (same immediate-save pattern as
@@ -125,6 +177,7 @@ export default function FormatBuilder({
   const [pastText, setPastText] = useState(initial.pastExam?.text ?? "");
   const [extracted, setExtracted] = useState<{ id: string; name: string; text: string }[]>([]);
   const [storedFiles, setStoredFiles] = useState<FormatAttachment[]>([]);
+  const [filesTouched, setFilesTouched] = useState(false);
   const [pastFileError, setPastFileError] = useState("");
   const [inferState, setInferState] = useState<"idle" | "running" | "error">("idle");
   const [inferError, setInferError] = useState("");
@@ -140,10 +193,45 @@ export default function FormatBuilder({
     initial.pastExam?.text ? "paste" : "upload",
   );
   const [dragOver, setDragOver] = useState(false);
+  const coarsePointer = useSyncExternalStore(
+    subscribeCoarse,
+    () => window.matchMedia("(pointer: coarse)").matches,
+    () => false,
+  );
 
+  const [initialSig] = useState(() =>
+    signature(
+      initial.name,
+      initial.description,
+      initial.types.map(toDraft),
+      initial.pastExam?.text ?? "",
+    ),
+  );
+  const dirty = filesTouched || signature(name, description, types, pastText) !== initialSig;
+  useUnsavedGuard(dirty);
+
+  const saved = useRef(false);
   useEffect(() => {
     getFormatAttachments(formatId).then(setStoredFiles);
   }, [formatId]);
+
+  // Files are stored the moment they're added, under an id that only exists
+  // once the format is saved. Leaving a new draft unsaved would orphan them.
+  useEffect(() => {
+    return () => {
+      if (isNew && !saved.current) void deleteFormatAttachments(formatId).catch(() => {});
+    };
+  }, [isNew, formatId]);
+
+  useEffect(() => {
+    if (!focusReq) return;
+    const el = document.getElementById(focusReq.id);
+    if (!el) return;
+    el.scrollIntoView({ block: "center" });
+    el.focus({ preventScroll: true });
+  }, [focusReq]);
+
+  const live = types.filter((t) => !t.removed);
 
   function pastExamText(): string {
     return composePastExamText([
@@ -174,6 +262,7 @@ export default function FormatBuilder({
         ),
     );
 
+    setFilesTouched(true);
     // Uploaded in parallel: a sequential await chain makes N files take N
     // round trips to Blob storage.
     const added = await Promise.all(native.map((file) => addFormatAttachment(formatId, file)));
@@ -191,6 +280,7 @@ export default function FormatBuilder({
   }
 
   async function removeStoredFile(id: string) {
+    setFilesTouched(true);
     await removeFormatAttachment(id);
     setStoredFiles((prev) => prev.filter((a) => a.id !== id));
   }
@@ -210,7 +300,11 @@ export default function FormatBuilder({
   }
 
   function applyInferred(drafts: InferredType[]) {
-    setTypes(drafts.map(draftFromInferred));
+    const next = drafts.map(draftFromInferred);
+    setTypes(next);
+    // Inferred drafts are machine guesses: open each so it gets reviewed.
+    setOpen(Object.fromEntries(next.map((t) => [t.key, true])));
+    setErrors(NO_ERRORS);
     setConfirmReplace(null);
   }
 
@@ -255,7 +349,7 @@ export default function FormatBuilder({
             ? "No supported formats found — see the flagged entries below."
             : "No question formats recognized in that material.",
         );
-      } else if (types.length > 0) {
+      } else if (live.length > 0) {
         // Replacing hand-built types silently would erase real work.
         setConfirmReplace(drafts);
       } else {
@@ -273,36 +367,99 @@ export default function FormatBuilder({
     // pins both — the saved format would be rejected otherwise.
     const next: Partial<TypeDraft> =
       change.format === "short-answer" ? { ...change, shape: "standalone", stimulus: "none" } : change;
+    const key = types[index].key;
     setTypes((prev) => prev.map((t, i) => (i === index ? { ...t, ...next } : t)));
+    // Editing a card is the fix for its problem: drop the stale message.
+    if (errors.types[key]) {
+      setErrors((prev) => {
+        const rest = { ...prev.types };
+        delete rest[key];
+        return { ...prev, types: rest };
+      });
+    }
+  }
+
+  function addType() {
+    const draft = blankDraft();
+    setTypes((prev) => [...prev, draft]);
+    setOpen((prev) => ({ ...prev, [draft.key]: true }));
+    setErrors((prev) => ({ ...prev, list: undefined }));
+  }
+
+  function setRemoved(key: string, removed: boolean) {
+    setTypes((prev) => prev.map((t) => (t.key === key ? { ...t, removed } : t)));
+    if (removed) {
+      setErrors((prev) => {
+        const rest = { ...prev.types };
+        delete rest[key];
+        return { ...prev, types: rest };
+      });
+    } else {
+      setOpen((prev) => ({ ...prev, [key]: true }));
+    }
+  }
+
+  function validate(): { errs: Errors; firstFocus: string | null; openKeys: string[] } {
+    const errs: Errors = { types: {} };
+    let firstFocus: string | null = null;
+    const focusOn = (id: string) => {
+      if (!firstFocus) firstFocus = id;
+    };
+    if (!name.trim()) {
+      errs.name = "Give the format a name.";
+      focusOn("fmt-name");
+    } else if (name.trim().length > MAX_ID_CHARS) {
+      errs.name = `Name must be ${MAX_ID_CHARS} characters or less.`;
+      focusOn("fmt-name");
+    }
+    if (description.trim().length > MAX_DESCRIPTION_CHARS) {
+      errs.description = `Description must be ${MAX_DESCRIPTION_CHARS} characters or less.`;
+      focusOn("fmt-description");
+    }
+    if (live.length === 0) {
+      errs.list = "Add at least one question type.";
+      focusOn("fmt-add-type");
+    } else if (live.length > MAX_FORMAT_TYPES) {
+      errs.list = `At most ${MAX_FORMAT_TYPES} types per format.`;
+      focusOn("fmt-add-type");
+    }
+    const openKeys: string[] = [];
+    for (const t of live) {
+      let err: TypeError | null = null;
+      const n = parseInt(t.countText, 10);
+      if (!t.label.trim()) err = { field: "label", message: "Every type needs a label." };
+      else if (t.label.trim().length > MAX_LABEL_CHARS)
+        err = { field: "label", message: `Label must be ${MAX_LABEL_CHARS} characters or less.` };
+      else if (!Number.isInteger(n) || n < 0 || n > MAX_QUESTION_COUNT)
+        err = { field: "count", message: `Count must be 0–${MAX_QUESTION_COUNT}.` };
+      else if (t.guidance.trim().length > MAX_GUIDANCE_CHARS)
+        err = { field: "guidance", message: `Tips must be ${MAX_GUIDANCE_CHARS} characters or less.` };
+      else if (t.examples.length > MAX_EXAMPLES)
+        err = { field: "examples", message: `At most ${MAX_EXAMPLES} examples.` };
+      else {
+        const j = t.examples.findIndex((e) => e.trim().length > MAX_EXAMPLE_CHARS);
+        if (j >= 0)
+          err = { field: `example-${j}`, message: `Each example must be ${MAX_EXAMPLE_CHARS} characters or less.` };
+      }
+      if (err) {
+        errs.types[t.key] = err;
+        openKeys.push(t.key);
+        focusOn(`${t.key}-${err.field}`);
+      }
+    }
+    return { errs, firstFocus, openKeys };
   }
 
   function handleSave() {
-    if (!name.trim()) return setError("Give the format a name.");
-    if (name.trim().length > MAX_ID_CHARS)
-      return setError(`Name must be ${MAX_ID_CHARS} characters or less.`);
-    if (description.trim().length > MAX_DESCRIPTION_CHARS)
-      return setError(`Description must be ${MAX_DESCRIPTION_CHARS} characters or less.`);
-    if (types.length === 0) return setError("Add at least one question type.");
-    if (types.length > MAX_FORMAT_TYPES)
-      return setError(`At most ${MAX_FORMAT_TYPES} types per format.`);
-    for (const t of types) {
-      if (!t.label.trim()) return setError("Every type needs a label.");
-      if (t.label.trim().length > MAX_LABEL_CHARS)
-        return setError(`"${t.label.trim()}": label must be ${MAX_LABEL_CHARS} characters or less.`);
-      const n = parseInt(t.countText, 10);
-      if (!Number.isInteger(n) || n < 0 || n > MAX_QUESTION_COUNT)
-        return setError(`"${t.label || "Unnamed type"}": count must be 0–${MAX_QUESTION_COUNT}.`);
-      if (t.guidance.trim().length > MAX_GUIDANCE_CHARS)
-        return setError(`"${t.label.trim()}": guidance must be ${MAX_GUIDANCE_CHARS} characters or less.`);
-      if (t.examples.length > MAX_EXAMPLES)
-        return setError(`"${t.label.trim()}": at most ${MAX_EXAMPLES} examples.`);
-      for (const e of t.examples) {
-        if (e.trim().length > MAX_EXAMPLE_CHARS)
-          return setError(`"${t.label.trim()}": each example must be ${MAX_EXAMPLE_CHARS} characters or less.`);
-      }
+    const { errs, firstFocus, openKeys } = validate();
+    setErrors(errs);
+    if (firstFocus) {
+      if (openKeys.length > 0) setOpen((prev) => ({ ...prev, ...Object.fromEntries(openKeys.map((k) => [k, true])) }));
+      setFocusReq((prev) => ({ id: firstFocus as string, n: (prev?.n ?? 0) + 1 }));
+      return;
     }
-    setError("");
     const pastText = pastExamText();
+    saved.current = true;
     onSave({
       id: initial.id,
       name: name.trim(),
@@ -316,7 +473,7 @@ export default function FormatBuilder({
             },
           }
         : {}),
-      types: types.map((t) => ({
+      types: live.map((t) => ({
         key: t.key,
         label: t.label.trim(),
         format: t.format,
@@ -329,363 +486,563 @@ export default function FormatBuilder({
     });
   }
 
-  const totalDefault = types.reduce((sum, t) => {
+  const totalDefault = live.reduce((sum, t) => {
     const n = parseInt(t.countText, 10);
     return sum + (Number.isInteger(n) && n > 0 ? n : 0);
   }, 0);
 
+  const errorCount =
+    Object.keys(errors.types).length +
+    (errors.name ? 1 : 0) +
+    (errors.description ? 1 : 0) +
+    (errors.list ? 1 : 0);
+
+  const inferBlocked = !online
+    ? "Reading an exam needs an internet connection."
+    : pastExamText().trim() === "" && storedFiles.length === 0
+      ? "Paste or upload a past exam first."
+      : "";
+
+  const fieldClass = (bad: boolean) =>
+    `rounded-lg border px-3 text-text-primary outline-none focus:border-accent ${
+      bad ? "border-error" : "border-border"
+    }`;
+
+  const pastExamCard = (
+    <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
+      <p className="text-[0.9375rem] font-semibold text-text-primary">
+        Learn from a past exam <span className="font-normal text-text-tertiary">(optional)</span>
+      </p>
+      <p className="mt-1 text-[0.875rem] text-text-secondary">
+        Upload or paste a past exam. The AI suggests question types from it, and you review
+        each one before saving. The exam stays attached to the format for later.
+      </p>
+
+      <div className="mt-3 flex flex-col gap-2">
+        <div className="flex gap-4 border-b border-border" role="tablist" aria-label="Past exam input mode">
+          {(["upload", "paste"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              role="tab"
+              aria-selected={pastMode === mode}
+              onClick={() => setPastMode(mode)}
+              className={`-mb-px min-h-11 border-b-2 py-2 text-[0.9375rem] font-medium ${
+                pastMode === mode
+                  ? "border-accent text-text-primary"
+                  : "border-transparent text-text-secondary hover:text-text-primary"
+              }`}
+            >
+              {mode === "upload" ? "Upload files" : "Paste text"}
+            </button>
+          ))}
+        </div>
+
+        {pastMode === "paste" ? (
+          <textarea
+            value={pastText}
+            onChange={(e) => setPastText(e.target.value)}
+            rows={3}
+            placeholder="Paste a past exam here…"
+            aria-label="Paste a past exam"
+            className="rounded-lg border border-border px-3 py-2 text-text-primary outline-none focus:border-accent"
+          />
+        ) : (
+          <>
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                if (e.dataTransfer.files) void addPastFiles(Array.from(e.dataTransfer.files));
+              }}
+              onClick={() => pastInputRef.current?.click()}
+              className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed p-5 text-center text-[0.875rem] text-text-secondary hover:border-border-strong ${
+                dragOver ? "border-accent bg-accent-subtle" : "border-border"
+              }`}
+            >
+              <UploadIcon size={24} />
+              <p>
+                {coarsePointer
+                  ? "Drop files here or tap to choose. PDF or image pages; DOCX/TXT are read as text."
+                  : "Drop PDF or image pages here, or click to browse. DOCX/TXT are read as text."}
+              </p>
+              {/* Visually hidden but focusable: keyboard users get a native
+                  file input, not a div pretending to be one. */}
+              <input
+                ref={pastInputRef}
+                type="file"
+                accept={ACCEPTED_UPLOAD_EXTENSIONS}
+                multiple
+                aria-label="Upload past-exam files"
+                className="sr-only"
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  if (e.target.files) void addPastFiles(Array.from(e.target.files));
+                  e.target.value = "";
+                }}
+              />
+            </div>
+            {pastFileError && <p className="text-[0.875rem] text-error">{pastFileError}</p>}
+
+            {(storedFiles.length > 0 || extracted.length > 0) && (
+              <ul className="divide-y divide-border">
+                {storedFiles.map((a) => (
+                  <li key={a.id} className="flex items-center justify-between gap-3 py-1 text-[0.875rem]">
+                    <span className="break-words text-text-primary">{a.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => void removeStoredFile(a.id)}
+                      aria-label={`Remove ${a.name}`}
+                      className="min-h-11 shrink-0 px-2 text-text-secondary hover:text-error"
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+                {extracted.map((f) => (
+                  <li key={f.id} className="flex items-center justify-between gap-3 py-1 text-[0.875rem]">
+                    <span className="break-words text-text-primary">
+                      {f.name} <span className="text-text-tertiary">(text extracted)</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFilesTouched(true);
+                        setExtracted((prev) => prev.filter((x) => x.id !== f.id));
+                      }}
+                      aria-label={`Remove ${f.name}`}
+                      className="min-h-11 shrink-0 px-2 text-text-secondary hover:text-error"
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+
+        <div className="mt-2 flex flex-col items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void runInference()}
+            disabled={inferState === "running" || !!inferBlocked}
+            className="min-h-11 rounded-lg border border-accent bg-surface px-4 py-2 text-[0.9375rem] font-medium text-accent enabled:hover:bg-accent-subtle disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {inferState === "running" ? "Reading exam…" : "Read the exam and suggest types"}
+          </button>
+          {inferBlocked && inferState !== "running" && (
+            <p className="text-[0.875rem] text-text-secondary">{inferBlocked}</p>
+          )}
+          {inferError && (
+            <span role="alert" className="text-[0.875rem] text-error">
+              {inferError}
+            </span>
+          )}
+        </div>
+
+        {unsupported.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {unsupported.map((u, i) => (
+              <p key={i} className="rounded-lg border border-warning bg-warning-subtle px-3 py-2 text-[0.875rem] text-text-primary">
+                <span className="font-semibold">Not supported — {u.label}:</span> {u.reason}
+              </p>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const pastExamFirst = isNew && initial.types.length === 0;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <label className="flex flex-col gap-1.5">
-          <span className="text-[0.875rem] text-text-secondary">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="fmt-name" className="text-[0.875rem] text-text-secondary">
             Format name <span className="text-error">*</span>
-          </span>
+          </label>
           <input
+            id="fmt-name"
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (errors.name) setErrors((p) => ({ ...p, name: undefined }));
+            }}
+            aria-invalid={errors.name ? true : undefined}
+            aria-describedby={errors.name ? "fmt-name-error" : undefined}
             placeholder="e.g. Math 101 — my prof's format"
-            className="h-11 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent"
+            className={`h-11 ${fieldClass(!!errors.name)}`}
           />
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-[0.875rem] text-text-secondary">Description (optional)</span>
+          {errors.name && (
+            <p id="fmt-name-error" className="text-[0.875rem] text-error">
+              {errors.name}
+            </p>
+          )}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="fmt-description" className="text-[0.875rem] text-text-secondary">
+            Description (optional)
+          </label>
           <input
+            id="fmt-description"
             type="text"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => {
+              setDescription(e.target.value);
+              if (errors.description) setErrors((p) => ({ ...p, description: undefined }));
+            }}
+            aria-invalid={errors.description ? true : undefined}
+            aria-describedby={errors.description ? "fmt-description-error" : undefined}
             placeholder="What exam is this for?"
-            className="h-11 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent"
+            className={`h-11 ${fieldClass(!!errors.description)}`}
           />
-        </label>
-      </div>
-
-      <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
-        <p className="text-[0.9375rem] font-semibold text-text-primary">
-          Learn from a past exam <span className="font-normal text-text-tertiary">(optional)</span>
-        </p>
-        <p className="mt-1 text-[0.875rem] text-text-secondary">
-          Upload or paste a past exam. The AI suggests question types from it, and you review
-          each one before saving. The exam stays attached to the format for later.
-        </p>
-
-        <div className="mt-3 flex flex-col gap-2">
-          <div className="flex gap-4 border-b border-border" role="tablist" aria-label="Past exam input mode">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={pastMode === "upload"}
-              onClick={() => setPastMode("upload")}
-              className={`-mb-px border-b-2 py-2 text-[0.9375rem] font-medium ${
-                pastMode === "upload"
-                  ? "border-accent text-text-primary"
-                  : "border-transparent text-text-secondary hover:text-text-primary"
-              }`}
-            >
-              Upload files
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={pastMode === "paste"}
-              onClick={() => setPastMode("paste")}
-              className={`-mb-px border-b-2 py-2 text-[0.9375rem] font-medium ${
-                pastMode === "paste"
-                  ? "border-accent text-text-primary"
-                  : "border-transparent text-text-secondary hover:text-text-primary"
-              }`}
-            >
-              Paste text
-            </button>
-          </div>
-
-          {pastMode === "paste" ? (
-            <textarea
-              value={pastText}
-              onChange={(e) => setPastText(e.target.value)}
-              rows={3}
-              placeholder="Paste a past exam here…"
-              aria-label="Paste a past exam"
-              className="rounded-lg border border-border px-3 py-2 text-text-primary outline-none focus:border-accent"
-            />
-          ) : (
-            <>
-              <div
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragOver(true);
-                }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragOver(false);
-                  if (e.dataTransfer.files) void addPastFiles(Array.from(e.dataTransfer.files));
-                }}
-                onClick={() => pastInputRef.current?.click()}
-                className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed p-5 text-center text-[0.875rem] text-text-secondary hover:border-border-strong ${
-                  dragOver ? "border-accent bg-accent-subtle" : "border-border"
-                }`}
-              >
-                <UploadIcon size={24} />
-                <p>Drop PDF or image pages here, or click to browse. DOCX/TXT are read as text.</p>
-                {/* Visually hidden but focusable: keyboard users get a native
-                    file input, not a div pretending to be one. */}
-                <input
-                  ref={pastInputRef}
-                  type="file"
-                  accept={ACCEPTED_UPLOAD_EXTENSIONS}
-                  multiple
-                  aria-label="Upload past-exam files"
-                  className="sr-only"
-                  onChange={(e) => {
-                    if (e.target.files) void addPastFiles(Array.from(e.target.files));
-                    e.target.value = "";
-                  }}
-                />
-              </div>
-              {pastFileError && <p className="text-[0.875rem] text-error">{pastFileError}</p>}
-
-              {(storedFiles.length > 0 || extracted.length > 0) && (
-                <ul className="divide-y divide-border">
-              {storedFiles.map((a) => (
-                <li key={a.id} className="flex items-center justify-between gap-3 py-2 text-[0.875rem]">
-                  <span className="break-words text-text-primary">{a.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => void removeStoredFile(a.id)}
-                    aria-label={`Remove ${a.name}`}
-                    className="shrink-0 text-text-secondary hover:text-error"
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-              {extracted.map((f) => (
-                <li key={f.id} className="flex items-center justify-between gap-3 py-2 text-[0.875rem]">
-                  <span className="break-words text-text-primary">
-                    {f.name} <span className="text-text-tertiary">(text extracted)</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setExtracted((prev) => prev.filter((x) => x.id !== f.id))}
-                    aria-label={`Remove ${f.name}`}
-                    className="shrink-0 text-text-secondary hover:text-error"
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-            </>
-          )}
-
-          <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => void runInference()}
-              disabled={inferState === "running" || !online || (pastExamText().trim() === "" && storedFiles.length === 0)}
-              title={
-                !online
-                  ? "Inference needs an internet connection"
-                  : pastExamText().trim() === "" && storedFiles.length === 0
-                    ? "Paste or upload a past exam first"
-                    : undefined
-              }
-              className="rounded-lg border border-accent bg-surface px-4 py-2 text-[0.9375rem] font-medium text-accent enabled:hover:bg-accent-subtle disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {inferState === "running" ? "Reading exam…" : "Infer question types"}
-            </button>
-            {inferError && (
-              <span role="alert" className="text-[0.875rem] text-error">
-                {inferError}
-              </span>
-            )}
-          </div>
-
-          {unsupported.length > 0 && (
-            <div className="flex flex-col gap-2">
-              {unsupported.map((u, i) => (
-                <p key={i} className="rounded-lg border border-warning bg-warning-subtle px-3 py-2 text-[0.875rem] text-text-primary">
-                  <span className="font-semibold">Not supported — {u.label}:</span> {u.reason}
-                </p>
-              ))}
-            </div>
+          {errors.description && (
+            <p id="fmt-description-error" className="text-[0.875rem] text-error">
+              {errors.description}
+            </p>
           )}
         </div>
       </div>
 
-      {types.map((t, i) => (
-        <div key={t.key} className="rounded-lg border border-border bg-surface p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[0.9375rem] font-semibold text-text-primary">
-              Type {i + 1}
-              {t.label.trim() ? ` — ${t.label.trim()}` : ""}
-            </p>
-            <button
-              type="button"
-              onClick={() => setTypes((prev) => prev.filter((_, j) => j !== i))}
-              className="shrink-0 text-[0.875rem] font-medium text-error hover:underline"
+      {pastExamFirst && pastExamCard}
+
+      {types.map((t, i) => {
+        if (t.removed) {
+          return (
+            <div
+              key={t.key}
+              className="flex min-h-11 items-center justify-between gap-3 rounded-lg border border-dashed border-border px-4 py-1 text-[0.9375rem] text-text-secondary"
             >
-              Remove
-            </button>
-          </div>
-
-          <label className="mt-3 flex flex-col gap-1.5">
-            <span className="text-[0.875rem] text-text-secondary">
-              Label <span className="text-error">*</span>
-            </span>
-            <input
-              type="text"
-              value={t.label}
-              onChange={(e) => patch(i, { label: e.target.value })}
-              placeholder="e.g. Formula recall"
-              className="h-11 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent"
-            />
-          </label>
-
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[0.875rem] text-text-secondary">Answer format</span>
-              <OptionSelect
-                label="Answer format"
-                options={FORMAT_OPTIONS}
-                value={t.format}
-                onChange={(v) => patch(i, { format: v as AnswerFormat })}
-              />
-            </label>
-            {t.format === "short-answer" ? (
-              <p className="text-[0.875rem] leading-relaxed text-text-secondary sm:col-span-2">
-                Each question is answered in one to three typed sentences and graded by AI against
-                key points when the quiz is submitted. Short answers are always single questions
-                with no attached material.
-              </p>
-            ) : (
-              <>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-[0.875rem] text-text-secondary">Layout</span>
-                  <OptionSelect
-                    label="Layout"
-                    options={SHAPE_OPTIONS}
-                    value={t.shape}
-                    onChange={(v) => patch(i, { shape: v as TypeShape })}
-                  />
-                </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-[0.875rem] text-text-secondary">Material</span>
-                  <OptionSelect
-                    label="Material"
-                    options={STIMULUS_OPTIONS}
-                    value={t.stimulus}
-                    onChange={(v) => patch(i, { stimulus: v as StimulusKind })}
-                  />
-                </label>
-              </>
-            )}
-          </div>
-
-          <label className="mt-3 flex flex-col gap-1.5">
-            <span className="text-[0.875rem] text-text-secondary">
-              Guidance <span className="text-text-tertiary">(plain words, compiled into the prompt)</span>
-            </span>
-            <textarea
-              value={t.guidance}
-              onChange={(e) => patch(i, { guidance: e.target.value })}
-              rows={2}
-              placeholder="e.g. Ask for causes, not dates, use neighboring formulas for wrong options, keep tables to two or three rows."
-              className="rounded-lg border border-border px-3 py-2 text-text-primary outline-none focus:border-accent"
-            />
-          </label>
-
-          <div className="mt-3 flex flex-col gap-2">
-            <span className="text-[0.875rem] text-text-secondary">
-              Past-exam examples <span className="text-text-tertiary">(optional, format reference only)</span>
-            </span>
-            {t.examples.map((ex, j) => (
-              <div key={j} className="flex items-start gap-2">
-                <textarea
-                  value={ex}
-                  onChange={(e) =>
-                    patch(i, { examples: t.examples.map((v, k) => (k === j ? e.target.value : v)) })
-                  }
-                  rows={2}
-                  placeholder="Paste one real past-exam question…"
-                  className="flex-1 rounded-lg border border-border px-3 py-2 text-text-primary outline-none focus:border-accent"
-                />
-                <button
-                  type="button"
-                  onClick={() => patch(i, { examples: t.examples.filter((_, k) => k !== j) })}
-                  aria-label={`Remove example ${j + 1} from ${t.label.trim() || `type ${i + 1}`}`}
-                  className="mt-2 shrink-0 text-text-tertiary hover:text-error"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-            {t.examples.length < MAX_EXAMPLES && (
+              <span className="min-w-0 break-words">
+                Type removed{t.label.trim() ? ` — ${t.label.trim()}` : ""} ·
+              </span>
               <button
                 type="button"
-                onClick={() => patch(i, { examples: [...t.examples, ""] })}
-                className="self-start text-[0.875rem] font-medium text-accent hover:underline"
+                onClick={() => setRemoved(t.key, false)}
+                className="min-h-11 shrink-0 px-2 font-medium text-accent hover:underline"
               >
-                + Add example
+                Undo
               </button>
+            </div>
+          );
+        }
+        const number = live.indexOf(t) + 1;
+        const isOpen = !!open[t.key];
+        const err = errors.types[t.key];
+        const bodyId = `type-${t.key}-body`;
+        const errFor = (field: string) => (err?.field === field ? err.message : "");
+        const bad = (field: string) => !!errFor(field);
+        const describe = (field: string) => (bad(field) ? `${t.key}-${field}-error` : undefined);
+        const message = (field: string) =>
+          bad(field) && (
+            <p id={`${t.key}-${field}-error`} className="text-[0.875rem] text-error">
+              {errFor(field)}
+            </p>
+          );
+        return (
+          <div
+            key={t.key}
+            id={`type-${t.key}`}
+            className={`rounded-lg border bg-surface p-4 sm:p-5 ${err ? "border-error" : "border-border"}`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                aria-controls={bodyId}
+                onClick={() => setOpen((prev) => ({ ...prev, [t.key]: !isOpen }))}
+                className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left"
+              >
+                <span aria-hidden="true" className="shrink-0 font-mono text-[0.875rem] text-text-tertiary">
+                  {number}.
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block break-words text-[0.9375rem] font-semibold text-text-primary">
+                    {t.label.trim() || "Untitled type"}
+                  </span>
+                  <span className="block break-words text-[0.875rem] text-text-secondary">{typeDetail(t)}</span>
+                </span>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 10 10"
+                  fill="none"
+                  aria-hidden="true"
+                  className={`shrink-0 text-text-secondary ${isOpen ? "rotate-180" : ""}`}
+                >
+                  <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => setRemoved(t.key, true)}
+                aria-label={`Remove ${t.label.trim() || `type ${number}`}`}
+                className="min-h-11 shrink-0 px-2 text-[0.875rem] font-medium text-error hover:underline"
+              >
+                Remove
+              </button>
+            </div>
+
+            {err && !isOpen && (
+              <p className="mt-1 text-[0.875rem] text-error">{err.message}</p>
+            )}
+
+            {isOpen && (
+              <div id={bodyId} className="mt-3">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor={`${t.key}-label`} className="text-[0.875rem] text-text-secondary">
+                    Label <span className="text-error">*</span>
+                  </label>
+                  <input
+                    id={`${t.key}-label`}
+                    type="text"
+                    value={t.label}
+                    onChange={(e) => patch(i, { label: e.target.value })}
+                    aria-invalid={bad("label") ? true : undefined}
+                    aria-describedby={describe("label")}
+                    placeholder="e.g. Formula recall"
+                    className={`h-11 ${fieldClass(bad("label"))}`}
+                  />
+                  {message("label")}
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[0.875rem] text-text-secondary">Answer format</span>
+                    <OptionSelect
+                      label="Answer format"
+                      options={FORMAT_OPTIONS}
+                      value={t.format}
+                      onChange={(v) => patch(i, { format: v as AnswerFormat })}
+                    />
+                  </label>
+                  {t.format === "short-answer" ? (
+                    <p className="text-[0.875rem] leading-relaxed text-text-secondary sm:col-span-2">
+                      Each question is answered in one to three typed sentences and graded by AI against
+                      key points when the quiz is submitted. Short answers are always single questions
+                      with no attached material.
+                    </p>
+                  ) : (
+                    <>
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-[0.875rem] text-text-secondary">Layout</span>
+                        <OptionSelect
+                          label="Layout"
+                          options={SHAPE_OPTIONS}
+                          value={t.shape}
+                          onChange={(v) => patch(i, { shape: v as TypeShape })}
+                        />
+                        <span className="text-[0.8125rem] text-text-secondary">
+                          Single questions stand alone. A problem set shares one scenario.
+                        </span>
+                      </label>
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-[0.875rem] text-text-secondary">Material</span>
+                        <OptionSelect
+                          label="Material"
+                          options={STIMULUS_OPTIONS}
+                          value={t.stimulus}
+                          onChange={(v) => patch(i, { stimulus: v as StimulusKind })}
+                        />
+                        <span className="text-[0.8125rem] text-text-secondary">
+                          What students read before answering: a passage, table, code, or formula.
+                        </span>
+                      </label>
+                    </>
+                  )}
+                </div>
+
+                <div className="mt-3 flex flex-col gap-1.5">
+                  <label htmlFor={`${t.key}-guidance`} className="text-[0.875rem] text-text-secondary">
+                    Tips for the question writer <span className="text-text-tertiary">(optional)</span>
+                  </label>
+                  <textarea
+                    id={`${t.key}-guidance`}
+                    value={t.guidance}
+                    onChange={(e) => patch(i, { guidance: e.target.value })}
+                    aria-invalid={bad("guidance") ? true : undefined}
+                    aria-describedby={describe("guidance")}
+                    rows={2}
+                    placeholder="e.g. Ask for causes, not dates, use neighboring formulas for wrong options, keep tables to two or three rows."
+                    className={`py-2 ${fieldClass(bad("guidance"))}`}
+                  />
+                  {message("guidance")}
+                </div>
+
+                <div className="mt-3 flex flex-col gap-2">
+                  <span className="text-[0.875rem] text-text-secondary">
+                    Past-exam examples <span className="text-text-tertiary">(optional, format reference only)</span>
+                  </span>
+                  {message("examples")}
+                  {t.examples.map((ex, j) => (
+                    <div key={j} className="flex flex-col gap-1.5">
+                      <div className="flex items-start gap-2">
+                        <textarea
+                          id={`${t.key}-example-${j}`}
+                          value={ex}
+                          onChange={(e) =>
+                            patch(i, { examples: t.examples.map((v, k) => (k === j ? e.target.value : v)) })
+                          }
+                          aria-label={`Example ${j + 1}`}
+                          aria-invalid={bad(`example-${j}`) ? true : undefined}
+                          aria-describedby={describe(`example-${j}`)}
+                          rows={2}
+                          placeholder="Paste one real past-exam question…"
+                          className={`flex-1 py-2 ${fieldClass(bad(`example-${j}`))}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => patch(i, { examples: t.examples.filter((_, k) => k !== j) })}
+                          aria-label={`Remove example ${j + 1} from ${t.label.trim() || `type ${number}`}`}
+                          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center text-text-tertiary hover:text-error"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      {message(`example-${j}`)}
+                    </div>
+                  ))}
+                  {t.examples.length < MAX_EXAMPLES && (
+                    <button
+                      type="button"
+                      onClick={() => patch(i, { examples: [...t.examples, ""] })}
+                      className="inline-flex min-h-11 items-center self-start text-[0.875rem] font-medium text-accent hover:underline"
+                    >
+                      + Add example
+                    </button>
+                  )}
+                </div>
+
+                <div className="mt-3 flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor={`${t.key}-count`} className="text-[0.875rem] text-text-secondary">
+                      Default count
+                    </label>
+                    <input
+                      id={`${t.key}-count`}
+                      type="number"
+                      min={0}
+                      max={MAX_QUESTION_COUNT}
+                      value={t.countText}
+                      onChange={(e) => patch(i, { countText: e.target.value })}
+                      aria-invalid={bad("count") ? true : undefined}
+                      aria-describedby={describe("count")}
+                      className={`h-11 w-20 px-2 ${fieldClass(bad("count"))}`}
+                    />
+                  </div>
+                  {message("count")}
+                </div>
+              </div>
             )}
           </div>
-
-          <label className="mt-3 flex items-center gap-2">
-            <span className="text-[0.875rem] text-text-secondary">Default count</span>
-            <input
-              type="number"
-              min={0}
-              max={MAX_QUESTION_COUNT}
-              value={t.countText}
-              onChange={(e) => patch(i, { countText: e.target.value })}
-              className="h-10 w-20 rounded-lg border border-border px-2 text-text-primary outline-none focus:border-accent"
-            />
-          </label>
-        </div>
-      ))}
+        );
+      })}
 
       <div>
         <button
+          id="fmt-add-type"
           type="button"
-          onClick={() => setTypes((prev) => [...prev, blankDraft()])}
-          disabled={types.length >= MAX_FORMAT_TYPES}
-          title={types.length >= MAX_FORMAT_TYPES ? `At most ${MAX_FORMAT_TYPES} types per format` : undefined}
+          onClick={addType}
+          disabled={live.length >= MAX_FORMAT_TYPES}
+          aria-describedby={errors.list ? "fmt-list-error" : undefined}
           className="flex h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong text-[0.9375rem] font-medium text-text-secondary enabled:hover:border-accent enabled:hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
         >
           + Add question type
         </button>
+        {live.length >= MAX_FORMAT_TYPES && (
+          <p className="mt-2 text-[0.875rem] text-text-secondary">
+            At most {MAX_FORMAT_TYPES} types per format.
+          </p>
+        )}
+        {errors.list && (
+          <p id="fmt-list-error" className="mt-2 text-[0.875rem] text-error">
+            {errors.list}
+          </p>
+        )}
         <p className="mt-2 text-[0.875rem] text-text-secondary">
           {totalDefault} question{totalDefault === 1 ? "" : "s"} by default.
         </p>
       </div>
 
-      {error && (
-        <p role="alert" className="text-[0.9375rem] text-error">
-          {error}
-        </p>
+      {!pastExamFirst && (
+        <details className="rounded-lg border border-border bg-surface">
+          <summary className="flex min-h-11 cursor-pointer items-center px-4 text-[0.9375rem] font-medium text-text-primary sm:px-5">
+            Re-infer from a past exam
+          </summary>
+          <div className="px-4 pb-4 sm:px-5 sm:pb-5">{pastExamCard}</div>
+        </details>
       )}
 
-      <div className="flex justify-end border-t border-border py-6">
-        <button
-          type="button"
-          onClick={handleSave}
-          className="rounded-lg bg-accent px-4 py-2.5 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover"
-        >
-          {saveLabel}
-        </button>
+      {/* Spacer so the fixed bar never hides the last card. */}
+      <div aria-hidden="true" className="h-20" />
+
+      {/* Fixed, same offset as the Details tab bar: above the mobile bottom
+          bar, flush to the bottom from md up. */}
+      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 md:bottom-0">
+        <div className="mx-auto w-full max-w-3xl px-6 pb-3 md:pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3 shadow-menu">
+            <span
+              role={errorCount > 0 ? "alert" : undefined}
+              className={`min-w-0 text-[0.875rem] ${errorCount > 0 ? "text-error" : "text-text-secondary"}`}
+            >
+              {errorCount > 0
+                ? `Fix ${errorCount} problem${errorCount === 1 ? "" : "s"}`
+                : dirty
+                  ? "Unsaved changes"
+                  : ""}
+            </span>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => (dirty ? setConfirmDiscard(true) : onDiscard())}
+                className="min-h-11 rounded-lg px-4 py-2.5 text-[0.9375rem] font-medium text-text-secondary hover:bg-surface-alt hover:text-text-primary"
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                className="min-h-11 rounded-lg bg-accent px-4 py-2.5 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover"
+              >
+                {saveLabel}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {confirmReplace && (
         <ConfirmDialog
-          title={`Replace ${types.length} existing type${types.length === 1 ? "" : "s"}?`}
-          body={`This will replace the ${types.length} type${types.length === 1 ? "" : "s"} above with ${confirmReplace.length} inferred from the past exam. This can't be undone, but you can still edit every draft before saving.`}
+          title={`Replace ${live.length} existing type${live.length === 1 ? "" : "s"}?`}
+          body={`This will replace the ${live.length} type${live.length === 1 ? "" : "s"} above with ${confirmReplace.length} inferred from the past exam. This can't be undone, but you can still edit every draft before saving.`}
           confirmLabel="Replace with inferred types"
           onConfirm={() => applyInferred(confirmReplace)}
           onCancel={() => setConfirmReplace(null)}
+        />
+      )}
+      {confirmDiscard && (
+        <ConfirmDialog
+          title="Discard your changes?"
+          body={
+            isNew
+              ? "This format has not been saved. Leaving now throws it away, along with any past-exam files you added."
+              : "Your edits to this format will be lost."
+          }
+          confirmLabel="Discard changes"
+          destructive
+          onConfirm={() => {
+            setConfirmDiscard(false);
+            onDiscard();
+          }}
+          onCancel={() => setConfirmDiscard(false)}
         />
       )}
     </div>

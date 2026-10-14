@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import PageSkeleton from "@/app/components/PageSkeleton";
 import { getAllQuizHistory, getReviewers } from "@/app/lib/storage";
 import { getSettings, getStreakState, updateSettings } from "@/app/lib/settings";
 import {
@@ -119,7 +120,7 @@ export default function ReviewersHome() {
     setReviewers(getReviewers());
   }
 
-  if (!loaded) return null;
+  if (!loaded) return <PageSkeleton maxWidth="max-w-4xl" />;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-12">
@@ -151,14 +152,14 @@ export default function ReviewersHome() {
           href="/reviewer/new"
           className="shrink-0 rounded-lg bg-accent px-4 py-2.5 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover"
         >
-          + New Reviewer
+          + New reviewer
         </Link>
       </div>
 
       {reviewers.length > 0 && (
         <>
           <p role="status" className="text-[0.9375rem] font-medium text-text-primary">
-            {progress.done ? "Goal met" : `Today ${progress.answered}/${progress.goal}`}
+            {progress.done ? "Goal met" : `Today ${progress.answered}/${progress.goal} questions`}
             {streakNow.count > 0 && (
               <>
                 {" · "}
@@ -249,7 +250,7 @@ export default function ReviewersHome() {
               const hasQuestions = reviewer.questions.length > 0;
               return (
               <li key={reviewer.id}>
-                {/* Plain card, not a link: Edit opens the reviewer, Take Quiz
+                {/* Plain card, not a link: Edit opens the reviewer, Take quiz
                     jumps straight to setup. Explicit actions beat a clickable
                     row hiding two destinations. */}
                 <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border bg-surface p-6">
@@ -286,7 +287,7 @@ export default function ReviewersHome() {
                         href={`/reviewer/${reviewer.id}/quiz`}
                         className="rounded-lg bg-accent px-3.5 py-2 text-[0.875rem] font-medium text-on-accent hover:bg-accent-hover"
                       >
-                        Take Quiz
+                        Take quiz
                       </Link>
                     ) : (
                       <span

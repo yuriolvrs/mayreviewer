@@ -67,7 +67,7 @@ test.describe("Short-answer quiz", () => {
 
     // The override is what history shows.
     await page.goto("/history");
-    await expect(page.getByText(/3\/3\s*\(100%\)/)).toBeVisible();
+    await expect(page.getByText(/3\s*\/\s*3\s*100%/)).toBeVisible();
   });
 
   test("keeps typed answers across a refresh", async ({ page }) => {

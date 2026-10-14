@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import PageSkeleton from "@/app/components/PageSkeleton";
 import { getAllQuizHistory } from "@/app/lib/storage";
 import { getSettings, getStreakState, updateSettings, SETTINGS_CHANGED_EVENT } from "@/app/lib/settings";
 import {
@@ -175,7 +176,7 @@ export default function ProgressPage() {
     };
   }, []);
 
-  if (!loaded || !streak) return null;
+  if (!loaded || !streak) return <PageSkeleton />;
 
   const progress = todayProgress(attempts, dailyGoal, now);
   const current = computeStreak(attempts, now, streak.restoredDays);

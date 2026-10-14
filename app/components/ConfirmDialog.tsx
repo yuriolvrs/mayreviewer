@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 // Shared so a destructive action looks the same wherever it's triggered — the
 // Home list used a native window.confirm while the Reviewer page used a styled
@@ -15,6 +15,10 @@ export default function ConfirmDialog({
   destructive = false,
   onConfirm,
   onCancel,
+  secondaryLabel,
+  onSecondary,
+  secondaryDisabled = false,
+  children,
 }: {
   title: string;
   body: string;
@@ -23,7 +27,25 @@ export default function ConfirmDialog({
   destructive?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  // Optional third choice. When set, the buttons stack: secondary, confirm, cancel.
+  secondaryLabel?: string;
+  onSecondary?: () => void;
+  secondaryDisabled?: boolean;
+  // Extra content under the body, e.g. what each choice removes or why one is disabled.
+  children?: ReactNode;
 }) {
+  const stacked = secondaryLabel !== undefined && onSecondary !== undefined;
+  const cancelButton = (
+    <button
+      onClick={onCancel}
+      // With two destructive-ish choices stacked above it, Cancel takes the
+      // initial focus so Enter never replaces questions by accident.
+      data-autofocus={stacked ? "" : undefined}
+      className={`rounded-lg px-4 py-2 text-[0.9375rem] font-medium text-text-secondary hover:bg-surface-alt ${stacked ? "min-h-11" : ""}`}
+    >
+      {cancelLabel}
+    </button>
+  );
   const ref = useRef<HTMLDivElement>(null);
 
   // The dialog owns the keyboard while open: initial focus lands inside,
@@ -31,7 +53,10 @@ export default function ConfirmDialog({
   // returns to the trigger on unmount.
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
-    ref.current?.querySelector<HTMLButtonElement>(FOCUSABLE)?.focus();
+    (
+      ref.current?.querySelector<HTMLButtonElement>("[data-autofocus]") ??
+      ref.current?.querySelector<HTMLButtonElement>(FOCUSABLE)
+    )?.focus();
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
@@ -69,21 +94,29 @@ export default function ConfirmDialog({
       <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-6 shadow-menu">
         <h2 id="confirm-dialog-title" className="text-[1.1875rem] font-semibold text-text-primary">{title}</h2>
         <p id="confirm-dialog-body" className="mt-2 text-[0.9375rem] text-text-secondary">{body}</p>
-        <div className="mt-5 flex justify-end gap-3">
-          <button
-            onClick={onCancel}
-            className="rounded-lg px-4 py-2 text-[0.9375rem] font-medium text-text-secondary hover:bg-surface-alt"
-          >
-            {cancelLabel}
-          </button>
+        {children}
+        <div className={stacked ? "mt-5 flex flex-col gap-2" : "mt-5 flex justify-end gap-3"}>
+          {stacked && (
+            <button
+              onClick={onSecondary}
+              disabled={secondaryDisabled}
+              className="min-h-11 rounded-lg border border-border-strong px-4 py-2 text-[0.9375rem] font-medium text-text-primary enabled:hover:border-accent disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {secondaryLabel}
+            </button>
+          )}
+          {/* DOM order is the visual order: stacked puts Cancel last, the
+              original row puts it first. */}
+          {!stacked && cancelButton}
           <button
             onClick={onConfirm}
-            className={`rounded-lg px-4 py-2 text-[0.9375rem] font-medium ${
+            className={`rounded-lg px-4 py-2 text-[0.9375rem] font-medium ${stacked ? "min-h-11" : ""} ${
               destructive ? "bg-error text-on-error hover:opacity-90" : "bg-accent text-on-accent hover:bg-accent-hover"
             }`}
           >
             {confirmLabel}
           </button>
+          {stacked && cancelButton}
         </div>
       </div>
     </div>

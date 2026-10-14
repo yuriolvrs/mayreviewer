@@ -15,6 +15,7 @@ import { blankGrade, buildGradeItems } from "@/app/lib/grading";
 import { clearQuizProgress, getQuizProgress, saveQuizProgress } from "@/app/lib/quizProgress";
 import { getSettings } from "@/app/lib/settings";
 import { resolveFromList } from "@/app/lib/examFormats";
+import PageSkeleton from "@/app/components/PageSkeleton";
 import { useFormats, useFormatsLoaded } from "@/app/lib/useFormats";
 import { shuffleOptions } from "@/app/lib/questions";
 import type { FeedbackMode, Question, QuizAttempt, Reviewer, ShortGrade } from "@/app/types";
@@ -152,7 +153,7 @@ function QuizPageInner() {
     }
   }, [id, attemptId]);
 
-  if (reviewer === undefined || !formatsLoaded) return null;
+  if (reviewer === undefined || !formatsLoaded) return <PageSkeleton maxWidth="max-w-5xl" />;
 
   if (reviewer === null) {
     return (

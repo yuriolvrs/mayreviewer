@@ -38,11 +38,11 @@ test.describe("Questions tab", () => {
   });
 
   test("lists every seeded question, labelled with all five types", async ({ page }) => {
-    const items = page.locator("li").filter({ hasText: /Question \d+ ·/ });
+    const items = page.locator("li").filter({ hasText: /\d+\. ·/ });
     await expect(items).toHaveCount(SEEDED_QUESTIONS.length);
 
     // The label is CSS-uppercased, so this is what the DOM text reads as.
-    const listText = await page.locator("ul").filter({ hasText: /Question 1 ·/ }).innerText();
+    const listText = await page.locator("ul").filter({ hasText: /1\. ·/ }).innerText();
     for (const label of ["IDENTIFICATION", "SCENARIO", "TIMELINE", "CODE", "MODIFIED TRUE/FALSE"]) {
       expect(listText).toContain(label);
     }
@@ -223,7 +223,7 @@ test.describe("Exam formats", () => {
   test("the builder offers past-exam inference", async ({ page }) => {
     await page.goto("/formats/new");
     await expect(page.getByText("Learn from a past exam")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Infer question types" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Read the exam and suggest types" })).toBeVisible();
   });
 
   test("the builder creates a custom format that the picker then offers", async ({ page }) => {
@@ -262,15 +262,15 @@ test.describe("Custom formats", () => {
   test("lists custom labels and filters by them", async ({ page }) => {
     await page.goto(`/reviewer/${CUSTOM_REVIEWER_ID}`);
     await page.getByRole("tab", { name: /^Questions/i }).click();
-    const items = page.locator("li").filter({ hasText: /Question \d+ ·/ });
+    const items = page.locator("li").filter({ hasText: /\d+\. ·/ });
     await expect(items).toHaveCount(4);
 
-    const listText = await page.locator("ul").filter({ hasText: /Question 1 ·/ }).innerText();
+    const listText = await page.locator("ul").filter({ hasText: /1\. ·/ }).innerText();
     expect(listText).toContain("RECALL");
     expect(listText).toContain("BLANK SET");
 
     await page.getByRole("button", { name: "Blank Set", exact: true }).click();
-    await expect(page.locator("li").filter({ hasText: /Question \d+ ·/ })).toHaveCount(2);
+    await expect(page.locator("li").filter({ hasText: /\d+\. ·/ })).toHaveCount(2);
   });
 
   test("quiz setup scopes and scores by custom keys", async ({ page }) => {
@@ -299,6 +299,9 @@ test.describe("Custom formats", () => {
   test("switching format re-seeds counts from the new defaults", async ({ page }) => {
     await page.goto(`/reviewer/${REVIEWER_ID}`);
     await page.getByLabel("Exam format").selectOption(CUSTOM_FORMAT_ID);
+    // The seeded reviewer's counts differ from its format's defaults, so the
+    // switch asks first.
+    await page.getByRole("button", { name: "Switch format" }).click();
     await expect(page.getByLabel("Recall questions to generate")).toHaveValue("2");
     await expect(page.getByLabel("Blank Set questions to generate")).toHaveValue("2");
     await expect(page.getByText("Total: 4 questions")).toBeVisible();
@@ -307,7 +310,7 @@ test.describe("Custom formats", () => {
   test("clone creates an editable copy", async ({ page }) => {
     await page.goto("/formats");
     const card = page.locator("li", { hasText: "CSOPESY Final" }).first();
-    await card.getByRole("button", { name: "Clone" }).click();
+    await card.getByRole("link", { name: "Clone" }).click();
     await expect(page).toHaveURL(/\/formats\/.+/);
     await expect(page.locator('input[value="CSOPESY Final (copy)"]')).toBeVisible();
   });

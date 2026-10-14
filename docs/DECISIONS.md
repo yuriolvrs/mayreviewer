@@ -29,3 +29,16 @@ Format: each entry has **Context**, **Decision**, **Reason**, **Status** (Accept
 **Decision:** `claimBadgeLevel` refuses at the cap. The tile shows a disabled "Bank full" button, and the level stays claimable until a restore is spent.
 **Reason:** A reward is never silently lost.
 **Status:** Accepted
+
+## 2026-10-14: UI overhaul (plan 02)
+
+**Context:** The critique scored Formats, History, and the reviewer edit page 21/40. It found a P0 on mobile: the Details Save bar sat under the bottom nav.
+**Decision:**
+- Restrained exam-paper look: numbered items, lettered options, a directions line, and a mono score line, used only in format previews, the Questions list, and History scores.
+- Unsaved edits are guarded with `beforeunload` plus a capture-phase link-click confirm. The installed Next App Router has no navigation-blocking API.
+- Generate can keep starred (`favorite`) and hand-written (`source: "manual"`) questions.
+- In the three-choice confirm dialog, Cancel gets initial focus.
+- Clone opens an unsaved draft. Past-exam files are copied on save.
+- The Progress badge colors stay as a deliberate exception to the one-accent rule.
+**Reason:** These fix the critique's priority issues without restyling surfaces that already work.
+**Status:** Accepted

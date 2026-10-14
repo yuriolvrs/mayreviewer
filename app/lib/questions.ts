@@ -236,9 +236,25 @@ export function isLowTime(remainingSec: number, timeLimitSec: number): boolean {
 // once the attempt is solid — the number itself carries the verdict. Shared so
 // a score reads the same on the results screen and in the attempts list.
 export function scoreTone(percent: number): string {
+  if (!Number.isFinite(percent)) return "text-text-tertiary";
   if (percent < 50) return "text-error";
   if (percent < 80) return "text-warning";
   return "text-success";
+}
+
+// Whole percent for an attempt, or null when there is nothing to divide by
+// (attempts saved with total 0 must never reach the screen as NaN).
+export function attemptPercent(attempt: { score: number; total: number }): number | null {
+  if (!(attempt.total > 0) || !Number.isFinite(attempt.score)) return null;
+  return Math.round((attempt.score / attempt.total) * 100);
+}
+
+// Verdict word that travels with the score in lists. The middle band uses plain
+// ink, not the warning hue, which is reserved for "marked unsure".
+export function scoreVerdict(percent: number): { word: string; tone: string } {
+  if (percent >= 80) return { word: "Passing", tone: "text-success" };
+  if (percent >= 50) return { word: "Review", tone: "text-text-primary" };
+  return { word: "Retake", tone: "text-error" };
 }
 
 // Seconds are noise on a list of attempts. Today's are the ones being compared

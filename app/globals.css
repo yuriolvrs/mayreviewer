@@ -83,6 +83,12 @@
   scroll-behavior: auto !important;
 }
 
+/* Loading skeletons pulse only when motion is allowed. The OS preference is
+   handled by motion-safe:; this covers the manual setting. */
+[data-reduce-motion="true"] .animate-pulse {
+  animation: none !important;
+}
+
 /* Visible keyboard focus everywhere — fallback for controls without their
    own. Text-entry elements are excluded: they already show focus with a
    single accent border, and this outline would double it. (Text fields

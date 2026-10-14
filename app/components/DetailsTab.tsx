@@ -12,6 +12,8 @@ import {
 import QuestionCountControl from "@/app/components/QuestionCountControl";
 import SourceSections, { type SaveStatus } from "@/app/components/SourceSections";
 import { useTopicList } from "@/app/lib/useTopics";
+import { useUnsavedGuard } from "@/app/lib/useUnsavedGuard";
+import ConfirmDialog from "@/app/components/ConfirmDialog";
 import type { Reviewer } from "@/app/types";
 
 // Long enough that a burst of typing is one write, short enough that switching
@@ -194,7 +196,9 @@ export default function DetailsTab({
   const format = resolveFromList(formats, reviewer.examFormatId);
   const typeKeys = formatTypeKeys(format);
 
-  function changeFormat(id: string) {
+  const [pendingFormatId, setPendingFormatId] = useState<string | null>(null);
+
+  function applyFormat(id: string) {
     const next = resolveFromList(formats, id);
     updateReviewer(reviewer.id, {
       examFormatId: next.id,
@@ -204,6 +208,16 @@ export default function DetailsTab({
     onSaved();
   }
 
+  // Counts the student changed are lost on a switch, so ask first. Untouched
+  // defaults switch silently.
+  function changeFormat(id: string) {
+    if (id === format.id) return;
+    const defaults = defaultCounts(format);
+    const edited = typeKeys.some((t) => (countByType[t] ?? 0) !== (defaults[t] ?? 0));
+    if (edited) setPendingFormatId(id);
+    else applyFormat(id);
+  }
+
   const dirty =
     name !== reviewer.reviewerName ||
     subject !== reviewer.subject ||
@@ -211,6 +225,8 @@ export default function DetailsTab({
     // Compared per type, not just by total, so re-splitting the same number of
     // questions across types still counts as a change worth saving.
     !sameCountByType(countByType, reviewer.questionCountByType, typeKeys);
+
+  useUnsavedGuard(dirty);
 
   function updateTopic(id: string, value: string) {
     topicList.update(id, value);
@@ -418,10 +434,10 @@ export default function DetailsTab({
       {/* Fixed rather than sticky: the actions stay reachable from anywhere on
           a long Details tab, not just once its end scrolls into view. */}
       {(dirty || justSaved) && (
-        <div className="fixed inset-x-0 bottom-0 z-40">
+        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 md:bottom-0">
           {/* Mirrors the page wrapper's own `max-w-4xl px-6` so the bar's edges
               land on the same line as the dividers and inputs above it. */}
-          <div className="mx-auto w-full max-w-4xl px-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="mx-auto w-full max-w-4xl px-6 pb-3 md:pb-[max(1rem,env(safe-area-inset-bottom))]">
             {dirty ? (
               // Stacked below `sm`: side by side, the message gets squeezed to a
               // few characters per line by the two buttons and the bar grows
@@ -436,7 +452,7 @@ export default function DetailsTab({
                   <button
                     type="button"
                     onClick={resetFields}
-                    className="rounded-lg px-4 py-2.5 text-[0.9375rem] font-medium text-text-secondary hover:bg-surface-alt hover:text-text-primary"
+                    className="min-h-11 rounded-lg px-4 py-2.5 text-[0.9375rem] font-medium text-text-secondary hover:bg-surface-alt hover:text-text-primary"
                   >
                     Discard
                   </button>
@@ -445,7 +461,7 @@ export default function DetailsTab({
                     onClick={handleSave}
                     disabled={!name.trim()}
                     title={name.trim() ? undefined : "Reviewer name is required"}
-                    className="rounded-lg bg-accent px-4 py-2.5 text-[0.9375rem] font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+                    className="min-h-11 rounded-lg bg-accent px-4 py-2.5 text-[0.9375rem] font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Save details
                   </button>
@@ -458,6 +474,19 @@ export default function DetailsTab({
             )}
           </div>
         </div>
+      )}
+
+      {pendingFormatId && (
+        <ConfirmDialog
+          title="Switch format?"
+          body="Switching formats resets your question counts to the new format's defaults."
+          confirmLabel="Switch format"
+          onConfirm={() => {
+            applyFormat(pendingFormatId);
+            setPendingFormatId(null);
+          }}
+          onCancel={() => setPendingFormatId(null)}
+        />
       )}
     </div>
   );

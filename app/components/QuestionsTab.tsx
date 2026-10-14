@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import ConfirmDialog from "@/app/components/ConfirmDialog";
 import { useRouter, useSearchParams } from "next/navigation";
 import { updateReviewer } from "@/app/lib/storage";
 import {
@@ -29,7 +31,6 @@ import {
   type GenerationProgress,
   type VerificationSummary,
 } from "@/app/lib/generate";
-import ConfirmDialog from "@/app/components/ConfirmDialog";
 import { newId } from "@/app/lib/ids";
 import { useOnline } from "@/app/lib/useOnline";
 import GenerationModal from "@/app/components/GenerationModal";
@@ -533,6 +534,8 @@ export default function QuestionsTab({
   const [addedCount, setAddedCount] = useState<number | null>(null);
   const [cancelled, setCancelled] = useState(false);
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [hideAnswers, setHideAnswers] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const cancelledRef = useRef(false);
 
@@ -566,6 +569,12 @@ export default function QuestionsTab({
               (a, b) => (numberById.get(a.id) ?? 0) - (numberById.get(b.id) ?? 0),
             )
           : filtered;
+
+  const activeFilterCount =
+    (typeFilter !== "all" ? 1 : 0) +
+    (favFilter !== "all" ? 1 : 0) +
+    (sourceFilter !== "all" ? 1 : 0) +
+    (sort !== "number" ? 1 : 0);
 
   const creating = editingId === NEW_ID && draft !== null;
 
@@ -656,14 +665,26 @@ function startCreate() {
     if (editingId && doomed.has(editingId)) cancelEdit();
   }
 
-  // Generating replaces the whole pool, so an existing set has to be confirmed
-  // away first — same guard the Sources tab's Generate bar used to apply.
+  // Generating replaces the pool, so an existing set has to be confirmed
+  // first. The dialog can keep the starred and hand-written questions.
   function handleGenerateClick() {
     if (total > 0) setConfirmOverwrite(true);
-    else runGeneration();
+    else runGeneration([]);
   }
 
-  async function runGeneration() {
+  // Kept questions count toward the targets, so only the shortfall per type is
+  // requested and the pool does not grow past the saved counts.
+  const keptQuestions = reviewer.questions.filter((q) => q.favorite === true || q.source === "manual");
+  const generateCounts: Record<string, number> = {};
+  for (const t of typeKeys) {
+    const kept = keptQuestions.filter((q) => q.type === t).length;
+    generateCounts[t] = Math.max(0, (reviewer.questionCountByType[t] ?? 0) - kept);
+  }
+  const remainingToGenerate = Object.values(generateCounts).reduce((a, b) => a + b, 0);
+  const canKeep =
+    keptQuestions.length > 0 && keptQuestions.length < total && remainingToGenerate > 0;
+
+  async function runGeneration(keep: Question[]) {
     const controller = new AbortController();
     abortRef.current = controller;
     cancelledRef.current = false;
@@ -678,10 +699,10 @@ function startCreate() {
       // The per-type counts are the request: a 0 means "none of these", so the
       // type list is narrowed to match rather than letting the server fall
       // back to all five.
-      const byType = reviewer.questionCountByType;
+      const byType = keep.length > 0 ? generateCounts : reviewer.questionCountByType;
       const result = await generateQuestions(
         reviewer,
-        reviewer.questionCount,
+        keep.length > 0 ? remainingToGenerate : reviewer.questionCount,
         typeKeys.filter((t) => byType[t] > 0),
         setProgress,
         byType,
@@ -702,7 +723,7 @@ function startCreate() {
       // Written on completion, not before, so a failed generation leaves the
       // existing questions intact.
       updateReviewer(reviewer.id, {
-        questions: result.questions,
+        questions: [...keep, ...result.questions],
         questionsGeneratedAt: new Date().toISOString(),
       });
       onChanged();
@@ -759,8 +780,40 @@ function startCreate() {
     }
   }
 
+  const sourceNames = [
+    reviewer.notes.trim() && "Notes",
+    reviewer.projectMaterial.trim() && "Project material",
+    reviewer.pastExamMaterial.trim() && "Past exam",
+  ].filter(Boolean) as string[];
+  const plannedTypes = typeKeys.filter((t) => (reviewer.questionCountByType[t] ?? 0) > 0);
+
   return (
     <div className="flex flex-col gap-4">
+      <div className="rounded-lg border border-border bg-surface px-4 py-3 text-[0.875rem] text-text-secondary">
+        <p>
+          <span className="font-medium text-text-primary">
+            Will generate {reviewer.questionCount}
+          </span>
+          {plannedTypes.length > 0 && (
+            <>
+              {": "}
+              {plannedTypes
+                .map((t) => `${reviewer.questionCountByType[t]} ${typeLabelOf(format, t)}`)
+                .join(", ")}
+            </>
+          )}
+          {" · from "}
+          {sourceNames.length > 0 ? sourceNames.join(", ") : "no material yet"}
+          {" · "}
+          <Link
+            href={`/reviewer/${reviewer.id}?tab=details`}
+            className="relative font-medium text-text-primary underline underline-offset-2 hover:text-accent after:absolute after:-inset-y-4 after:inset-x-0 after:content-[''] sm:after:hidden"
+          >
+            Edit details
+          </Link>
+        </p>
+      </div>
+
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="search"
@@ -771,25 +824,24 @@ function startCreate() {
           disabled={generating}
           className="h-11 w-full rounded-lg border border-border bg-surface px-3 text-[0.9375rem] text-text-primary outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:min-w-[220px] sm:flex-1"
         />
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value as Sort)}
-          aria-label="Sort questions"
-          disabled={generating}
-          className="h-11 min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 text-[0.9375rem] text-text-primary outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none sm:shrink-0"
+        <button
+          type="button"
+          onClick={() => setFiltersOpen((o) => !o)}
+          aria-expanded={filtersOpen}
+          aria-controls="question-filters"
+          className="h-11 min-w-0 flex-1 rounded-lg border border-border-strong px-4 text-[0.9375rem] font-medium text-text-secondary hover:border-accent hover:text-text-primary sm:hidden"
         >
-          <option value="newest">Sort: Newest</option>
-          <option value="oldest">Sort: Oldest</option>
-          <option value="number">Sort: By number</option>
-          <option value="type">Sort: By type</option>
-        </select>
+          Filter ({activeFilterCount})
+        </button>
         <button
           type="button"
           onClick={startCreate}
           disabled={generating}
           className="h-11 min-w-0 flex-1 rounded-lg border border-border-strong px-4 text-[0.9375rem] font-medium text-text-secondary enabled:hover:border-accent enabled:hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none sm:shrink-0"
         >
-          + Add question
+          {/* Three buttons share one row on phones; the full label wraps there. */}
+          <span className="sm:hidden" aria-hidden="true">+ Add</span>
+          <span className="sr-only sm:not-sr-only">+ Add question</span>
         </button>
         <button
           type="button"
@@ -800,7 +852,11 @@ function startCreate() {
               ? `Generate ${reviewer.questionCount} questions from this reviewer's sources`
               : "Generation needs an internet connection"
           }
-          className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 text-[0.9375rem] font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:shrink-0"
+          className={`flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg px-4 text-[0.9375rem] font-medium disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none sm:shrink-0 ${
+            total > 0
+              ? "border border-border-strong text-text-secondary enabled:hover:border-accent enabled:hover:text-text-primary"
+              : "bg-accent text-on-accent enabled:hover:bg-accent-hover"
+          }`}
         >
           <SparkleIcon />
           {generating ? "Generating…" : "Generate"}
@@ -841,18 +897,20 @@ function startCreate() {
         </p>
       )}
 
-      {/* Two groups rather than one long wrapping run of controls: below `sm`
-          they stack as whole rows, so the chips can't leave a stray chip sitting
-          on the dropdown's line with a mismatched baseline. Above `sm` the
-          groups flow back into the single row they always were. */}
-      <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-alt px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+      {/* Below `sm` the filters live behind the "Filter (n)" button so the
+          first question stays on the first screen; from `sm` up the panel is
+          always shown. Type chips, Starred, Source, and Sort all sit here. */}
+      <div
+        id="question-filters"
+        className={`${filtersOpen ? "flex" : "hidden"} flex-col gap-3 rounded-lg border border-border bg-surface-alt px-4 py-3 sm:flex sm:flex-row sm:flex-wrap sm:items-center sm:gap-2`}
+      >
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[0.875rem] text-text-secondary">Type</span>
           {typeFilters.map((t) => (
             <button
               key={t}
               onClick={() => setTypeFilter(t)}
-              className={`rounded-lg px-2.5 py-1 text-[0.875rem] font-medium ${
+              className={`rounded-lg px-2.5 py-3 text-[0.875rem] font-medium sm:py-1 ${
                 typeFilter === t
                   ? "bg-accent text-on-accent"
                   : "border border-border-strong text-text-secondary hover:text-text-primary"
@@ -869,7 +927,7 @@ function startCreate() {
           <button
             onClick={() => setFavFilter(favFilter === "starred" ? "all" : "starred")}
             aria-pressed={favFilter === "starred"}
-            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[0.875rem] font-medium ${
+            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-3 text-[0.875rem] font-medium sm:py-1 ${
               favFilter === "starred"
                 ? "bg-accent text-on-accent"
                 : "border border-border-strong text-text-secondary hover:text-text-primary"
@@ -882,24 +940,35 @@ function startCreate() {
 
         <div className="mx-2 hidden h-6 w-px bg-border-strong sm:block" />
 
-        <div className="flex items-center gap-2 sm:flex-1">
-          <span className="shrink-0 text-[0.875rem] text-text-secondary">Source</span>
-          <select
-            value={sourceFilter}
-            onChange={(e) => setSourceFilter(e.target.value as "all" | QuestionSource)}
-            aria-label="Filter by source"
-            className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-surface px-2 text-[0.875rem] text-text-primary outline-none focus:border-accent sm:flex-none"
-          >
-            {SOURCE_FILTERS.map((s) => (
-              <option key={s} value={s}>
-                {s === "all" ? "All" : SOURCE_LABELS[s]}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-wrap items-center gap-2 sm:flex-1">
+          <label className="flex min-w-0 items-center gap-2">
+            <span className="text-[0.875rem] text-text-secondary">Source</span>
+            <select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value as "all" | QuestionSource)}
+              aria-label="Filter by source"
+              className="h-11 min-w-0 rounded-lg border border-border bg-surface px-2 text-[0.875rem] text-text-primary outline-none focus:border-accent sm:h-8"
+            >
+              {SOURCE_FILTERS.map((s) => (
+                <option key={s} value={s}>
+                  {s === "all" ? "All" : SOURCE_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          </label>
 
-          <span className="ml-auto shrink-0 pl-2 text-[0.875rem] text-text-tertiary">
-            {total} question{total === 1 ? "" : "s"} total
-          </span>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as Sort)}
+            aria-label="Sort questions"
+            disabled={generating}
+            className="h-11 min-w-0 rounded-lg border border-border bg-surface px-2 text-[0.875rem] text-text-primary outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-40 sm:h-8"
+          >
+            <option value="newest">Sort: Newest</option>
+            <option value="oldest">Sort: Oldest</option>
+            <option value="number">Sort: By number</option>
+            <option value="type">Sort: By type</option>
+          </select>
         </div>
       </div>
 
@@ -926,7 +995,7 @@ function startCreate() {
         <p className="text-[0.9375rem] text-text-secondary">No questions match these filters.</p>
       ) : (
         <>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <input
               type="checkbox"
               checked={allVisibleSelected}
@@ -937,9 +1006,23 @@ function startCreate() {
             />
 
             {selected.length === 0 ? (
-              <span className="text-[0.9375rem] text-text-secondary">
-                Select all {visible.length} question{visible.length === 1 ? "" : "s"}
-              </span>
+              <>
+                <span className="text-[0.9375rem] text-text-secondary">
+                  Select all {visible.length} question{visible.length === 1 ? "" : "s"}
+                </span>
+                <span className="hidden text-[0.875rem] text-text-secondary sm:inline">
+                  · {total} question{total === 1 ? "" : "s"} total
+                </span>
+                <label className="ml-auto flex min-h-11 cursor-pointer items-center gap-2 text-[0.875rem] text-text-secondary">
+                  <input
+                    type="checkbox"
+                    checked={hideAnswers}
+                    onChange={(e) => setHideAnswers(e.target.checked)}
+                    className="h-4 w-4 accent-accent"
+                  />
+                  Hide answers
+                </label>
+              </>
             ) : (
               <>
                 <span className="text-[0.9375rem] text-text-primary">{selected.length} selected</span>
@@ -1013,8 +1096,8 @@ function startCreate() {
                   ) : (
                     <>
                       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
-                        <span className="shrink-0 font-mono text-[0.8125rem] tracking-wide uppercase">
-                          <span className="font-semibold text-text-secondary">Question {number}</span>{" "}
+                        <span className="min-w-0 break-words font-mono text-[0.8125rem] tracking-wide uppercase">
+                          <span className="font-semibold text-text-primary">{number}.</span>{" "}
                           <span className="font-normal text-text-tertiary">
                             · {typeLabelOf(format, question.type)} · {SOURCE_LABELS[question.source]}
                           </span>
@@ -1025,21 +1108,21 @@ function startCreate() {
                             stacking flush under the label. Below `sm` it's also
                             a size and weight lighter than that label, so the
                             two don't read as equals. */}
-                        <div className="ml-auto flex shrink-0 items-center gap-3 text-[0.8125rem] sm:text-[0.875rem]">
+                        <div className="ml-auto flex shrink-0 items-center gap-1 text-[0.8125rem] sm:gap-3 sm:text-[0.875rem]">
                           {confirmDeleteId === question.id ? (
                             <>
-                              <span className="text-text-tertiary sm:text-text-secondary">
+                              <span className="text-text-secondary">
                                 Really delete this question?
                               </span>
                               <button
                                 onClick={() => deleteQuestions([question.id])}
-                                className="text-error hover:underline sm:font-medium"
+                                className="flex h-11 items-center px-2 text-error hover:underline sm:h-auto sm:px-0 sm:font-medium"
                               >
                                 Yes
                               </button>
                               <button
                                 onClick={() => setConfirmDeleteId(null)}
-                                className="text-text-tertiary hover:text-text-primary sm:font-medium sm:text-text-secondary"
+                                className="flex h-11 items-center px-2 text-text-secondary hover:text-text-primary sm:h-auto sm:px-0 sm:font-medium"
                               >
                                 Cancel
                               </button>
@@ -1061,13 +1144,13 @@ function startCreate() {
                               </button>
                               <button
                                 onClick={() => startEdit(question)}
-                                className="text-text-tertiary hover:text-text-primary sm:font-medium sm:text-text-secondary"
+                                className="flex h-11 items-center px-2 text-text-secondary hover:text-text-primary sm:h-auto sm:px-0 sm:font-medium"
                               >
                                 Edit
                               </button>
                               <button
                                 onClick={() => setConfirmDeleteId(question.id)}
-                                className="text-text-tertiary hover:text-error sm:font-medium sm:text-text-secondary"
+                                className="flex h-11 items-center px-2 text-text-secondary hover:text-error sm:h-auto sm:px-0 sm:font-medium"
                               >
                                 Delete
                               </button>
@@ -1085,7 +1168,7 @@ function startCreate() {
                             <summary className="cursor-pointer text-[0.875rem] text-text-secondary hover:text-text-primary">
                               {question.groupTitle || "Show the problem"}
                             </summary>
-                            <pre className="mt-2 overflow-x-auto rounded-r-lg border-l-2 border-accent bg-surface-alt p-4 font-mono text-[0.875rem] leading-relaxed text-text-primary">
+                            <pre className="mt-2 overflow-x-auto rounded-lg border border-border bg-surface-alt p-4 font-mono text-[0.875rem] leading-relaxed text-text-primary">
                               {question.stimulus}
                             </pre>
                           </details>
@@ -1101,7 +1184,7 @@ function startCreate() {
                         {question.question}
                       </p>
 
-                      {isShortAnswer(question) && (
+                      {isShortAnswer(question) && !hideAnswers && (
                         <div className="mt-3 flex flex-col gap-2 rounded-lg bg-success-subtle px-3 py-2.5 text-[0.9375rem]">
                           <p className="text-text-primary">
                             <span className="font-medium text-success">Model answer:</span>{" "}
@@ -1123,32 +1206,35 @@ function startCreate() {
                           <li
                             key={i}
                             className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-[0.9375rem] ${
-                              i === question.correctIndex
-                                ? "bg-success-subtle font-medium text-success"
+                              i === question.correctIndex && !hideAnswers
+                                ? "bg-success-subtle font-medium text-text-primary"
                                 : "text-text-secondary"
                             }`}
                           >
-                            <span className="font-mono text-[0.8125rem] text-text-tertiary">
+                            <span className="font-mono text-[0.8125rem] text-text-secondary">
                               {optionLetter(i)}.
                             </span>
                             <span className="min-w-0 break-words">{option}</span>
-                            {i === question.correctIndex && (
-                              <span className="shrink-0 text-success">
-                                <CheckIcon />
+                            {i === question.correctIndex && !hideAnswers && (
+                              <span className="ml-auto flex shrink-0 items-center gap-1 text-[0.8125rem] text-text-primary">
+                                <span className="text-success">
+                                  <CheckIcon />
+                                </span>
+                                Correct
                               </span>
                             )}
                           </li>
                         ))}
                       </ol>
 
-                      {question.explanation && (
+                      {!hideAnswers && question.explanation && (
                         <p className="mt-3 text-[0.875rem] leading-relaxed text-text-secondary">
                           <span className="font-medium text-text-primary">Explanation:</span>{" "}
                           {question.explanation}
                         </p>
                       )}
 
-                      {question.whyOthersWrong && (
+                      {!hideAnswers && question.whyOthersWrong && (
                         <p className="mt-2 text-[0.875rem] leading-relaxed text-text-secondary">
                           <span className="font-medium text-text-primary">Why not the others:</span>{" "}
                           {question.whyOthersWrong}
@@ -1176,18 +1262,42 @@ function startCreate() {
 
       {confirmOverwrite && (
         <ConfirmDialog
-          title="Overwrite existing questions?"
-          body={`This reviewer already has ${total} question${
-            total === 1 ? "" : "s"
-          }. Generating new questions will replace all of them. This can't be undone.`}
-          confirmLabel="Overwrite and generate"
+          title="Generate new questions?"
+          body={`This reviewer has ${total} question${total === 1 ? "" : "s"}. You cannot undo this.`}
+          confirmLabel="Replace all"
           destructive
           onConfirm={() => {
             setConfirmOverwrite(false);
-            runGeneration();
+            runGeneration([]);
+          }}
+          secondaryLabel="Keep starred and hand-written"
+          secondaryDisabled={!canKeep}
+          onSecondary={() => {
+            setConfirmOverwrite(false);
+            runGeneration(keptQuestions);
           }}
           onCancel={() => setConfirmOverwrite(false)}
-        />
+        >
+          <ul className="mt-3 flex flex-col gap-2 text-[0.875rem] text-text-secondary">
+            <li>
+              <span className="font-medium text-text-primary">Keep starred and hand-written:</span>{" "}
+              {keptQuestions.length} stay. The other {total - keptQuestions.length} are removed.
+            </li>
+            <li>
+              <span className="font-medium text-text-primary">Replace all:</span> all {total} are
+              removed, starred and hand-written too.
+            </li>
+          </ul>
+          {!canKeep && (
+            <p className="mt-3 text-[0.875rem] text-text-secondary">
+              {keptQuestions.length === 0
+                ? "You have no starred or hand-written questions to keep."
+                : keptQuestions.length >= total
+                  ? "Every question is starred or hand-written, so there is nothing to replace."
+                  : "Your kept questions already meet the saved counts, so nothing is left to generate."}
+            </p>
+          )}
+        </ConfirmDialog>
       )}
     </div>
   );

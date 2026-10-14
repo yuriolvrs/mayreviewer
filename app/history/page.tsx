@@ -2,24 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { formatScore, formatTakenAt, scoreTone } from "@/app/lib/questions";
+import { AttemptList } from "@/app/components/AttemptRow";
+import PageSkeleton from "@/app/components/PageSkeleton";
+import { attemptPercent } from "@/app/lib/questions";
 import { getAllQuizHistory, getReviewers } from "@/app/lib/storage";
 import { SYNC_APPLIED_EVENT } from "@/app/lib/sync";
 import type { QuizAttempt, Reviewer } from "@/app/types";
-
-function ChevronRightIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 10 10" fill="none" aria-hidden="true">
-      <path
-        d="M4 2l3 3-3 3"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 type Group = { reviewer: Reviewer | undefined; reviewerId: string; attempts: QuizAttempt[] };
 
@@ -64,7 +52,7 @@ export default function HistoryPage() {
     return () => window.removeEventListener(SYNC_APPLIED_EVENT, onSyncApplied);
   }, []);
 
-  if (!loaded) return null;
+  if (!loaded) return <PageSkeleton maxWidth="max-w-4xl" />;
 
   // Chips only cover reviewers that actually have attempts — an empty chip
   // would just filter down to an empty list.
@@ -75,110 +63,83 @@ export default function HistoryPage() {
     <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 px-6 py-10">
       <h1 className="text-[1.625rem] font-semibold text-text-primary">History</h1>
       <p className="text-[0.9375rem] text-text-secondary">
-        Every quiz attempt across all Reviewers, newest first.
+        Every quiz attempt across all reviewers, newest first.
       </p>
 
       {attempts.length === 0 ? (
         <p className="mt-4 text-[0.9375rem] text-text-secondary">
-          No attempts yet. Take a quiz from any Reviewer to see it here.
+          No attempts yet. Take a quiz from any reviewer to see it here.
         </p>
       ) : (
         <>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setFilterId(null)}
-              aria-pressed={filterId === null}
-              className={`rounded-lg px-2.5 py-1 text-[0.875rem] font-medium ${
-                filterId === null
-                  ? "bg-accent text-on-accent"
-                  : "border border-border-strong text-text-secondary hover:text-text-primary"
-              }`}
-            >
-              All reviewers
-            </button>
-            {allGroups.map((group) => (
+          {/* One scrolling row, not a wrapping wall of chips. */}
+          <div className="mt-1 flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {[{ id: null as string | null, label: "All reviewers" }, ...allGroups.map((g) => ({
+              id: g.reviewerId as string | null,
+              label: g.reviewer?.reviewerName ?? "Deleted reviewer",
+            }))].map((chip) => (
               <button
-                key={group.reviewerId}
-                onClick={() => setFilterId(group.reviewerId)}
-                aria-pressed={filterId === group.reviewerId}
-                className={`rounded-lg px-2.5 py-1 text-[0.875rem] font-medium ${
-                  filterId === group.reviewerId
+                key={chip.id ?? "all"}
+                onClick={() => setFilterId(chip.id)}
+                aria-pressed={filterId === chip.id}
+                className={`min-h-11 shrink-0 whitespace-nowrap rounded-lg px-3 text-[0.875rem] font-medium md:min-h-9 ${
+                  filterId === chip.id
                     ? "bg-accent text-on-accent"
                     : "border border-border-strong text-text-secondary hover:text-text-primary"
                 }`}
               >
-                {group.reviewer?.reviewerName ?? "Deleted reviewer"}
+                {chip.label}
               </button>
             ))}
           </div>
 
           <div className="mt-2 flex flex-col gap-6">
-            {visibleGroups.map((group) => (
-              <div key={group.reviewerId}>
-                <div className="flex items-center justify-between">
-                  {group.reviewer ? (
-                    <Link
-                      href={`/reviewer/${group.reviewerId}`}
-                      className="text-[0.875rem] font-semibold uppercase tracking-wide text-accent hover:underline"
-                    >
-                      {group.reviewer.reviewerName}
-                    </Link>
-                  ) : (
-                    <span className="text-[0.875rem] font-semibold uppercase tracking-wide text-text-tertiary">
-                      Deleted reviewer
+            {visibleGroups.map((group) => {
+              const percents = group.attempts
+                .map(attemptPercent)
+                .filter((p): p is number => p !== null);
+              // Attempts are newest-first, so the first valid score is the latest.
+              const latest = percents[0];
+              const best = percents.length > 0 ? Math.max(...percents) : undefined;
+              return (
+                <div key={group.reviewerId}>
+                  <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
+                    {group.reviewer ? (
+                      <Link
+                        href={`/reviewer/${group.reviewerId}`}
+                        className="inline-flex min-h-11 items-center text-[1rem] font-semibold text-text-primary hover:underline sm:min-h-0"
+                      >
+                        {group.reviewer.reviewerName}
+                      </Link>
+                    ) : (
+                      <span className="text-[1rem] font-semibold text-text-tertiary">
+                        Deleted reviewer
+                      </span>
+                    )}
+                    <span className="text-[0.875rem] text-text-tertiary">
+                      {group.attempts.length} attempt{group.attempts.length === 1 ? "" : "s"}
+                      {latest !== undefined && (
+                        <>
+                          {" · Latest "}
+                          <span className="font-mono">{latest}%</span>
+                          {" · Best "}
+                          <span className="font-mono">{best}%</span>
+                        </>
+                      )}
                     </span>
-                  )}
-                  <span className="text-[0.875rem] text-text-tertiary">
-                    {group.attempts.length} attempt{group.attempts.length === 1 ? "" : "s"}
-                  </span>
+                  </div>
+
+                  <div className="mt-1">
+                    <AttemptList
+                      attempts={group.attempts}
+                      hrefFor={(attempt) =>
+                        group.reviewer ? `/reviewer/${attempt.reviewerId}/quiz?attempt=${attempt.id}` : undefined
+                      }
+                    />
+                  </div>
                 </div>
-
-                <ul className="mt-1 flex flex-col">
-                  {group.attempts.map((attempt) => {
-                    const percent = Math.round((attempt.score / attempt.total) * 100);
-                    const summary = (
-                      <>
-                        <span className="text-[0.9375rem] text-text-secondary">
-                          {formatTakenAt(attempt.takenAt)}
-                        </span>
-                        <span className={`ml-auto shrink-0 font-medium ${scoreTone(percent)}`}>
-                          {formatScore(attempt.score)}/{attempt.total} ({percent}%)
-                        </span>
-                      </>
-                    );
-
-                    // Attempts recorded before answers were kept, or whose
-                    // reviewer was deleted, have nothing to reopen — they stay
-                    // as a disabled row matching the reopenable rows' box model.
-                    return (
-                      <li key={attempt.id} className="border-t border-border last:border-b">
-                        {attempt.questions.length === 0 || !group.reviewer ? (
-                          <button
-                            type="button"
-                            disabled
-                            className="flex w-full cursor-default items-center gap-3 rounded-lg px-2 py-3 text-left"
-                          >
-                            {summary}
-                            <span aria-hidden="true" className="w-4 shrink-0" />
-                          </button>
-                        ) : (
-                          <Link
-                            href={`/reviewer/${attempt.reviewerId}/quiz?attempt=${attempt.id}`}
-                            title="View these results"
-                            className="group -mx-2 flex items-center gap-3 rounded-lg px-2 py-3 hover:bg-surface-alt"
-                          >
-                            {summary}
-                            <span className="w-4 shrink-0 text-text-tertiary group-hover:text-text-primary">
-                              <ChevronRightIcon />
-                            </span>
-                          </Link>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </>
       )}

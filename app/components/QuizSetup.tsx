@@ -132,6 +132,10 @@ export default function QuizSetup({
   // classifier as the estimate, so prediction and estimate stay consistent.
   const paceFactor = paceCalibrationFactor(history, (q) => questionCostSeconds(format, q));
   const minutes = estimatedMinutes(format, pool, count, paceFactor ?? 1);
+  // The timer only accepts MIN..MAX minutes, so the suggestion is offered
+  // already inside that range; otherwise tapping it would land on a different
+  // value than its label.
+  const suggestedMinutes = Math.min(Math.max(minutes, MIN_TIMER_MINUTES), MAX_TIMER_MINUTES);
 
   // Clamped the same way as the count above: garbage in, sane number out.
   const parsedMinutes = parseInt(minutesInput, 10);
@@ -297,26 +301,26 @@ export default function QuizSetup({
           ))}
           {/* The estimate already shown by the question count, offered as a
               budget — but only when it isn't one of the presets already. */}
-          {minutes > 0 && !TIMER_PRESETS.includes(minutes) && (
+          {minutes > 0 && !TIMER_PRESETS.includes(suggestedMinutes) && (
             <button
               type="button"
               onClick={() => {
                 setTimed(true);
-                setMinutesInput(String(minutes));
+                setMinutesInput(String(suggestedMinutes));
               }}
-              aria-pressed={timed && timeMinutes === minutes}
+              aria-pressed={timed && timeMinutes === suggestedMinutes}
               title={
                 paceFactor === null
                   ? "Matches the estimated time for this quiz"
                   : "Matches your average pace for this quiz"
               }
               className={`rounded-lg px-2.5 py-1 text-[0.875rem] font-medium ${
-                timed && timeMinutes === minutes
+                timed && timeMinutes === suggestedMinutes
                   ? "bg-accent text-on-accent"
                   : "border border-border-strong text-text-secondary hover:text-text-primary"
               }`}
             >
-              Suggested ~{minutes}
+              Suggested ~{suggestedMinutes} min
             </button>
           )}
         </div>

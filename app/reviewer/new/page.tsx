@@ -221,110 +221,7 @@ export default function NewReviewerPage() {
 
       <h1 className="text-[1.625rem] font-semibold text-text-primary">New reviewer</h1>
 
-      <div className="mt-4">
-        <input
-          ref={importInputRef}
-          type="file"
-          accept="application/json,.json,application/zip,.zip"
-          aria-label="Import a reviewer file"
-          className="sr-only"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void handleImportFileSelected(file);
-            e.target.value = "";
-          }}
-        />
-
-        {importPending ? (
-          <div className="rounded-lg border border-border bg-surface-alt p-4">
-            <p className="text-[0.9375rem] font-medium text-text-primary">{importPending.fileName}</p>
-            <dl className="mt-3 flex flex-col gap-1 text-[0.875rem]">
-              <div className="flex gap-2">
-                <dt className="text-text-secondary">Reviewer name</dt>
-                <dd className="text-text-primary">{importPending.reviewerName}</dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="text-text-secondary">Questions in file</dt>
-                <dd className="text-text-primary">{importPending.questions.length}</dd>
-              </div>
-              {importPending.topics.length > 0 && (
-                <div className="flex gap-2">
-                  <dt className="text-text-secondary">Topics in file</dt>
-                  <dd className="text-text-primary">{importPending.topics.length}</dd>
-                </div>
-              )}
-              <div className="flex gap-2">
-                <dt className="text-text-secondary">Questions to generate</dt>
-                <dd className="text-text-primary">{importPending.questionCount}</dd>
-              </div>
-              {importPending.isArchive && (
-                <div className="flex gap-2">
-                  <dt className="text-text-secondary">Files in archive</dt>
-                  <dd className="text-text-primary">{importPending.attachments.length}</dd>
-                </div>
-              )}
-            </dl>
-            <div className="mt-4 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setImportPending(null)}
-                className="text-[0.9375rem] font-medium text-text-secondary hover:text-text-primary"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmImportCreate}
-                disabled={importing}
-                className="rounded-lg bg-accent px-4 py-2 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {importing ? "Creating…" : "Create from file"}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              setImportDragOver(true);
-            }}
-            onDragLeave={() => setImportDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setImportDragOver(false);
-              const file = e.dataTransfer.files[0];
-              if (file) void handleImportFileSelected(file);
-            }}
-            onClick={() => importInputRef.current?.click()}
-            className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
-              importDragOver ? "border-accent bg-accent-subtle" : "border-border-strong hover:border-accent"
-            }`}
-          >
-            <UploadIcon />
-            <p className="text-[0.9375rem] font-semibold text-text-primary">Already have an exported reviewer?</p>
-            <p className="mt-1 text-[0.875rem] text-text-secondary">
-              Drop a <span className="font-mono">.json</span> or <span className="font-mono">.zip</span> file
-              here, or click to browse.
-            </p>
-          </div>
-        )}
-
-        {importError && (
-          <p role="alert" className="mt-2 text-[0.875rem] text-error">
-            {importError}
-          </p>
-        )}
-      </div>
-
-      <div className="my-6 flex items-center gap-4">
-        <div className="h-px flex-1 bg-border" />
-        <span className="text-[0.75rem] font-medium tracking-wide text-text-tertiary uppercase">
-          Or start from scratch
-        </span>
-        <div className="h-px flex-1 bg-border" />
-      </div>
-
-      <form onSubmit={handleCreate} className="flex flex-col">
+      <form onSubmit={handleCreate} className="mt-4 flex flex-col">
         <div className="grid grid-cols-1 gap-6 pb-6 md:grid-cols-[160px_1fr]">
           <div>
             <p className="text-[0.9375rem] font-medium text-text-primary">Reviewer info</p>
@@ -468,6 +365,11 @@ export default function NewReviewerPage() {
           />
         </div>
 
+        <p className="border-t border-border pt-6 text-[0.875rem] text-text-secondary">
+          A past exam added below gives this reviewer facts and style. To save a
+          past exam&apos;s question types for reuse, build a format instead.
+        </p>
+
         <SourceSections
           reviewerId={draftId}
           notes={notes}
@@ -493,6 +395,109 @@ export default function NewReviewerPage() {
           </button>
         </div>
       </form>
+
+      <div className="my-6 flex items-center gap-4">
+        <div className="h-px flex-1 bg-border" />
+        <span className="text-[0.75rem] font-medium tracking-wide text-text-tertiary uppercase">
+          Or import an exported reviewer
+        </span>
+        <div className="h-px flex-1 bg-border" />
+      </div>
+
+      <div className="mb-8">
+        <input
+          ref={importInputRef}
+          type="file"
+          accept="application/json,.json,application/zip,.zip"
+          aria-label="Import a reviewer file"
+          className="sr-only"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleImportFileSelected(file);
+            e.target.value = "";
+          }}
+        />
+
+        {importPending ? (
+          <div className="rounded-lg border border-border bg-surface-alt p-4">
+            <p className="text-[0.9375rem] font-medium text-text-primary">{importPending.fileName}</p>
+            <dl className="mt-3 flex flex-col gap-1 text-[0.875rem]">
+              <div className="flex gap-2">
+                <dt className="text-text-secondary">Reviewer name</dt>
+                <dd className="text-text-primary">{importPending.reviewerName}</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="text-text-secondary">Questions in file</dt>
+                <dd className="text-text-primary">{importPending.questions.length}</dd>
+              </div>
+              {importPending.topics.length > 0 && (
+                <div className="flex gap-2">
+                  <dt className="text-text-secondary">Topics in file</dt>
+                  <dd className="text-text-primary">{importPending.topics.length}</dd>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <dt className="text-text-secondary">Questions to generate</dt>
+                <dd className="text-text-primary">{importPending.questionCount}</dd>
+              </div>
+              {importPending.isArchive && (
+                <div className="flex gap-2">
+                  <dt className="text-text-secondary">Files in archive</dt>
+                  <dd className="text-text-primary">{importPending.attachments.length}</dd>
+                </div>
+              )}
+            </dl>
+            <div className="mt-4 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setImportPending(null)}
+                className="text-[0.9375rem] font-medium text-text-secondary hover:text-text-primary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmImportCreate}
+                disabled={importing}
+                className="rounded-lg bg-accent px-4 py-2 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {importing ? "Creating…" : "Create from file"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setImportDragOver(true);
+            }}
+            onDragLeave={() => setImportDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setImportDragOver(false);
+              const file = e.dataTransfer.files[0];
+              if (file) void handleImportFileSelected(file);
+            }}
+            onClick={() => importInputRef.current?.click()}
+            className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
+              importDragOver ? "border-accent bg-accent-subtle" : "border-border-strong hover:border-accent"
+            }`}
+          >
+            <UploadIcon />
+            <p className="text-[0.9375rem] font-semibold text-text-primary">Already have an exported reviewer?</p>
+            <p className="mt-1 text-[0.875rem] text-text-secondary">
+              Drop a <span className="font-mono">.json</span> or <span className="font-mono">.zip</span> file
+              here, or click to browse.
+            </p>
+          </div>
+        )}
+
+        {importError && (
+          <p role="alert" className="mt-2 text-[0.875rem] text-error">
+            {importError}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

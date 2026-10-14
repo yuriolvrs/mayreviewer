@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 export type OptionChoice = { value: string; label: string; hint?: string };
 
@@ -21,6 +21,8 @@ export default function OptionSelect({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const baseId = useId();
+  const listId = `${baseId}-list`;
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -77,9 +79,12 @@ export default function OptionSelect({
       <button
         type="button"
         ref={buttonRef}
+        role="combobox"
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={label}
+        aria-controls={open ? listId : undefined}
+        aria-activedescendant={open ? `${baseId}-opt-${active}` : undefined}
+        aria-label={`${label}: ${current.label}`}
         onClick={() => (open ? setOpen(false) : openList())}
         onKeyDown={onKeyDown}
         className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-border bg-surface px-2 text-[0.9375rem] text-text-primary outline-none focus:border-accent"
@@ -98,12 +103,14 @@ export default function OptionSelect({
       {open && (
         <ul
           role="listbox"
+          id={listId}
           aria-label={label}
           className="absolute left-0 right-0 top-full z-20 mt-1 rounded-lg border border-border bg-surface py-1 shadow-menu"
         >
           {options.map((o, i) => (
             <li
               key={o.value}
+              id={`${baseId}-opt-${i}`}
               role="option"
               aria-selected={o.value === value}
               onClick={() => pick(o.value)}
@@ -113,10 +120,15 @@ export default function OptionSelect({
               }`}
             >
               <span
-                className={`text-[0.9375rem] ${
+                className={`flex items-center gap-1.5 text-[0.9375rem] ${
                   o.value === value ? "font-semibold text-text-primary" : "text-text-primary"
                 }`}
               >
+                {o.value === value && (
+                  <svg width="14" height="14" viewBox="0 0 10 10" fill="none" aria-hidden="true" className="shrink-0">
+                    <path d="M2 5.2l2 2 4-4.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
                 {o.label}
               </span>
               {o.hint && <span className="text-[0.8125rem] text-text-secondary">{o.hint}</span>}

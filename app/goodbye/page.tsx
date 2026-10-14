@@ -9,7 +9,7 @@ export default function GoodbyePage() {
       <h1 className="text-[1.625rem] font-semibold text-text-primary">Your data was deleted</h1>
       <p className="mt-1 text-[0.9375rem] text-text-secondary">
         Your synced reviewers, questions, history, formats, and settings were removed from the
-        cloud and this device. Uploaded files never left this device — clearing the browser&apos;s
+        cloud and this device. Uploaded files never left this device. Clearing the browser&apos;s
         site data removes any leftovers.
       </p>
       <div className="mt-6 flex flex-wrap gap-3">

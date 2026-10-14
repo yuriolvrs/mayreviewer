@@ -40,6 +40,7 @@ import { useUnsavedGuard } from "@/app/lib/useUnsavedGuard";
 import { inferFormat } from "@/app/lib/inferFormatClient";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
 import OptionSelect from "@/app/components/OptionSelect";
+import FormatPreview from "@/app/components/FormatPreview";
 
 // One row of the builder: everything about a single question type. Counts
 // are held as text so a field can sit empty while it's being retyped — the
@@ -121,8 +122,7 @@ function signature(name: string, description: string, types: TypeDraft[], pastTe
 }
 
 function typeDetail(t: TypeDraft): string {
-  const fmt = FORMAT_OPTIONS.find((o) => o.value === t.format)?.label ?? t.format;
-  const parts = [fmt];
+  const parts: string[] = [];
   if (t.format !== "short-answer") {
     const layout = SHAPE_OPTIONS.find((o) => o.value === t.shape)?.label ?? t.shape;
     const material =
@@ -147,6 +147,7 @@ export default function FormatBuilder({
   isNew,
   onSave,
   onDiscard,
+  showPreview = false,
 }: {
   // Blank for new formats, a clone for copies, the stored custom for edits.
   // Keys arrive stable and stay stable — renames must never orphan counts.
@@ -160,6 +161,8 @@ export default function FormatBuilder({
   isNew: boolean;
   onSave: (format: ExamFormat) => void;
   onDiscard: () => void;
+  // Shows a collapsible sample of the draft as it is being edited.
+  showPreview?: boolean;
 }) {
   const [name, setName] = useState(initial.name);
   const [description, setDescription] = useState(initial.description);
@@ -169,6 +172,7 @@ export default function FormatBuilder({
   const [errors, setErrors] = useState<Errors>(NO_ERRORS);
   const [focusReq, setFocusReq] = useState<{ id: string; n: number } | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [showReinfer, setShowReinfer] = useState(false);
 
   // Past-exam state: files live in the format-attachments store under
   // formatId from the moment they're added (same immediate-save pattern as
@@ -325,7 +329,7 @@ export default function FormatBuilder({
       if (drafts.length === 0) {
         setInferError(
           data.unsupported && data.unsupported.length > 0
-            ? "No supported formats found — see the flagged entries below."
+            ? "No supported formats found. See the flagged entries below."
             : "No question formats recognized in that material.",
         );
       } else if (live.length > 0) {
@@ -363,6 +367,19 @@ export default function FormatBuilder({
     setTypes((prev) => [...prev, draft]);
     setOpen((prev) => ({ ...prev, [draft.key]: true }));
     setErrors((prev) => ({ ...prev, list: undefined }));
+  }
+
+  // Swaps with the neighbouring live type, skipping removed placeholders.
+  function moveType(key: string, delta: -1 | 1) {
+    setTypes((prev) => {
+      const from = prev.findIndex((t) => t.key === key);
+      let to = from + delta;
+      while (to >= 0 && to < prev.length && prev[to].removed) to += delta;
+      if (from < 0 || to < 0 || to >= prev.length) return prev;
+      const next = [...prev];
+      [next[from], next[to]] = [next[to], next[from]];
+      return next;
+    });
   }
 
   function setRemoved(key: string, removed: boolean) {
@@ -629,7 +646,7 @@ export default function FormatBuilder({
           <div className="flex flex-col gap-2">
             {unsupported.map((u, i) => (
               <p key={i} className="rounded-lg border border-warning bg-warning-subtle px-3 py-2 text-[0.875rem] text-text-primary">
-                <span className="font-semibold">Not supported — {u.label}:</span> {u.reason}
+                <span className="font-semibold">Not supported: {u.label}.</span> {u.reason}
               </p>
             ))}
           </div>
@@ -642,7 +659,7 @@ export default function FormatBuilder({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="fmt-name" className="text-[0.875rem] text-text-secondary">
             Format name <span className="text-error">*</span>
@@ -657,7 +674,7 @@ export default function FormatBuilder({
             }}
             aria-invalid={errors.name ? true : undefined}
             aria-describedby={errors.name ? "fmt-name-error" : undefined}
-            placeholder="e.g. Math 101 — my prof's format"
+            placeholder="e.g. Math 101, my prof's format"
             className={`h-11 ${fieldClass(!!errors.name)}`}
           />
           {errors.name && (
@@ -693,6 +710,40 @@ export default function FormatBuilder({
 
       {pastExamFirst && pastExamCard}
 
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <div>
+            <h2 className="text-[0.9375rem] font-semibold text-text-primary">Question types</h2>
+            <p className="text-[0.875rem] text-text-secondary">
+              {live.length} type{live.length === 1 ? "" : "s"} · {totalDefault} question
+              {totalDefault === 1 ? "" : "s"} by default
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
+            {!pastExamFirst && (
+              <button
+                type="button"
+                aria-expanded={showReinfer}
+                aria-controls="fmt-reinfer"
+                onClick={() => setShowReinfer((v) => !v)}
+                className="min-h-11 rounded-lg px-3 text-[0.875rem] font-medium text-accent hover:bg-accent-subtle"
+              >
+                Re-infer from material
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={addType}
+              disabled={live.length >= MAX_FORMAT_TYPES}
+              className="min-h-11 rounded-lg px-3 text-[0.875rem] font-medium text-accent enabled:hover:bg-accent-subtle disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              + Add type
+            </button>
+          </div>
+        </div>
+        {!pastExamFirst && showReinfer && <div id="fmt-reinfer">{pastExamCard}</div>}
+      </div>
+
       {types.map((t, i) => {
         if (t.removed) {
           return (
@@ -701,7 +752,7 @@ export default function FormatBuilder({
               className="flex min-h-11 items-center justify-between gap-3 rounded-lg border border-dashed border-border px-4 py-1 text-[0.9375rem] text-text-secondary"
             >
               <span className="min-w-0 break-words">
-                Type removed{t.label.trim() ? ` — ${t.label.trim()}` : ""} ·
+                Type removed{t.label.trim() ? `: ${t.label.trim()}` : ""} ·
               </span>
               <button
                 type="button"
@@ -740,12 +791,17 @@ export default function FormatBuilder({
                 onClick={() => setOpen((prev) => ({ ...prev, [t.key]: !isOpen }))}
                 className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left"
               >
-                <span aria-hidden="true" className="shrink-0 font-mono text-[0.875rem] text-text-tertiary">
+                <span aria-hidden="true" className="shrink-0 font-mono text-[0.875rem] text-text-secondary">
                   {number}.
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block break-words text-[0.9375rem] font-semibold text-text-primary">
-                    {t.label.trim() || "Untitled type"}
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="break-words text-[0.9375rem] font-semibold text-text-primary">
+                      {t.label.trim() || "Untitled type"}
+                    </span>
+                    <span className="rounded-full border border-border px-2 py-0.5 text-[0.75rem] text-text-secondary">
+                      {FORMAT_OPTIONS.find((o) => o.value === t.format)?.label ?? t.format}
+                    </span>
                   </span>
                   <span className="block break-words text-[0.875rem] text-text-secondary">{typeDetail(t)}</span>
                 </span>
@@ -760,14 +816,41 @@ export default function FormatBuilder({
                   <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
-              <button
-                type="button"
-                onClick={() => setRemoved(t.key, true)}
-                aria-label={`Remove ${t.label.trim() || `type ${number}`}`}
-                className="min-h-11 shrink-0 px-2 text-[0.875rem] font-medium text-error hover:underline"
-              >
-                Remove
-              </button>
+              <div className="flex shrink-0 items-center">
+                {(["up", "down"] as const).map((dir) => {
+                  const label = t.label.trim() || `type ${number}`;
+                  const atEnd = dir === "up" ? number === 1 : number === live.length;
+                  return (
+                    <button
+                      key={dir}
+                      type="button"
+                      onClick={() => moveType(t.key, dir === "up" ? -1 : 1)}
+                      disabled={atEnd}
+                      aria-label={`Move ${label} ${dir}`}
+                      className="flex min-h-11 min-w-11 items-center justify-center text-text-secondary enabled:hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 10 10"
+                        fill="none"
+                        aria-hidden="true"
+                        className={dir === "up" ? "rotate-180" : ""}
+                      >
+                        <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => setRemoved(t.key, true)}
+                  aria-label={`Remove ${t.label.trim() || `type ${number}`}`}
+                  className="min-h-11 px-2 text-[0.875rem] font-medium text-text-secondary hover:text-error"
+                >
+                  Remove
+                </button>
+              </div>
             </div>
 
             {err && !isOpen && (
@@ -775,22 +858,41 @@ export default function FormatBuilder({
             )}
 
             {isOpen && (
-              <div id={bodyId} className="mt-3">
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor={`${t.key}-label`} className="text-[0.875rem] text-text-secondary">
-                    Label <span className="text-error">*</span>
-                  </label>
-                  <input
-                    id={`${t.key}-label`}
-                    type="text"
-                    value={t.label}
-                    onChange={(e) => patch(i, { label: e.target.value })}
-                    aria-invalid={bad("label") ? true : undefined}
-                    aria-describedby={describe("label")}
-                    placeholder="e.g. Formula recall"
-                    className={`h-11 ${fieldClass(bad("label"))}`}
-                  />
-                  {message("label")}
+              <div id={bodyId} className="mt-3 border-t border-border pt-4">
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <div className="flex flex-1 flex-col gap-1.5">
+                    <label htmlFor={`${t.key}-label`} className="text-[0.875rem] text-text-secondary">
+                      Label <span className="text-error">*</span>
+                    </label>
+                    <input
+                      id={`${t.key}-label`}
+                      type="text"
+                      value={t.label}
+                      onChange={(e) => patch(i, { label: e.target.value })}
+                      aria-invalid={bad("label") ? true : undefined}
+                      aria-describedby={describe("label")}
+                      placeholder="e.g. Formula recall"
+                      className={`h-11 ${fieldClass(bad("label"))}`}
+                    />
+                    {message("label")}
+                  </div>
+                  <div className="flex flex-col gap-1.5 sm:w-28">
+                    <label htmlFor={`${t.key}-count`} className="text-[0.875rem] text-text-secondary">
+                      Default count
+                    </label>
+                    <input
+                      id={`${t.key}-count`}
+                      type="number"
+                      min={0}
+                      max={MAX_QUESTION_COUNT}
+                      value={t.countText}
+                      onChange={(e) => patch(i, { countText: e.target.value })}
+                      aria-invalid={bad("count") ? true : undefined}
+                      aria-describedby={describe("count")}
+                      className={`h-11 ${fieldClass(bad("count"))}`}
+                    />
+                    {message("count")}
+                  </div>
                 </div>
 
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -802,6 +904,9 @@ export default function FormatBuilder({
                       value={t.format}
                       onChange={(v) => patch(i, { format: v as AnswerFormat })}
                     />
+                    <span className="text-[0.8125rem] text-text-secondary">
+                      {FORMAT_OPTIONS.find((o) => o.value === t.format)?.hint}
+                    </span>
                   </label>
                   {t.format === "short-answer" ? (
                     <p className="text-[0.875rem] leading-relaxed text-text-secondary sm:col-span-2">
@@ -858,7 +963,10 @@ export default function FormatBuilder({
 
                 <div className="mt-3 flex flex-col gap-2">
                   <span className="text-[0.875rem] text-text-secondary">
-                    Past-exam examples <span className="text-text-tertiary">(optional, format reference only)</span>
+                    Past-exam examples <span className="text-text-tertiary">(optional)</span>
+                  </span>
+                  <span className="text-[0.8125rem] text-text-secondary">
+                    Used only to copy the style; never shown in quizzes.
                   </span>
                   {message("examples")}
                   {t.examples.map((ex, j) => (
@@ -883,7 +991,9 @@ export default function FormatBuilder({
                           aria-label={`Remove example ${j + 1} from ${t.label.trim() || `type ${number}`}`}
                           className="flex min-h-11 min-w-11 shrink-0 items-center justify-center text-text-tertiary hover:text-error"
                         >
-                          ✕
+                          <svg width="14" height="14" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+                            <path d="M2 2l6 6M8 2L2 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                          </svg>
                         </button>
                       </div>
                       {message(`example-${j}`)}
@@ -900,25 +1010,6 @@ export default function FormatBuilder({
                   )}
                 </div>
 
-                <div className="mt-3 flex flex-col gap-1.5">
-                  <div className="flex items-center gap-2">
-                    <label htmlFor={`${t.key}-count`} className="text-[0.875rem] text-text-secondary">
-                      Default count
-                    </label>
-                    <input
-                      id={`${t.key}-count`}
-                      type="number"
-                      min={0}
-                      max={MAX_QUESTION_COUNT}
-                      value={t.countText}
-                      onChange={(e) => patch(i, { countText: e.target.value })}
-                      aria-invalid={bad("count") ? true : undefined}
-                      aria-describedby={describe("count")}
-                      className={`h-11 w-20 px-2 ${fieldClass(bad("count"))}`}
-                    />
-                  </div>
-                  {message("count")}
-                </div>
               </div>
             )}
           </div>
@@ -946,17 +1037,38 @@ export default function FormatBuilder({
             {errors.list}
           </p>
         )}
-        <p className="mt-2 text-[0.875rem] text-text-secondary">
-          {totalDefault} question{totalDefault === 1 ? "" : "s"} by default.
-        </p>
       </div>
 
-      {!pastExamFirst && (
-        <details className="rounded-lg border border-border bg-surface">
-          <summary className="flex min-h-11 cursor-pointer items-center px-4 text-[0.9375rem] font-medium text-text-primary sm:px-5">
-            Re-infer from a past exam or course material
+      {showPreview && live.length > 0 && (
+        <details className="group rounded-lg border border-border bg-surface">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-4 text-[0.9375rem] font-medium text-text-primary hover:bg-surface-alt [&::-webkit-details-marker]:hidden">
+            Preview
+            <svg width="14" height="14" viewBox="0 0 10 10" fill="none" aria-hidden="true" className="shrink-0 text-text-secondary transition-transform group-open:rotate-180">
+              <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </summary>
-          <div className="px-4 pb-4 sm:px-5 sm:pb-5">{pastExamCard}</div>
+          <div className="px-4 pb-4">
+            <p className="mb-3 text-[0.875rem] text-text-secondary">
+              Updates as you edit, with placeholder questions.
+            </p>
+            <FormatPreview
+              format={{
+                id: initial.id,
+                name: name.trim(),
+                description: description.trim(),
+                types: live.map((t) => ({
+                  key: t.key,
+                  label: t.label.trim() || "Untitled type",
+                  format: t.format,
+                  shape: t.shape,
+                  stimulus: t.stimulus,
+                  guidance: t.guidance.trim(),
+                  examples: [],
+                  defaultCount: parseInt(t.countText, 10) || 0,
+                })),
+              }}
+            />
+          </div>
         </details>
       )}
 
@@ -965,8 +1077,8 @@ export default function FormatBuilder({
 
       {/* Fixed, same offset as the Details tab bar: above the mobile bottom
           bar, flush to the bottom from md up. */}
-      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 md:bottom-0">
-        <div className="mx-auto w-full max-w-3xl px-6 pb-3 md:pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 border-t border-border bg-bg md:bottom-0">
+        <div className="mx-auto w-full max-w-3xl px-6 pt-3 pb-3 md:pb-[max(1rem,env(safe-area-inset-bottom))]">
           <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3 shadow-menu">
             <span
               role={errorCount > 0 ? "alert" : undefined}
@@ -984,7 +1096,7 @@ export default function FormatBuilder({
                 onClick={() => (dirty ? setConfirmDiscard(true) : onDiscard())}
                 className="min-h-11 rounded-lg px-4 py-2.5 text-[0.9375rem] font-medium text-text-secondary hover:bg-surface-alt hover:text-text-primary"
               >
-                Discard
+                {dirty ? "Discard" : "Back"}
               </button>
               <button
                 type="button"

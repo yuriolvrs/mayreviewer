@@ -19,7 +19,7 @@ export async function removeReviewerCompletely(id: string): Promise<void> {
 // and the Reviewer's Details tab, and the two had already drifted apart.
 export function deleteWarning(reviewer: Reviewer): string {
   if (hasQuizHistory(reviewer.id)) {
-    return `"${reviewer.reviewerName}" has quiz history — deleting it will also delete that history, its ${reviewer.questions.length} questions, and any uploaded files. This can't be undone.`;
+    return `"${reviewer.reviewerName}" has quiz history. Deleting it will also delete that history, its ${reviewer.questions.length} questions, and any uploaded files. This can't be undone.`;
   }
   return `This will permanently delete "${reviewer.reviewerName}", its ${reviewer.questions.length} question${
     reviewer.questions.length === 1 ? "" : "s"

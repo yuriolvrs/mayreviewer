@@ -21,7 +21,7 @@ export function feedbackTypeLabel(type: FeedbackType): string {
 // automatically — the user reviews and sends from their own email.
 export function buildFeedbackMailto(type: FeedbackType, message: string): string {
   const subject = `[May Reviewer] ${feedbackTypeLabel(type)}`;
-  const body = `${message.trim()}\n\n—\nSent from May Reviewer v${APP_VERSION}`;
+  const body = `${message.trim()}\n\nSent from May Reviewer v${APP_VERSION}`;
   return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 

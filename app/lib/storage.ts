@@ -65,7 +65,7 @@ export function storageCorruptionBackupKeys(key: string = STORAGE_KEY): string[]
 function assertNotCorrupt(key: string): void {
   if (corruptKeys.has(key)) {
     throw new Error(
-      "Stored data looks corrupt — a backup was kept and nothing was overwritten. Export what you can, then clear the corrupt key to continue.",
+      "Stored data looks corrupt. A backup was kept and nothing was overwritten. Export what you can, then clear the corrupt key to continue.",
     );
   }
 }
@@ -76,7 +76,7 @@ function writeJson(key: string, value: unknown): void {
     window.localStorage.setItem(key, JSON.stringify(value));
   } catch (err) {
     if (err instanceof DOMException && (err.name === "QuotaExceededError" || err.code === 22)) {
-      throw new Error("Storage is full — export a reviewer and delete old quiz history to free space.");
+      throw new Error("Storage is full. Export a reviewer and delete old quiz history to free space.");
     }
     throw err;
   }

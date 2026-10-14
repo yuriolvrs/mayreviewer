@@ -342,7 +342,7 @@ export default function QuizTaking({
           <button
             key={question.id}
             onClick={() => jumpTo(question.id)}
-            title={`Question ${index + 1} — ${state}${isActive ? ", currently viewing" : ""}`}
+            title={`Question ${index + 1}, ${state}${isActive ? ", currently viewing" : ""}`}
             aria-current={isActive ? "location" : undefined}
             className={`rounded border py-1 font-mono text-[0.8125rem] ${stateClass} ${
               isActive ? "ring-2 ring-text-secondary ring-offset-1" : ""

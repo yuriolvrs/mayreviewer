@@ -20,7 +20,7 @@ export default function AboutPage() {
         <Section title="What this is">
           <p>
             May Reviewer turns your notes, handouts, and project material into a practice quiz you
-            can retake as often as you want. Still shaped around the exam it was built for — see{" "}
+            can retake as often as you want. Still shaped around the exam it was built for. See{" "}
             <a href="#limitations" className="font-medium text-accent underline">
               Known limitations
             </a>{" "}
@@ -50,7 +50,7 @@ export default function AboutPage() {
             Multiple formats exist: built-ins like CSOPESY Final, Math, Language,
             Science, and History, plus your own custom formats with whatever
             question types your exam uses. It&apos;s still one reviewer format
-            at a time — general-purpose sharing beyond import/export
+            at a time. General-purpose sharing beyond import/export
             isn&apos;t here yet.
             </li>
             <li>
@@ -64,7 +64,7 @@ export default function AboutPage() {
               <span className="font-mono">.webp</span>, <span className="font-mono">.docx</span>,{" "}
               <span className="font-mono">.txt</span>, and <span className="font-mono">.cpp</span>.
               Up to 10 files per field, 15 MB each and 40 MB in total. HEIC photos
-              aren&apos;t supported — convert them to JPEG first.
+              aren&apos;t supported. Convert them to JPEG first.
             </li>
             <li>
               Generation is rate limited to 8 runs every 10 minutes to keep model costs in check.
@@ -79,7 +79,7 @@ export default function AboutPage() {
             <li>
               A past exam can be attached to a reviewer or kept on a format. The AI drafts
               question types from it, but every draft needs your review before it becomes part
-              of a format — and generated questions still need checking before you study them.
+              of a format, and generated questions still need checking before you study them.
             </li>
           </ul>
         </Section>
@@ -98,7 +98,7 @@ export default function AboutPage() {
         </Section>
 
         <Section title="Feedback" id="feedback">
-          <p>Found a bug or want something? Tell me below — it opens your mail app.</p>
+          <p>Found a bug or want something? Tell me below. It opens your mail app.</p>
           <FeedbackForm />
         </Section>
 

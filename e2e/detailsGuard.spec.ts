@@ -41,15 +41,23 @@ test("leaving by a link asks first and stays when declined", async ({ page }) =>
 });
 
 test("switching format confirms when counts were edited", async ({ page }) => {
-  const select = page.getByLabel("Exam format");
-  await expect.poll(() => select.locator("option").count()).toBeGreaterThan(1);
-  const values = await select.locator("option").evaluateAll((os) =>
-    os.map((o) => (o as HTMLOptionElement).value),
-  );
-  const current = await select.inputValue();
-  const other = values.find((v) => v !== current)!;
-  await select.selectOption(other);
+  const picker = page.getByRole("combobox", { name: /^Exam format:/ });
+  const current = await picker.getAttribute("aria-label");
+  await picker.click();
+  await page.getByRole("option").filter({ hasNotText: current!.replace("Exam format: ", "") }).first().click();
   await expect(page.getByText("Switching formats resets your question counts")).toBeVisible();
   await page.getByRole("button", { name: "Cancel" }).click();
-  await expect(select).toHaveValue(current);
+  await expect(picker).toHaveAttribute("aria-label", current!);
+});
+
+test("Details sections follow the New Reviewer order and offer learn mode", async ({ page }) => {
+  const titles = ["Reviewer info", "Course material", "Project material", "Past exam", "Exam format", "Question count", "Topics", "Danger zone"];
+  const tops: number[] = [];
+  for (const t of titles) {
+    const box = await page.getByText(t, { exact: true }).first().boundingBox();
+    tops.push(box!.y);
+  }
+  expect([...tops].sort((a, b) => a - b)).toEqual(tops);
+  await page.getByRole("radio", { name: "Learn from my material" }).check();
+  await expect(page.getByRole("button", { name: "Suggest question types" })).toBeVisible();
 });

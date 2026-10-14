@@ -1,15 +1,27 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { updateReviewer } from "@/app/lib/storage";
-import { defaultCounts, formatTypeKeys, resolveFromList } from "@/app/lib/examFormats";
+import {
+  MAX_ID_CHARS,
+  defaultCounts,
+  formatTypeKeys,
+  newFormatId,
+  resolveFromList,
+  saveCustomFormat,
+  type ExamFormat,
+  type FormatTypeDef,
+} from "@/app/lib/examFormats";
 import { useFormats } from "@/app/lib/useFormats";
 import {
   MAX_QUESTION_COUNT,
   MIN_QUESTION_COUNT,
   sumCounts,
 } from "@/app/lib/questions";
-import QuestionCountControl from "@/app/components/QuestionCountControl";
+import ReviewerInfoFields from "@/app/components/ReviewerInfoFields";
+import TopicsField from "@/app/components/TopicsField";
+import { FormatPicker, QuestionCountSection } from "@/app/components/FormatPicker";
+import GeneratedFormatPanel from "@/app/components/GeneratedFormatPanel";
 import SourceSections, { type SaveStatus } from "@/app/components/SourceSections";
 import { useTopicList } from "@/app/lib/useTopics";
 import { useUnsavedGuard } from "@/app/lib/useUnsavedGuard";
@@ -49,10 +61,6 @@ export default function DetailsTab({
   const [nameError, setNameError] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  // Browsers don't render text-overflow:ellipsis inside <input>, so an unfocused
-  // topic is drawn as a real element on top of the (text-transparent) input.
-  const [focusedTopic, setFocusedTopic] = useState<string | null>(null);
-
   // The source fields autosave on their own debounce rather than waiting for
   // "Save details" — they're the two fields a generation reads, and the old
   // Sources tab saved them this way before it was folded in here.
@@ -192,11 +200,34 @@ export default function DetailsTab({
   // another format's types are meaningless after a switch, so changing format
   // re-seeds from the new format's defaults (saved immediately, like the
   // switch itself).
-  const formats = useFormats();
+  const baseFormats = useFormats();
+  // A format saved by "Learn from my material" is not in the hook's list until
+  // the next mount, so it is merged in here to resolve at once.
+  const [appliedFormat, setAppliedFormat] = useState<ExamFormat | null>(null);
+  const formats = useMemo(
+    () =>
+      appliedFormat && !baseFormats.some((f) => f.id === appliedFormat.id)
+        ? [...baseFormats, appliedFormat]
+        : baseFormats,
+    [baseFormats, appliedFormat],
+  );
   const format = resolveFromList(formats, reviewer.examFormatId);
   const typeKeys = formatTypeKeys(format);
 
-  const [pendingFormatId, setPendingFormatId] = useState<string | null>(null);
+  // "Learn from my material": a draft format. It is stored only when the
+  // student applies it, and keeps one id so applying twice overwrites.
+  const [learn, setLearn] = useState(false);
+  const [genTypes, setGenTypes] = useState<FormatTypeDef[]>([]);
+  const [genCounts, setGenCounts] = useState<Record<string, number>>({});
+  const [genName, setGenName] = useState("");
+  const [genId] = useState(() => newFormatId());
+  const [genSaved, setGenSaved] = useState(false);
+  const genDefaultName = `${name.trim() || "New reviewer"} format`.slice(0, MAX_ID_CHARS);
+  const learnPending = learn && genTypes.length === 0;
+  const learnTotal = sumCounts(genCounts);
+
+  // Either a saved format id, or the learn-mode draft.
+  const [pendingFormat, setPendingFormat] = useState<{ id: string } | "learn" | null>(null);
 
   function applyFormat(id: string) {
     const next = resolveFromList(formats, id);
@@ -208,14 +239,49 @@ export default function DetailsTab({
     onSaved();
   }
 
+  // The draft is saved as a custom format, becomes this reviewer's format, and
+  // its counts replace the current ones.
+  function applyLearn() {
+    const stored: ExamFormat = {
+      id: genId,
+      name: genName.trim() || genDefaultName,
+      description: "",
+      types: genTypes.map((t) => ({
+        ...t,
+        label: t.label.trim(),
+        defaultCount: genCounts[t.key] ?? t.defaultCount,
+      })),
+    };
+    saveCustomFormat(stored);
+    setAppliedFormat(stored);
+    updateReviewer(reviewer.id, {
+      examFormatId: stored.id,
+      questionCountByType: genCounts,
+    });
+    setCountByType(genCounts);
+    setLearn(false);
+    setGenSaved(true);
+    onSaved();
+  }
+
   // Counts the student changed are lost on a switch, so ask first. Untouched
   // defaults switch silently.
-  function changeFormat(id: string) {
-    if (id === format.id) return;
+  function countsEdited() {
     const defaults = defaultCounts(format);
-    const edited = typeKeys.some((t) => (countByType[t] ?? 0) !== (defaults[t] ?? 0));
-    if (edited) setPendingFormatId(id);
+    return typeKeys.some((t) => (countByType[t] ?? 0) !== (defaults[t] ?? 0));
+  }
+
+  function changeFormat(id: string) {
+    setLearn(false);
+    if (id === format.id) return;
+    if (countsEdited()) setPendingFormat({ id });
     else applyFormat(id);
+  }
+
+  function requestApplyLearn() {
+    if (genTypes.length === 0 || genTypes.some((t) => !t.label.trim())) return;
+    if (countsEdited()) setPendingFormat("learn");
+    else applyLearn();
   }
 
   const dirty =
@@ -227,35 +293,6 @@ export default function DetailsTab({
     !sameCountByType(countByType, reviewer.questionCountByType, typeKeys);
 
   useUnsavedGuard(dirty);
-
-  function updateTopic(id: string, value: string) {
-    topicList.update(id, value);
-  }
-
-  function removeTopic(id: string) {
-    topicList.remove(id);
-  }
-
-  function addTopic() {
-    topicList.add();
-  }
-
-  // Enter in a topic input adds a row instead of submitting the form.
-  const topicsRef = useRef<HTMLDivElement>(null);
-  const focusNewTopic = useRef(false);
-  useEffect(() => {
-    if (!focusNewTopic.current) return;
-    focusNewTopic.current = false;
-    const inputs = topicsRef.current?.querySelectorAll("input");
-    inputs?.[inputs.length - 1]?.focus();
-  }, [topicList.rows.length]);
-
-  function handleTopicKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    focusNewTopic.current = true;
-    addTopic();
-  }
 
   function handleSave() {
     // Cleared up front so a fixed problem's message doesn't linger in the
@@ -297,129 +334,16 @@ export default function DetailsTab({
     // enough that the last field can always be scrolled clear of it. It's
     // taller on mobile, where the bar's contents stack.
     <div className={`flex flex-col ${dirty || justSaved ? "pb-36 sm:pb-24" : ""}`}>
-      <div className="grid grid-cols-1 gap-6 py-6 md:grid-cols-[160px_1fr]">
-        <div>
-          <p className="text-[0.9375rem] font-medium text-text-primary">Reviewer info</p>
-          <p className="mt-1 text-[0.875rem] text-text-secondary">Name and subject for this reviewer.</p>
-        </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[0.875rem] text-text-secondary">
-              Reviewer name <span className="text-error">*</span>
-            </span>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                if (nameError) setNameError(false);
-              }}
-              placeholder="e.g. CPU Scheduling"
-              className={`h-11 rounded-lg border px-3 text-text-primary outline-none ${
-                nameError ? "border-error focus:border-error" : "border-border focus:border-accent"
-              }`}
-            />
-            {nameError && <span className="text-[0.8125rem] text-error">Reviewer name is required.</span>}
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[0.875rem] text-text-secondary">Subject (optional)</span>
-            <input
-              type="text"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="e.g. Intro to Operating Systems"
-              className="h-11 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent"
-            />
-          </label>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
-        <div>
-          <p className="text-[0.9375rem] font-medium text-text-primary">Topics</p>
-          <p className="mt-1 text-[0.875rem] text-text-secondary">
-            Optional. Weights question generation toward these topics.
-          </p>
-        </div>
-        <div ref={topicsRef} className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2">
-          {topicList.rows.map((row) => {
-            const showOverlay = Boolean(row.value) && focusedTopic !== row.id;
-            return (
-            <div key={row.id} className="relative">
-              <input
-                type="text"
-                value={row.value}
-                title={row.value}
-                onChange={(e) => updateTopic(row.id, e.target.value)}
-                onKeyDown={handleTopicKeyDown}
-                onFocus={() => setFocusedTopic(row.id)}
-                onBlur={() => setFocusedTopic(null)}
-                placeholder="e.g. Paging"
-                className={`h-11 w-full truncate rounded-lg border border-border pl-3 pr-8 outline-none focus:border-accent ${
-                  showOverlay ? "text-transparent" : "text-text-primary"
-                }`}
-              />
-              {showOverlay && (
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-y-0 left-0 right-8 flex items-center truncate pl-3 text-text-primary"
-                >
-                  {row.value}
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => removeTopic(row.id)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-error"
-                aria-label={row.value ? `Remove topic ${row.value}` : "Remove topic"}
-              >
-                ✕
-              </button>
-            </div>
-            );
-          })}
-          <button
-            type="button"
-            onClick={addTopic}
-            className="col-span-full flex h-11 items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong text-[0.9375rem] font-medium text-text-secondary hover:border-accent hover:text-accent"
-          >
-            + Add topic
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
-        <div>
-          <p className="text-[0.9375rem] font-medium text-text-primary">Exam format</p>
-          <p className="mt-1 text-[0.875rem] text-text-secondary">
-            The question formats this reviewer generates.
-          </p>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          {/* Saved immediately rather than through the sticky bar: it never
-              conflicts with the staged name/subject/topics/counts edits. */}
-          <select
-            value={reviewer.examFormatId}
-            onChange={(e) => changeFormat(e.target.value)}
-            aria-label="Exam format"
-            className="h-11 rounded-lg border border-border bg-surface px-3 text-text-primary outline-none focus:border-accent"
-          >
-            {formats.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
-        <div>
-          <p className="text-[0.9375rem] font-medium text-text-primary">Question count</p>
-          <p className="mt-1 text-[0.875rem] text-text-secondary">How many questions to generate per type.</p>
-        </div>
-        <QuestionCountControl format={format} value={countByType} onChange={setCountByType} />
-      </div>
+      <ReviewerInfoFields
+        name={name}
+        subject={subject}
+        nameError={nameError}
+        onNameChange={(v) => {
+          setName(v);
+          if (nameError) setNameError(false);
+        }}
+        onSubjectChange={setSubject}
+      />
 
       <SourceSections
         reviewerId={reviewer.id}
@@ -433,6 +357,52 @@ export default function DetailsTab({
         projectStatus={projectStatus}
         pastExamStatus={pastExamStatus}
       />
+
+      {/* Format changes save at once rather than through the sticky bar: they
+          never conflict with the staged name/subject/topics/counts edits. */}
+      <FormatPicker
+        learn={learn}
+        formats={formats}
+        format={format}
+        onSelectSaved={changeFormat}
+        onSelectLearn={() => setLearn(true)}
+        learnPanel={
+          <GeneratedFormatPanel
+            reviewerId={reviewer.id}
+            notes={reviewer.notes}
+            pastExam={reviewer.pastExamMaterial}
+            subject={subject || name}
+            types={genTypes}
+            counts={genCounts}
+            onChange={(types, counts) => {
+              setGenTypes(types);
+              setGenCounts(counts);
+              setGenSaved(false);
+            }}
+            formatName={genName}
+            defaultName={genDefaultName}
+            onNameChange={(v) => {
+              setGenName(v);
+              setGenSaved(false);
+            }}
+            onSave={requestApplyLearn}
+            saved={genSaved}
+            saveLabel="Use this format"
+            savedText="Format applied."
+          />
+        }
+      />
+
+      <QuestionCountSection
+        learn={learn}
+        learnPending={learnPending}
+        total={learnTotal}
+        format={format}
+        value={countByType}
+        onChange={setCountByType}
+      />
+
+      <TopicsField topicList={topicList} />
 
       <div className="flex flex-col gap-3 rounded-lg border border-error px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -494,16 +464,17 @@ export default function DetailsTab({
         </div>
       )}
 
-      {pendingFormatId && (
+      {pendingFormat && (
         <ConfirmDialog
           title="Switch format?"
           body="Switching formats resets your question counts to the new format's defaults."
           confirmLabel="Switch format"
           onConfirm={() => {
-            applyFormat(pendingFormatId);
-            setPendingFormatId(null);
+            if (pendingFormat === "learn") applyLearn();
+            else applyFormat(pendingFormat.id);
+            setPendingFormat(null);
           }}
-          onCancel={() => setPendingFormatId(null)}
+          onCancel={() => setPendingFormat(null)}
         />
       )}
     </div>

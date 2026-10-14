@@ -276,7 +276,7 @@ function QuestionEditor({
       {draft.stimulus !== undefined && (
         <label className="flex flex-col gap-1.5">
           <span className="text-[0.875rem] text-text-secondary">
-            Problem shared by this set — editing it updates every question in the set
+            Problem shared by this set. Editing it updates every question in the set
           </span>
           <textarea
             value={draft.stimulus}
@@ -303,7 +303,7 @@ function QuestionEditor({
         <div className="flex flex-col gap-3">
           <label className="flex flex-col gap-1.5">
             <span className="text-[0.875rem] text-text-secondary">
-              Model answer — one to three sentences a good answer would say
+              Model answer: one to three sentences a good answer would say
             </span>
             <textarea
               value={draft.modelAnswer ?? ""}
@@ -316,7 +316,7 @@ function QuestionEditor({
           </label>
           <div className="flex flex-col gap-2">
             <span className="text-[0.875rem] text-text-secondary">
-              Key points — what an answer must contain. Credit is the share of these it covers.
+              Key points: what an answer must contain. Credit is the share of these it covers.
             </span>
             {keyPoints.map((point, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -433,8 +433,8 @@ function QuestionEditor({
       <label className="flex flex-col gap-1.5">
         <span className="text-[0.875rem] text-text-secondary">
           {isShort
-            ? "Explanation — optional note shown with the model answer"
-            : "Explanation — a sentence or two on why that option is correct"}
+            ? "Explanation: optional note shown with the model answer"
+            : "Explanation: a sentence or two on why that option is correct"}
         </span>
         <textarea
           value={draft.explanation ?? ""}
@@ -448,7 +448,7 @@ function QuestionEditor({
       {!isShort && (
         <label className="flex flex-col gap-1.5">
           <span className="text-[0.875rem] text-text-secondary">
-            Why not the others — a sentence or two ruling out the remaining options
+            Why not the others: a sentence or two ruling out the remaining options
           </span>
           <textarea
             value={draft.whyOthersWrong ?? ""}
@@ -534,7 +534,13 @@ export default function QuestionsTab({
   const [addedCount, setAddedCount] = useState<number | null>(null);
   const [cancelled, setCancelled] = useState(false);
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(
+    () =>
+      typeFilter !== "all" ||
+      sourceFilter !== "all" ||
+      favFilter !== "all" ||
+      sort !== "number",
+  );
   const [hideAnswers, setHideAnswers] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const cancelledRef = useRef(false);
@@ -789,8 +795,8 @@ function startCreate() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-lg border border-border bg-surface px-4 py-3 text-[0.875rem] text-text-secondary">
-        <p>
+      <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface px-4 py-3 text-[0.875rem] text-text-secondary sm:flex-row sm:items-center sm:justify-between">
+        <p className="min-w-0">
           <span className="font-medium text-text-primary">
             Will generate {reviewer.questionCount}
           </span>
@@ -812,6 +818,24 @@ function startCreate() {
             Edit details
           </Link>
         </p>
+        <button
+          type="button"
+          onClick={handleGenerateClick}
+          disabled={generating || !online}
+          title={
+            online
+              ? `Generate ${reviewer.questionCount} questions from this reviewer's sources`
+              : "Generation needs an internet connection"
+          }
+          className={`flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg px-4 text-[0.9375rem] font-medium disabled:cursor-not-allowed disabled:opacity-40 ${
+            total > 0
+              ? "border border-border-strong text-text-secondary enabled:hover:border-accent enabled:hover:text-text-primary"
+              : "bg-accent text-on-accent enabled:hover:bg-accent-hover"
+          }`}
+        >
+          <SparkleIcon />
+          {generating ? "Generating…" : "Generate"}
+        </button>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -829,9 +853,10 @@ function startCreate() {
           onClick={() => setFiltersOpen((o) => !o)}
           aria-expanded={filtersOpen}
           aria-controls="question-filters"
-          className="h-11 min-w-0 flex-1 rounded-lg border border-border-strong px-4 text-[0.9375rem] font-medium text-text-secondary hover:border-accent hover:text-text-primary sm:hidden"
+          className="flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-border-strong px-4 text-[0.9375rem] font-medium text-text-secondary hover:border-accent hover:text-text-primary sm:flex-none sm:shrink-0"
         >
-          Filter ({activeFilterCount})
+          Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+          <CaretIcon className={filtersOpen ? "rotate-180" : ""} />
         </button>
         <button
           type="button"
@@ -839,33 +864,14 @@ function startCreate() {
           disabled={generating}
           className="h-11 min-w-0 flex-1 rounded-lg border border-border-strong px-4 text-[0.9375rem] font-medium text-text-secondary enabled:hover:border-accent enabled:hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none sm:shrink-0"
         >
-          {/* Three buttons share one row on phones; the full label wraps there. */}
           <span className="sm:hidden" aria-hidden="true">+ Add</span>
           <span className="sr-only sm:not-sr-only">+ Add question</span>
-        </button>
-        <button
-          type="button"
-          onClick={handleGenerateClick}
-          disabled={generating || !online}
-          title={
-            online
-              ? `Generate ${reviewer.questionCount} questions from this reviewer's sources`
-              : "Generation needs an internet connection"
-          }
-          className={`flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg px-4 text-[0.9375rem] font-medium disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none sm:shrink-0 ${
-            total > 0
-              ? "border border-border-strong text-text-secondary enabled:hover:border-accent enabled:hover:text-text-primary"
-              : "bg-accent text-on-accent enabled:hover:bg-accent-hover"
-          }`}
-        >
-          <SparkleIcon />
-          {generating ? "Generating…" : "Generate"}
         </button>
       </div>
 
       {!online && (
         <p className="text-[0.875rem] text-text-secondary">
-          You&apos;re offline — quizzing works, but generation needs a connection.
+          You&apos;re offline. Quizzing works, but generation needs a connection.
         </p>
       )}
 
@@ -875,7 +881,7 @@ function startCreate() {
 
       {cancelled && (
         <p className="text-[0.9375rem] text-text-secondary">
-          Generation cancelled — your questions are unchanged.
+          Generation cancelled. Your questions are unchanged.
         </p>
       )}
 
@@ -883,7 +889,7 @@ function startCreate() {
         <ul className="ml-5 list-disc text-[0.875rem] text-text-secondary">
           {failures.map((f) => (
             <li key={f.label}>
-              <span className="font-medium text-text-primary">{f.label}</span> — {f.reason}
+              <span className="font-medium text-text-primary">{f.label}</span>: {f.reason}
             </li>
           ))}
         </ul>
@@ -897,12 +903,11 @@ function startCreate() {
         </p>
       )}
 
-      {/* Below `sm` the filters live behind the "Filter (n)" button so the
-          first question stays on the first screen; from `sm` up the panel is
-          always shown. Type chips, Starred, Source, and Sort all sit here. */}
+      {/* Type chips, Starred, Source, and Sort sit behind the Filters button.
+          It opens by default only when a filter is active. */}
       <div
         id="question-filters"
-        className={`${filtersOpen ? "flex" : "hidden"} flex-col gap-3 rounded-lg border border-border bg-surface-alt px-4 py-3 sm:flex sm:flex-row sm:flex-wrap sm:items-center sm:gap-2`}
+        className={`${filtersOpen ? "flex" : "hidden"} flex-col gap-3 rounded-lg border border-border bg-surface-alt px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2`}
       >
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[0.875rem] text-text-secondary">Type</span>
@@ -988,7 +993,7 @@ function startCreate() {
 
       {total === 0 ? (
         <p className="text-[0.9375rem] text-text-secondary">
-          No questions yet — add your notes in the Details tab, then hit Generate. You can also add
+          No questions yet. Add your notes in the Details tab, then hit Generate. You can also add
           one by hand.
         </p>
       ) : visible.length === 0 ? (
@@ -1009,9 +1014,7 @@ function startCreate() {
               <>
                 <span className="text-[0.9375rem] text-text-secondary">
                   Select all {visible.length} question{visible.length === 1 ? "" : "s"}
-                </span>
-                <span className="hidden text-[0.875rem] text-text-secondary sm:inline">
-                  · {total} question{total === 1 ? "" : "s"} total
+                  {visible.length !== total && ` (of ${total})`}
                 </span>
                 <label className="ml-auto flex min-h-11 cursor-pointer items-center gap-2 text-[0.875rem] text-text-secondary">
                   <input
@@ -1099,7 +1102,7 @@ function startCreate() {
                         <span className="min-w-0 break-words font-mono text-[0.8125rem] tracking-wide uppercase">
                           <span className="font-semibold text-text-primary">{number}.</span>{" "}
                           <span className="font-normal text-text-tertiary">
-                            · {typeLabelOf(format, question.type)} · {SOURCE_LABELS[question.source]}
+                            {typeLabelOf(format, question.type)} · {SOURCE_LABELS[question.source]}
                           </span>
                         </span>
 
@@ -1134,13 +1137,14 @@ function startCreate() {
                                 aria-pressed={question.favorite === true}
                                 aria-label={`${question.favorite ? "Unstar" : "Star"} question ${number}`}
                                 title={question.favorite ? "Starred" : "Star this question"}
-                                className={`flex h-11 w-11 items-center justify-center rounded-lg sm:h-auto sm:w-auto sm:rounded-none sm:p-1 ${
+                                className={`flex h-11 items-center justify-center gap-1.5 rounded-lg px-2 sm:h-auto sm:rounded-none sm:px-0 sm:font-medium ${
                                   question.favorite
                                     ? "text-accent"
                                     : "text-text-tertiary hover:text-text-primary sm:text-text-secondary"
                                 }`}
                               >
                                 <StarIcon filled={question.favorite === true} />
+                                {question.favorite ? "Starred" : "Star"}
                               </button>
                               <button
                                 onClick={() => startEdit(question)}
@@ -1164,9 +1168,9 @@ function startCreate() {
                         // a preformatted block; prose rides as a quote. Matches
                         // the quiz and results screens branch for branch.
                         (isMonoKind(stimulusKindOf(format, question.type)) ? (
-                          <details className="mt-2">
+                          <details open className="mt-2">
                             <summary className="cursor-pointer text-[0.875rem] text-text-secondary hover:text-text-primary">
-                              {question.groupTitle || "Show the problem"}
+                              {question.groupTitle || "The problem"}
                             </summary>
                             <pre className="mt-2 overflow-x-auto rounded-lg border border-border bg-surface-alt p-4 font-mono text-[0.875rem] leading-relaxed text-text-primary">
                               {question.stimulus}

@@ -144,13 +144,13 @@ export default function LoginPage() {
     <div className="mx-auto w-full max-w-md flex-1 px-6 py-10">
       <h1 className="text-[1.625rem] font-semibold text-text-primary">Sync your reviewers</h1>
       <p className="mt-1 text-[0.9375rem] text-text-secondary">
-        Sign in to back up reviewers, questions, history, and settings — and pick them up on
+        Sign in to back up reviewers, questions, history, and settings, and pick them up on
         another device. Your uploaded files stay on each device.
       </p>
 
       {!configured && (
         <p role="alert" className="mt-4 rounded-lg bg-surface-alt px-3 py-2 text-[0.875rem] text-text-secondary">
-          Sync isn&apos;t set up on this build yet — the app still works fully on this device.
+          Sync isn&apos;t set up on this build yet. The app still works fully on this device.
         </p>
       )}
 
@@ -161,7 +161,7 @@ export default function LoginPage() {
       )}
       {needsConfirmation && (
         <p role="status" className="mt-4 rounded-lg bg-surface-alt px-3 py-2 text-[0.875rem] text-text-secondary">
-          Account created — check your inbox for the confirmation link, then sign in.
+          Account created. Check your inbox for the confirmation link, then sign in.
         </p>
       )}
 

@@ -336,7 +336,7 @@ export default function ImportExportTab({
                     <dd className="text-text-primary">
                       {pending.format.name}{" "}
                       <span className="text-text-tertiary">
-                        (saved to your library on merge — this reviewer keeps its own format)
+                        (saved to your library on merge. This reviewer keeps its own format)
                       </span>
                     </dd>
                   </div>
@@ -356,7 +356,7 @@ export default function ImportExportTab({
                     <dd className="text-text-primary">
                       {pending.totalAttachments} ({pending.newAttachments.length} new)
                       {pending.skippedAttachments > 0
-                        ? ` — ${pending.skippedAttachments} skipped (missing or invalid)`
+                        ? `, ${pending.skippedAttachments} skipped (missing or invalid)`
                         : ""}
                     </dd>
                   </div>

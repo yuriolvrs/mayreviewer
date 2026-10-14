@@ -28,65 +28,74 @@ function FormatCard({
   onDeleteRequest: (() => void) | null;
 }) {
   return (
-    <li className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-6">
+    <li className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-6">
       <div>
         <p className="text-[1.1875rem] font-semibold text-text-primary">{format.name}</p>
         {format.description && (
           <p className="mt-1 text-[0.9375rem] text-text-secondary">{format.description}</p>
         )}
-        <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[0.8125rem] tracking-wide text-text-tertiary uppercase">
+        {custom && usageCount > 0 && (
+          <p className="mt-1 text-[0.8125rem] text-text-tertiary">
+            {usageCount} reviewer{usageCount === 1 ? "" : "s"} use{usageCount === 1 ? "s" : ""} this
+            format.
+          </p>
+        )}
+        <p className="mt-3 flex flex-wrap gap-2">
           {[...new Set(format.types.map((t) => t.format))].map((f) => (
-            <span key={f}>{ANSWER_FORMAT_LABEL[f]}</span>
+            <span
+              key={f}
+              className="rounded-full border border-border px-2.5 py-0.5 text-[0.8125rem] text-text-secondary"
+            >
+              {ANSWER_FORMAT_LABEL[f]}
+            </span>
           ))}
         </p>
       </div>
-      <ul className="flex flex-col gap-1.5">
-        {format.types.map((t) => (
-          <li key={t.key} className="flex items-baseline justify-between gap-3 text-[0.9375rem]">
-            <span className="text-text-primary">{t.label}</span>
-            <span className="shrink-0 text-text-secondary">
-              {t.defaultCount} question{t.defaultCount === 1 ? "" : "s"} default
-            </span>
-          </li>
-        ))}
-      </ul>
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+      <div>
+        <div className="mb-1.5 flex items-baseline justify-between gap-3 text-[0.8125rem] text-text-tertiary">
+          <span>Question type</span>
+          <span>Default count</span>
+        </div>
+        <ul className="flex flex-col gap-1.5">
+          {format.types.map((t) => (
+            <li key={t.key} className="flex items-baseline justify-between gap-3 text-[0.9375rem]">
+              <span className="text-text-primary">{t.label}</span>
+              <span className="shrink-0 text-right tabular-nums text-text-secondary">
+                {t.defaultCount}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4 text-[0.875rem] font-medium">
         <Link
           href={`/reviewer/new?format=${encodeURIComponent(format.id)}`}
-          className="inline-flex min-h-11 items-center text-[0.875rem] font-medium text-accent hover:underline"
+          className="inline-flex min-h-11 items-center rounded-lg border border-accent px-4 text-accent hover:bg-accent-subtle"
         >
           New reviewer with this format
         </Link>
-        <div className="ml-auto flex items-center gap-4 text-[0.875rem]">
-          <Link
-            href={`/formats/${format.id}`}
-            className="inline-flex min-h-11 items-center font-medium text-text-secondary hover:text-text-primary"
+        <Link
+          href={`/formats/${format.id}`}
+          className="inline-flex min-h-11 items-center rounded-lg border border-border bg-surface px-3 text-text-secondary hover:border-border-strong hover:text-text-primary"
+        >
+          {custom ? "Edit" : "View"}
+        </Link>
+        <Link
+          href={`/formats/new?from=${encodeURIComponent(format.id)}`}
+          className="inline-flex min-h-11 items-center rounded-lg border border-border bg-surface px-3 text-text-secondary hover:border-border-strong hover:text-text-primary"
+        >
+          Clone
+        </Link>
+        {onDeleteRequest && (
+          <button
+            type="button"
+            onClick={onDeleteRequest}
+            className="ml-auto inline-flex min-h-11 items-center rounded-lg px-3 text-error hover:bg-error-subtle"
           >
-            {custom ? "Edit" : "View"}
-          </Link>
-          <Link
-            href={`/formats/new?from=${encodeURIComponent(format.id)}`}
-            className="inline-flex min-h-11 items-center font-medium text-text-secondary hover:text-text-primary"
-          >
-            Clone
-          </Link>
-          {onDeleteRequest && (
-            <button
-              type="button"
-              onClick={onDeleteRequest}
-              className="min-h-11 font-medium text-error hover:underline"
-            >
-              Delete
-            </button>
-          )}
-        </div>
+            Delete
+          </button>
+        )}
       </div>
-      {custom && usageCount > 0 && (
-        <p className="text-[0.8125rem] text-text-tertiary">
-          {usageCount} reviewer{usageCount === 1 ? "" : "s"} use{usageCount === 1 ? "s" : ""} this
-          format.
-        </p>
-      )}
     </li>
   );
 }
@@ -121,6 +130,12 @@ export default function FormatsPage() {
     window.addEventListener(SYNC_APPLIED_EVENT, refresh);
     return () => window.removeEventListener(SYNC_APPLIED_EVENT, refresh);
   }, []);
+
+  useEffect(() => {
+    if (!justSaved) return;
+    const timer = setTimeout(() => setJustSaved(false), 4000);
+    return () => clearTimeout(timer);
+  }, [justSaved]);
 
   // Deleting a format also drops its past-exam files from IndexedDB, so no
   // orphaned entries survive under a deleted id. Reviewers on it keep their
@@ -166,10 +181,10 @@ export default function FormatsPage() {
         </p>
       )}
 
-      {customs.length > 0 && (
-        <>
-          <h2 className="text-[0.9375rem] font-semibold text-text-primary">Your formats</h2>
-          <ul className="flex flex-col gap-3">
+      <section>
+        <h2 className="text-[0.9375rem] font-semibold text-text-primary">Your formats</h2>
+        {customs.length > 0 ? (
+          <ul className="mt-3 flex flex-col gap-3">
             {customs.map((format) => (
               <FormatCard
                 key={format.id}
@@ -180,30 +195,34 @@ export default function FormatsPage() {
               />
             ))}
           </ul>
-        </>
-      )}
+        ) : (
+          <p className="mt-3 rounded-lg border border-dashed border-border p-4 text-[0.9375rem] text-text-secondary">
+            No custom formats yet. Clone a built-in one or create a new format.
+          </p>
+        )}
+      </section>
 
-      <div>
+      <section>
         <h2 className="text-[0.9375rem] font-semibold text-text-primary">Built-in formats</h2>
-        <ul className="mt-2 flex flex-col gap-3">
-        {builtins.map((format) => (
-          <FormatCard
-            key={format.id}
-            format={format}
-            custom={false}
-            usageCount={0}
-            onDeleteRequest={null}
-          />
-        ))}
+        <ul className="mt-3 flex flex-col gap-3">
+          {builtins.map((format) => (
+            <FormatCard
+              key={format.id}
+              format={format}
+              custom={false}
+              usageCount={0}
+              onDeleteRequest={null}
+            />
+          ))}
         </ul>
-      </div>
+      </section>
 
       {confirmDelete && (
         <ConfirmDialog
           title={`Delete "${confirmDelete.name}"?`}
           body={
             (usage[confirmDelete.id] ?? 0) > 0
-              ? `${usage[confirmDelete.id]} reviewer${usage[confirmDelete.id] === 1 ? "" : "s"} use${usage[confirmDelete.id] === 1 ? "s" : ""} this format — ${usage[confirmDelete.id] === 1 ? "it" : "they"} will fall back to the default format, keeping ${usage[confirmDelete.id] === 1 ? "its" : "their"} questions. This can't be undone.`
+              ? `${usage[confirmDelete.id]} reviewer${usage[confirmDelete.id] === 1 ? "" : "s"} use${usage[confirmDelete.id] === 1 ? "s" : ""} this format. ${usage[confirmDelete.id] === 1 ? "It" : "They"} will fall back to the default format, keeping ${usage[confirmDelete.id] === 1 ? "its" : "their"} questions. This can't be undone.`
               : "No reviewers use this format. This can't be undone."
           }
           confirmLabel="Delete format"

@@ -118,7 +118,7 @@ export async function addAttachment(
   try {
     data = await file.arrayBuffer();
   } catch {
-    throw new Error(`Couldn't read "${file.name}" — the file may be locked or corrupted.`);
+    throw new Error(`Couldn't read "${file.name}". The file may be locked or corrupted.`);
   }
   const attachment: Attachment = {
     id: newId(),
@@ -132,7 +132,7 @@ export async function addAttachment(
   try {
     await db.put("attachments", attachment);
   } catch {
-    throw new Error("Couldn't save that file — browser storage may be full.");
+    throw new Error("Couldn't save that file. Browser storage may be full.");
   }
   notifyAttachmentsChanged();
   return attachment;
@@ -165,7 +165,7 @@ export async function addFormatAttachment(formatId: string, file: File): Promise
   try {
     data = await file.arrayBuffer();
   } catch {
-    throw new Error(`Couldn't read "${file.name}" — the file may be locked or corrupted.`);
+    throw new Error(`Couldn't read "${file.name}". The file may be locked or corrupted.`);
   }
   const attachment: FormatAttachment = {
     id: newId(),
@@ -178,7 +178,7 @@ export async function addFormatAttachment(formatId: string, file: File): Promise
   try {
     await db.put("format-attachments", attachment);
   } catch {
-    throw new Error("Couldn't save that file — browser storage may be full.");
+    throw new Error("Couldn't save that file. Browser storage may be full.");
   }
   return attachment;
 }
@@ -208,7 +208,7 @@ export async function cloneFormatAttachments(sourceId: string, targetId: string)
   // would otherwise leave a half-cloned format behind.
   const totalBytes = source.reduce((sum, a) => sum + a.data.byteLength, 0);
   if (source.length > 10 || totalBytes > 40 * 1024 * 1024) {
-    throw new Error("That format's files are too large to clone — re-attach them instead.");
+    throw new Error("That format's files are too large to clone. Re-attach them instead.");
   }
   try {
     for (const a of source) {
@@ -222,6 +222,6 @@ export async function cloneFormatAttachments(sourceId: string, targetId: string)
   } catch {
     // Roll back the partial copy so the clone never points at half its files.
     await deleteFormatAttachments(targetId).catch(() => {});
-    throw new Error("Couldn't clone those files — browser storage may be full.");
+    throw new Error("Couldn't clone those files. Browser storage may be full.");
   }
 }

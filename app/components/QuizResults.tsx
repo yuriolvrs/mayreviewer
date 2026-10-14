@@ -277,8 +277,8 @@ function GroupBlock({
           {group.title || (group.questions[0].type === "code" ? "The program" : "The problem")}
         </span>
         <span className="text-[0.875rem]">
-          — {count} {noun}
-          {count === 1 ? "" : "s"} {outcome}
+          ({count} {noun}
+          {count === 1 ? "" : "s"} {outcome})
         </span>
       </button>
 
@@ -470,7 +470,7 @@ export default function QuizResults({
       </p>
       {durationSec ? (
         <p className="mt-1 text-[0.9375rem] text-text-secondary">
-          {timedOut ? "Time ran out — submitted automatically" : "Finished"} in{" "}
+          {timedOut ? "Time ran out. Submitted automatically" : "Finished"} in{" "}
           {formatCountdown(durationSec)}
         </p>
       ) : null}
@@ -529,7 +529,7 @@ export default function QuizResults({
       <CollapsibleSection title="Incorrect" count={missed.length} defaultOpen>
         {missed.length === 0 ? (
           <p className="mt-2 text-[0.9375rem] text-success">
-            Nothing missed — you got every question right.
+            Nothing missed. You got every question right.
           </p>
         ) : (
           <>

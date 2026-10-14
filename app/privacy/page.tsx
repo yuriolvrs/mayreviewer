@@ -41,7 +41,7 @@ export default function PrivacyPage() {
             exam): the notes and material for that reviewer are sent so the model can read
             them. Pasted text travels as text. PDFs and images are uploaded to temporary
             storage so the model can read them natively, then deleted after the questions
-            come back. Nothing is sent at any other time — browsing, editing, and quizzing
+            come back. Nothing is sent at any other time. Browsing, editing, and quizzing
             are fully local.
           </p>
         </Section>
@@ -52,7 +52,7 @@ export default function PrivacyPage() {
             (<span className="font-mono">gemini-3.1-flash-lite</span>), with Mistral&apos;s{" "}
             <span className="font-mono">mistral-small-latest</span> as a fallback when Gemini
             fails. Temporary file storage during generation uses Vercel Blob. Your material
-            is used only to generate your questions — not for advertising, and never sold.
+            is used only to generate your questions, not for advertising, and never sold.
           </p>
         </Section>
 

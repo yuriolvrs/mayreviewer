@@ -21,7 +21,7 @@ import type { QuestionSource } from "@/app/types";
 // `del()` needs a server token: without one every cleanup is a silent no-op
 // and the store accrues orphans. Fail loud at boot, not per request.
 if (!process.env.BLOB_READ_WRITE_TOKEN) {
-  console.warn("May Reviewer: BLOB_READ_WRITE_TOKEN is missing — Blob cleanup will silently no-op.");
+  console.warn("May Reviewer: BLOB_READ_WRITE_TOKEN is missing. Blob cleanup will silently no-op.");
 }
 
 export type IncomingAttachment = {
@@ -124,7 +124,7 @@ export async function parseAttachments(
   if (raw === undefined) return { attachments: [] };
   if (!Array.isArray(raw)) return { error: "`attachments` must be an array." };
   if (raw.length > MAX_ATTACHMENTS) {
-    return { error: `Too many files — ${MAX_ATTACHMENTS} at most per request.` };
+    return { error: `Too many files: ${MAX_ATTACHMENTS} at most per request.` };
   }
 
   const attachments: ParsedAttachment[] = [];
@@ -153,7 +153,7 @@ export async function parseAttachments(
       return fail("Attachment has an unrecognised field.");
     }
     if (!ALLOWED_ATTACHMENT_MIME_TYPES.includes(mimeType)) {
-      return fail(`Unsupported file type "${clampToLine(mimeType, 60)}" — PDF, JPG, PNG, or WebP only.`);
+      return fail(`Unsupported file type "${clampToLine(mimeType, 60)}". Use PDF, JPG, PNG, or WebP.`);
     }
     // Only ever fetch our own Blob store's URLs — otherwise this is a
     // server-side fetch of an attacker-supplied URL (SSRF). Our relays always
@@ -196,7 +196,7 @@ export async function parseAttachments(
     totalBytes += result.data.byteLength;
     if (totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) {
       return fail(
-        `Files total more than ${MAX_TOTAL_ATTACHMENT_BYTES / 1024 / 1024}MB — remove some and try again.`,
+        `Files total more than ${MAX_TOTAL_ATTACHMENT_BYTES / 1024 / 1024}MB. Remove some and try again.`,
         url,
       );
     }

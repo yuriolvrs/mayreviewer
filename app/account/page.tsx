@@ -97,7 +97,7 @@ export default function AccountPage() {
     setConfirmingAccountDelete(false);
     const result = await wipeAccountData(user.id);
     if (!result.ok) {
-      setNotice(result.error ?? "Delete failed — nothing was removed.");
+      setNotice(result.error ?? "Delete failed. Nothing was removed.");
       return;
     }
     await signOut();
@@ -110,7 +110,7 @@ export default function AccountPage() {
     // look like a failed logout.
     const { flushed } = await signOut();
     if (!flushed) {
-      setNotice("Signed out, but you're offline — your reviewers stay on this device until the next sync.");
+      setNotice("Signed out, but you're offline. Your reviewers stay on this device until the next sync.");
     }
   }
 
@@ -167,7 +167,7 @@ export default function AccountPage() {
             </Link>
           ) : (
             <p className="border-b border-border py-3 text-[0.9375rem] text-text-secondary">
-              Sync isn&apos;t set up on this build yet — everything stays on this device.
+              Sync isn&apos;t set up on this build yet. Everything stays on this device.
             </p>
           )
         ) : (

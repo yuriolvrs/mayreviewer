@@ -410,7 +410,7 @@ function QuizPageInner() {
 
       {total === 0 ? (
         <p className="mt-8 text-[0.9375rem] text-text-secondary">
-          No questions yet — generate some in the Questions tab first.
+          No questions yet. Generate some in the Questions tab first.
         </p>
       ) : (
         // Setup flows in the main column while past attempts sit in their own

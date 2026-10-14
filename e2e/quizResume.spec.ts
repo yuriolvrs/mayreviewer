@@ -72,6 +72,6 @@ test.describe("Quiz resume after refresh", () => {
     });
     await page.reload();
 
-    await expect(page.getByText("Time ran out — submitted automatically")).toBeVisible();
+    await expect(page.getByText("Time ran out. Submitted automatically")).toBeVisible();
   });
 });

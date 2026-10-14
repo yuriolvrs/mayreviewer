@@ -72,13 +72,14 @@ test.describe("Starred questions", () => {
   });
 
   test("star toggles, filters, and survives reload with its URL param", async ({ page }) => {
-    const items = page.locator("li").filter({ hasText: /\d+\. ·/ });
+    const items = page.locator("li").filter({ hasText: /\d+\. [A-Za-z]/ });
     await expect(items).toHaveCount(SEEDED_QUESTIONS.length);
 
     await page.getByRole("button", { name: "Star question 1" }).click();
     await expect(page.getByRole("button", { name: "Unstar question 1" })).toBeVisible();
 
-    await page.getByRole("button", { name: "Starred" }).click();
+    await page.getByRole("button", { name: /^Filters/ }).click();
+    await page.getByRole("button", { name: "Starred", exact: true }).click();
     await expect(items).toHaveCount(1);
     await expect(page).toHaveURL(/fav=starred/);
 

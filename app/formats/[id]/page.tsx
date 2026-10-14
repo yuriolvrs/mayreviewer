@@ -39,7 +39,7 @@ export default function EditFormatPage() {
 
       {builtin ? (
         <>
-          <h1 className="text-[1.625rem] font-semibold text-text-primary">{builtin.name}</h1>
+          <h1 className="text-[2.125rem] font-bold leading-10 tracking-tight text-text-primary">{builtin.name}</h1>
           <p className="mt-1 text-[0.9375rem] text-text-secondary">{builtin.description}</p>
           <p className="mt-1 text-[0.875rem] text-text-secondary">
             Built-in formats are read-only. Clone one to make your own editable copy.
@@ -65,29 +65,18 @@ export default function EditFormatPage() {
         </>
       ) : !custom ? (
         <>
-          <h1 className="text-[1.625rem] font-semibold text-text-primary">Format not found</h1>
+          <h1 className="text-[2.125rem] font-bold leading-10 tracking-tight text-text-primary">Format not found</h1>
           <p className="mt-1 text-[0.9375rem] text-text-secondary">
             No format with this id exists in the library.
           </p>
         </>
       ) : (
         <>
-          <h1 className="text-[1.625rem] font-semibold text-text-primary">Edit format</h1>
+          <h1 className="text-[2.125rem] font-bold leading-10 tracking-tight text-text-primary">Edit format</h1>
           <p className="mt-1 text-[0.9375rem] text-text-secondary">
             Reviewers already on this format keep their questions. New generations use the
             edited definition.
           </p>
-          <details className="mt-4 rounded-lg border border-border bg-surface">
-            <summary className="flex min-h-11 cursor-pointer items-center px-4 text-[0.9375rem] font-medium text-text-primary">
-              Preview
-            </summary>
-            <div className="px-4 pb-4">
-              <p className="mb-3 text-[0.875rem] text-text-secondary">
-                Shows the saved version of this format, with placeholder questions.
-              </p>
-              <FormatPreview format={custom} />
-            </div>
-          </details>
           <div className="mt-6">
             {/* Keyed by id: navigating between two edits remounts instead of
                 showing the previous format's state. */}
@@ -97,6 +86,7 @@ export default function EditFormatPage() {
               formatId={custom.id}
               saveLabel="Save format"
               isNew={false}
+              showPreview
               onSave={(format) => {
                 saveCustomFormat(format);
                 flagFormatSaved();

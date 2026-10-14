@@ -38,11 +38,11 @@ test.describe("Questions tab", () => {
   });
 
   test("lists every seeded question, labelled with all five types", async ({ page }) => {
-    const items = page.locator("li").filter({ hasText: /\d+\. ·/ });
+    const items = page.locator("li").filter({ hasText: /\d+\. [A-Za-z]/ });
     await expect(items).toHaveCount(SEEDED_QUESTIONS.length);
 
     // The label is CSS-uppercased, so this is what the DOM text reads as.
-    const listText = await page.locator("ul").filter({ hasText: /1\. ·/ }).innerText();
+    const listText = await page.locator("ul").filter({ hasText: /1\. [A-Za-z]/ }).innerText();
     for (const label of ["IDENTIFICATION", "SCENARIO", "TIMELINE", "CODE", "MODIFIED TRUE/FALSE"]) {
       expect(listText).toContain(label);
     }
@@ -64,9 +64,7 @@ test.describe("Questions tab", () => {
   });
 
   test("set stimuli keep column alignment and blank markers", async ({ page }) => {
-    const summaries = page.locator("details summary");
-    for (let i = 0; i < (await summaries.count()); i++) await summaries.nth(i).click();
-
+    // Set problems are open by default, so nothing needs clicking.
     const table = page.locator("details pre", { hasText: "Gantt" }).first();
     expect(await fontFamily(table)).toMatch(MONO);
     // Collapsing the run of spaces would silently misalign every trace table.
@@ -261,7 +259,7 @@ test.describe("Exam formats", () => {
       await expect(page.getByLabel(`${label} questions to generate`)).toBeVisible();
     }
     await expect(page.getByText("Total: 25 questions")).toBeVisible();
-    await expect(page.getByLabel("Exam format")).toHaveValue("csopesy-final");
+    await expect(page.getByRole("combobox", { name: /Exam format: CSOPESY Final/ })).toBeVisible();
   });
 });
 
@@ -273,15 +271,16 @@ test.describe("Custom formats", () => {
   test("lists custom labels and filters by them", async ({ page }) => {
     await page.goto(`/reviewer/${CUSTOM_REVIEWER_ID}`);
     await page.getByRole("tab", { name: /^Questions/i }).click();
-    const items = page.locator("li").filter({ hasText: /\d+\. ·/ });
+    const items = page.locator("li").filter({ hasText: /\d+\. [A-Za-z]/ });
     await expect(items).toHaveCount(4);
 
-    const listText = await page.locator("ul").filter({ hasText: /1\. ·/ }).innerText();
+    const listText = await page.locator("ul").filter({ hasText: /1\. [A-Za-z]/ }).innerText();
     expect(listText).toContain("RECALL");
     expect(listText).toContain("BLANK SET");
 
+    await page.getByRole("button", { name: /^Filters/ }).click();
     await page.getByRole("button", { name: "Blank Set", exact: true }).click();
-    await expect(page.locator("li").filter({ hasText: /\d+\. ·/ })).toHaveCount(2);
+    await expect(page.locator("li").filter({ hasText: /\d+\. [A-Za-z]/ })).toHaveCount(2);
   });
 
   test("quiz setup scopes and scores by custom keys", async ({ page }) => {
@@ -309,7 +308,8 @@ test.describe("Custom formats", () => {
 
   test("switching format re-seeds counts from the new defaults", async ({ page }) => {
     await page.goto(`/reviewer/${REVIEWER_ID}`);
-    await page.getByLabel("Exam format").selectOption(CUSTOM_FORMAT_ID);
+    await page.getByRole("combobox", { name: /^Exam format:/ }).click();
+    await page.getByRole("option", { name: /E2E Custom/ }).click();
     // The seeded reviewer's counts differ from its format's defaults, so the
     // switch asks first.
     await page.getByRole("button", { name: "Switch format" }).click();

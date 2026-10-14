@@ -13,7 +13,7 @@ import { inferFormat } from "@/app/lib/inferFormatClient";
 import { MAX_QUESTION_COUNT } from "@/app/lib/questions";
 import { useOnline } from "@/app/lib/useOnline";
 
-// The "Learn from my material" panel on New Reviewer: runs inference over
+// The "Learn from my material" panel on New Reviewer and the Details tab: runs inference over
 // the notes and past exam the user added above, then lists the generated types for light
 // editing (label, count, remove). Deeper editing happens in the Formats page.
 export default function GeneratedFormatPanel({
@@ -29,6 +29,8 @@ export default function GeneratedFormatPanel({
   onNameChange,
   onSave,
   saved,
+  saveLabel = "Save to Formats",
+  savedText = "Saved to Formats.",
 }: {
   reviewerId: string;
   notes: string;
@@ -42,6 +44,8 @@ export default function GeneratedFormatPanel({
   onNameChange: (name: string) => void;
   onSave: () => void;
   saved: boolean;
+  saveLabel?: string;
+  savedText?: string;
 }) {
   const online = useOnline();
   const [fileCount, setFileCount] = useState(0);
@@ -161,7 +165,7 @@ export default function GeneratedFormatPanel({
       <p className="text-[0.9375rem] font-semibold text-text-primary">Learn from my material</p>
       <p className="mt-1 text-[0.875rem] text-text-secondary">
         The AI suggests question types from the material you added above. You can edit the list
-        before creating the reviewer.
+        before you use it.
       </p>
       <p className="mt-2 text-[0.875rem] text-text-secondary">
         Reading: {sources.length > 0 ? sources.join(", ") : "nothing yet"}
@@ -252,9 +256,9 @@ export default function GeneratedFormatPanel({
               disabled={!canSave}
               className="min-h-11 rounded-lg border border-border-strong bg-surface px-4 py-2 text-[0.9375rem] font-medium text-text-primary enabled:hover:bg-surface-alt disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Save to Formats
+              {saveLabel}
             </button>
-            {saved && <span className="text-[0.875rem] text-text-secondary">Saved to Formats.</span>}
+            {saved && <span className="text-[0.875rem] text-text-secondary">{savedText}</span>}
           </div>
         </div>
       )}

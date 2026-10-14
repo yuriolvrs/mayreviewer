@@ -107,7 +107,7 @@ export async function parseReviewerFile(
     for (const entry of Object.values(zipEntries)) {
       decompressed += entry.length;
       if (decompressed > MAX_IMPORT_DECOMPRESSED_BYTES) {
-        return { ok: false, error: "That archive expands to more than 40MB — refusing to open it." };
+        return { ok: false, error: "That archive expands to more than 40MB. Refusing to open it." };
       }
     }
     const reviewerEntry = zipEntries["reviewer.json"];

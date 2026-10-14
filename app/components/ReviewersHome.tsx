@@ -127,7 +127,7 @@ export default function ReviewersHome() {
       {showWelcome && (
         <div role="status" className="flex items-center justify-between gap-3 rounded-lg bg-surface-alt px-3 py-2">
           <p className="text-[0.875rem] text-text-secondary">
-            <span className="font-semibold text-text-primary">Account created — you&apos;re signed in.</span>{" "}
+            <span className="font-semibold text-text-primary">Account created. You&apos;re signed in.</span>{" "}
             Your reviewers now sync across devices.
           </p>
           <button

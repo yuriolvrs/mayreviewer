@@ -96,7 +96,7 @@ export const CSOPESY_FINAL: ExamFormat = {
   id: CSOPESY_FINAL_ID,
   name: "CSOPESY Final",
   description:
-    "Identification, Scenario, Timeline and Code sets, plus Modified True/False — the Intro to Operating Systems final format.",
+    "Identification, Scenario, Timeline and Code sets, plus Modified True/False. This is the Intro to Operating Systems final format.",
   types: [
     { key: "identification", label: "Identification", format: "mc", shape: "standalone", stimulus: "none", defaultCount: 4 },
     { key: "scenario", label: "Scenario", format: "mc", shape: "standalone", stimulus: "none", defaultCount: 4 },
@@ -236,7 +236,7 @@ export const HISTORY: ExamFormat = {
       format: "mc",
       shape: "standalone",
       stimulus: "none",
-      guidance: "Ask who, when, or where — anchored to the material's own events and dates.",
+      guidance: "Ask who, when, or where, anchored to the material's own events and dates.",
       defaultCount: 8,
     },
     {
@@ -254,7 +254,7 @@ export const HISTORY: ExamFormat = {
       format: "true-false",
       shape: "standalone",
       stimulus: "none",
-      guidance: "One crisp claim about the material per item — no double statements joined by 'and'.",
+      guidance: "One crisp claim about the material per item, with no double statements joined by 'and'.",
       defaultCount: 5,
     },
   ],

@@ -99,7 +99,7 @@ export async function generateQuestions(
     // orphans are noted in the error rather than hidden.
     if (failed.length > 0) {
       throw new Error(
-        `Couldn't upload ${failed.map((n) => `"${n}"`).join(", ")}. ${ok.length > 0 ? `${ok.length} other file(s) uploaded but were not sent — try again.` : "Nothing was sent."}`,
+        `Couldn't upload ${failed.map((n) => `"${n}"`).join(", ")}. ${ok.length > 0 ? `${ok.length} other file(s) uploaded but were not sent. Try again.` : "Nothing was sent."}`,
       );
     }
     return ok;

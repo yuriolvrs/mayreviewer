@@ -215,13 +215,13 @@ export default function QuizSetup({
 
         {overAsked && (
           <p id="quiz-count-note" className="mt-2 text-[0.875rem] text-text-secondary">
-            Only {available} question{available === 1 ? " is" : "s are"} available in this scope —
-            the quiz will use {count}.
+            Only {available} question{available === 1 ? " is" : "s are"} available in this scope.
+            The quiz will use {count}.
           </p>
         )}
         {missedOnly && available === 0 && (
           <p className="mt-2 text-[0.875rem] text-text-secondary">
-            Those questions are no longer in the pool — turn the filter off for the full set.
+            Those questions are no longer in the pool. Turn the filter off for the full set.
           </p>
         )}
         {count < available && !overAsked && (

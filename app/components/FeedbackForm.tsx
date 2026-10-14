@@ -19,7 +19,7 @@ export default function FeedbackForm() {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!isFeedbackMessageValid(message)) {
-      setError("Write a little more — at least 10 characters so it's actionable.");
+      setError("Write a little more, at least 10 characters, so it's actionable.");
       return;
     }
     setError(null);

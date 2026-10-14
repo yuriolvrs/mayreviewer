@@ -148,11 +148,11 @@ function ReviewerSpace() {
         </div>
         {!hasQuestions && (
           <p id="take-quiz-reason" className="mt-1 text-[0.875rem] text-text-secondary">
-            Generate questions in the Questions tab to take a quiz.
+            Add questions to take a quiz.
           </p>
         )}
         <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[0.875rem] text-text-secondary">
-          <span>Format: {format.name}</span>
+          <span>Format: {format.name.replace(/\s+format$/i, "")}</span>
           <span aria-hidden="true" className="text-text-tertiary">
             ·
           </span>
@@ -210,8 +210,7 @@ function ReviewerSpace() {
               </p>
               {!hasQuestions && (
                 <p className="mb-4 text-[0.9375rem] text-text-secondary">
-                  No questions yet — add your source material below, then generate them from the
-                  Questions tab.
+                  No questions yet. Generate some in the Questions tab.
                 </p>
               )}
               <DetailsTab

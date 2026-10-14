@@ -27,8 +27,9 @@ import {
 } from "@/app/lib/examFormats";
 import { useFormats } from "@/app/lib/useFormats";
 import { parseReviewerFile, type ParsedReviewerFile } from "@/app/lib/reviewerFile";
-import OptionSelect from "@/app/components/OptionSelect";
-import QuestionCountControl from "@/app/components/QuestionCountControl";
+import ReviewerInfoFields from "@/app/components/ReviewerInfoFields";
+import TopicsField from "@/app/components/TopicsField";
+import { FormatPicker, QuestionCountSection } from "@/app/components/FormatPicker";
 import GeneratedFormatPanel from "@/app/components/GeneratedFormatPanel";
 import SourceSections from "@/app/components/SourceSections";
 import type { Reviewer } from "@/app/types";
@@ -91,44 +92,11 @@ export default function NewReviewerPage() {
   // reviewer that gets saved. Abandoning the form leaves those files orphaned;
   // they're inert without a reviewer pointing at them.
   const [draftId] = useState(() => newId());
-  // Browsers don't render text-overflow:ellipsis inside <input>, so an unfocused
-  // topic is drawn as a real element on top of the (text-transparent) input.
-  const [focusedTopic, setFocusedTopic] = useState<string | null>(null);
-
   const importInputRef = useRef<HTMLInputElement>(null);
   const [importDragOver, setImportDragOver] = useState(false);
   const [importPending, setImportPending] = useState<ParsedReviewerFile | null>(null);
   const [importError, setImportError] = useState("");
   const [importing, setImporting] = useState(false);
-
-  function updateTopic(id: string, value: string) {
-    topicList.update(id, value);
-  }
-
-  function removeTopic(id: string) {
-    topicList.remove(id);
-  }
-
-  function addTopic() {
-    topicList.add();
-  }
-
-  // Enter in a topic input adds a row instead of submitting the form.
-  const topicsRef = useRef<HTMLDivElement>(null);
-  const focusNewTopic = useRef(false);
-  useEffect(() => {
-    if (!focusNewTopic.current) return;
-    focusNewTopic.current = false;
-    const inputs = topicsRef.current?.querySelectorAll("input");
-    inputs?.[inputs.length - 1]?.focus();
-  }, [topicList.rows.length]);
-
-  function handleTopicKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    focusNewTopic.current = true;
-    addTopic();
-  }
 
   function saveGenerated() {
     saveCustomFormat({
@@ -400,46 +368,20 @@ export default function NewReviewerPage() {
       )}
 
       <form onSubmit={handleCreate} className="mt-4 flex flex-col">
-        <div className="grid grid-cols-1 gap-6 pb-6 md:grid-cols-[160px_1fr]">
-          <div>
-            <p className="text-[0.9375rem] font-medium text-text-primary">Reviewer info</p>
-            <p className="mt-1 text-[0.875rem] text-text-secondary">Name and subject for this reviewer.</p>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[0.875rem] text-text-secondary">
-                Reviewer name <span className="text-error">*</span>
-              </span>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  if (nameError) setNameError(false);
-                }}
-                placeholder="e.g. CPU Scheduling"
-                className={`h-11 rounded-lg border px-3 text-text-primary outline-none ${
-                  nameError ? "border-error focus:border-error" : "border-border focus:border-accent"
-                }`}
-                onBlur={() => {
-                  if (!name.trim()) setNameError(true);
-                }}
-                autoFocus
-              />
-              {nameError && <span className="text-[0.8125rem] text-error">Reviewer name is required.</span>}
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[0.875rem] text-text-secondary">Subject (optional)</span>
-              <input
-                type="text"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="e.g. Intro to Operating Systems"
-                className="h-11 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent"
-              />
-            </label>
-          </div>
-        </div>
+        <ReviewerInfoFields
+          name={name}
+          subject={subject}
+          nameError={nameError}
+          onNameChange={(v) => {
+            setName(v);
+            if (nameError) setNameError(false);
+          }}
+          onSubjectChange={setSubject}
+          onNameBlur={() => {
+            if (!name.trim()) setNameError(true);
+          }}
+          autoFocus
+        />
 
         <SourceSections
           reviewerId={draftId}
@@ -451,151 +393,49 @@ export default function NewReviewerPage() {
           onPastExamChange={setPastExamMaterial}
         />
 
-        <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
-          <div>
-            <p className="text-[0.9375rem] font-medium text-text-primary">Exam format</p>
-            <p className="mt-1 text-[0.875rem] text-text-secondary">
-              The question types this reviewer generates.
-            </p>
-          </div>
-          <div className="flex flex-col gap-4">
-            <div role="radiogroup" aria-label="Format source" className="flex flex-col gap-2 sm:flex-row sm:gap-6">
-              <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-[0.9375rem] text-text-primary">
-                <input
-                  type="radio"
-                  name="exam-format-mode"
-                  checked={!learn}
-                  onChange={() => selectSavedFormat(examFormatId)}
-                  className="h-4 w-4 shrink-0 accent-accent"
-                />
-                Use a saved format
-              </label>
-              <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-[0.9375rem] text-text-primary">
-                <input
-                  type="radio"
-                  name="exam-format-mode"
-                  checked={learn}
-                  onChange={selectLearn}
-                  className="h-4 w-4 shrink-0 accent-accent"
-                />
-                Learn from my material
-              </label>
-            </div>
+        <FormatPicker
+          learn={learn}
+          formats={formats}
+          format={resolveFromList(formats, examFormatId)}
+          onSelectSaved={selectSavedFormat}
+          onSelectLearn={selectLearn}
+          learnPanel={
+            <GeneratedFormatPanel
+              reviewerId={draftId}
+              notes={notes}
+              pastExam={pastExamMaterial}
+              subject={subject || name}
+              types={genTypes}
+              counts={countByType}
+              onChange={(types, counts) => {
+                setGenTypes(types);
+                setCountByType(counts);
+                setGenSaved(false);
+                setError("");
+              }}
+              formatName={genName}
+              defaultName={genDefaultName}
+              onNameChange={(v) => {
+                setGenName(v);
+                setGenSaved(false);
+              }}
+              onSave={saveGenerated}
+              saved={genSaved}
+            />
+          }
+        />
 
-            {learn ? (
-              <GeneratedFormatPanel
-                reviewerId={draftId}
-                notes={notes}
-                pastExam={pastExamMaterial}
-                subject={subject || name}
-                types={genTypes}
-                counts={countByType}
-                onChange={(types, counts) => {
-                  setGenTypes(types);
-                  setCountByType(counts);
-                  setGenSaved(false);
-                  setError("");
-                }}
-                formatName={genName}
-                defaultName={genDefaultName}
-                onNameChange={(v) => {
-                  setGenName(v);
-                  setGenSaved(false);
-                }}
-                onSave={saveGenerated}
-                saved={genSaved}
-              />
-            ) : (
-              <div className="flex flex-col gap-2">
-                <OptionSelect
-                  label="Exam format"
-                  options={formats.map((f) => ({ value: f.id, label: f.name }))}
-                  value={format.id}
-                  onChange={selectSavedFormat}
-                />
-                <p className="text-[0.8125rem] text-text-tertiary">
-                  {format.types.map((t) => t.label).join(" · ")}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
+        <QuestionCountSection
+          learn={learn}
+          learnPending={learnPending}
+          total={total}
+          format={format}
+          value={countByType}
+          onChange={setCountByType}
+          countError={countError}
+        />
 
-        <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
-          <div>
-            <p className="text-[0.9375rem] font-medium text-text-primary">Question count</p>
-            <p className="mt-1 text-[0.875rem] text-text-secondary">How many questions to generate per type.</p>
-          </div>
-          <div>
-            {learn ? (
-              learnPending ? (
-                <p className="text-[0.875rem] text-text-secondary">Counts appear after you suggest types.</p>
-              ) : (
-                <p className="text-[0.875rem] font-semibold text-text-primary">
-                  Total: {total} question{total === 1 ? "" : "s"}
-                  <span className="ml-2 font-normal text-text-secondary">Edit counts in the list above.</span>
-                </p>
-              )
-            ) : (
-              <QuestionCountControl format={format} value={countByType} onChange={setCountByType} />
-            )}
-            {countError && <p className="mt-2 text-[0.875rem] text-error">{countError}</p>}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 border-t border-border py-6 md:grid-cols-[160px_1fr]">
-          <div>
-            <p className="text-[0.9375rem] font-medium text-text-primary">Topics</p>
-            <p className="mt-1 text-[0.875rem] text-text-secondary">
-              Optional. Weights question generation toward these topics.
-            </p>
-          </div>
-          <div ref={topicsRef} className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2">
-            {topicList.rows.map((row) => {
-              const showOverlay = Boolean(row.value) && focusedTopic !== row.id;
-              return (
-                <div key={row.id} className="relative">
-                  <input
-                    type="text"
-                    value={row.value}
-                    title={row.value}
-                    onChange={(e) => updateTopic(row.id, e.target.value)}
-                    onKeyDown={handleTopicKeyDown}
-                    onFocus={() => setFocusedTopic(row.id)}
-                    onBlur={() => setFocusedTopic(null)}
-                    placeholder="e.g. Paging"
-                    className={`h-11 w-full truncate rounded-lg border border-border pl-3 pr-8 outline-none focus:border-accent ${
-                      showOverlay ? "text-transparent" : "text-text-primary"
-                    }`}
-                  />
-                  {showOverlay && (
-                    <span
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-y-0 left-0 right-8 flex items-center truncate pl-3 text-text-primary"
-                    >
-                      {row.value}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => removeTopic(row.id)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-error"
-                    aria-label={row.value ? `Remove topic ${row.value}` : "Remove topic"}
-                  >
-                    ✕
-                  </button>
-                </div>
-              );
-            })}
-            <button
-              type="button"
-              onClick={addTopic}
-              className="col-span-full flex h-11 items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong text-[0.9375rem] font-medium text-text-secondary hover:border-accent hover:text-accent"
-            >
-              + Add topic
-            </button>
-          </div>
-        </div>
+        <TopicsField topicList={topicList} />
 
         {/* Spacer so the fixed bar never hides the last field. */}
         <div aria-hidden="true" className="h-20" />

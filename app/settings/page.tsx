@@ -320,7 +320,7 @@ export default function SettingsPage() {
 
         <Section
           title="Reminders"
-          note={`Local only — no server, no push yet.${permission ? ` Browser permission: ${permission}.` : ""}`}
+          note={`Local only. No server, no push yet.${permission ? ` Browser permission: ${permission}.` : ""}`}
         >
           <ToggleRow
             label="Study reminders"
@@ -370,7 +370,7 @@ export default function SettingsPage() {
           </div>
           {storageFull && (
             <p role="alert" className="border-b border-border pb-3 text-[0.875rem] font-medium text-warning">
-              Storage is over 80% full — export a backup, then delete old reviewers to free space.
+              Storage is over 80% full. Export a backup, then delete old reviewers to free space.
             </p>
           )}
         </Section>

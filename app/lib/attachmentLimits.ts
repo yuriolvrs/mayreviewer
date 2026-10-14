@@ -77,4 +77,4 @@ export function isHeicFile(name: string, mimeType: string): boolean {
 }
 
 export const HEIC_GUIDANCE =
-  "HEIC photos aren't supported — switch your camera to JPEG or convert the photo first, then upload it again.";
+  "HEIC photos aren't supported. Switch your camera to JPEG or convert the photo first, then upload it again.";

@@ -301,7 +301,7 @@ export default function ProgressPage() {
           </p>
         ) : (
           <p className="mt-2 text-[0.9375rem] text-text-secondary">
-            No streak yet — answer {STREAK_DAY_MIN_QUESTIONS}+ questions today to start one.
+            No streak yet. Answer {STREAK_DAY_MIN_QUESTIONS}+ questions today to start one.
           </p>
         )}
         {/* Connected track: one line with the seven days as nodes, so the week

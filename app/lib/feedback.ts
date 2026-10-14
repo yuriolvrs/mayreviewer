@@ -1,7 +1,7 @@
-// Placeholder until a real support address exists. Single source of truth —
+// Public support address. Single source of truth —
 // every user-facing mention (feedback form, privacy, terms) references this,
 // so swapping in the real address is one line.
-export const SUPPORT_EMAIL = "support@example.com";
+export const SUPPORT_EMAIL = "mayreviewer.app@gmail.com";
 export const APP_VERSION = "0.1.0";
 
 export type FeedbackType = "bug" | "idea" | "question" | "other";

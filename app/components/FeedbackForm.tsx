@@ -15,11 +15,22 @@ export default function FeedbackForm() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function onCopy() {
+    try {
+      await navigator.clipboard.writeText(SUPPORT_EMAIL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard blocked: the address is also shown as a link after sending.
+    }
+  }
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!isFeedbackMessageValid(message)) {
-      setError("Write a little more, at least 10 characters, so it's actionable.");
+      setError("Please write at least 10 characters so we can act on it.");
       return;
     }
     setError(null);
@@ -54,23 +65,37 @@ export default function FeedbackForm() {
           aria-describedby={error ? "feedback-error" : undefined}
           className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-[0.9375rem] text-text-primary outline-none placeholder:text-text-tertiary focus:border-accent"
         />
+        <span className="text-[0.8125rem] text-text-tertiary">
+          {message.length} / 2000. Do not include passwords or private information.
+        </span>
       </label>
       {error && (
         <p id="feedback-error" role="alert" className="text-[0.875rem] text-error">
           {error}
         </p>
       )}
-      <div className="flex justify-center">
+      <div className="flex flex-wrap gap-3">
         <button
           type="submit"
           className="min-h-[44px] rounded-lg bg-accent px-4 py-2 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover"
         >
           Send via mail app
         </button>
+        <button
+          type="button"
+          onClick={onCopy}
+          className="min-h-[44px] rounded-lg border border-border bg-surface px-4 py-2 text-[0.9375rem] font-medium text-text-primary hover:bg-surface-alt"
+        >
+          {copied ? "Address copied" : "Copy email address"}
+        </button>
       </div>
       {sent && (
         <p role="status" className="text-[0.875rem] text-text-secondary">
-          Mail app opened. If nothing happened, email {SUPPORT_EMAIL} directly.
+          Your mail app should open with the message ready to send. If it does not, email{" "}
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="font-medium text-accent underline">
+            {SUPPORT_EMAIL}
+          </a>{" "}
+          directly.
         </p>
       )}
     </form>

@@ -78,7 +78,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           {children}
         </main>
         <footer className="border-t border-border px-4 py-2 md:px-16">
-          <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-5">
+          <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-6">
             <Link
               href="/about"
               className="inline-block py-2 text-[0.8125rem] text-text-secondary hover:text-text-primary"

@@ -1,5 +1,9 @@
+import type { Metadata } from "next";
+import Link from "next/link";
 import FeedbackForm from "@/app/components/FeedbackForm";
 import { APP_VERSION } from "@/app/lib/feedback";
+
+export const metadata: Metadata = { title: "About | May Reviewer" };
 
 function Section({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
   return (
@@ -20,11 +24,12 @@ export default function AboutPage() {
         <Section title="What this is">
           <p>
             May Reviewer turns your notes, handouts, and project material into a practice quiz you
-            can retake as often as you want. Still shaped around the exam it was built for. See{" "}
+            can retake as often as you want. It started as a tool for one exam and now supports
+            several formats. See{" "}
             <a href="#limitations" className="font-medium text-accent underline">
               Known limitations
             </a>{" "}
-            below
+            for what it cannot do yet.
           </p>
         </Section>
 
@@ -36,28 +41,32 @@ export default function AboutPage() {
           <p>
             Your reviewers, questions, and quiz history live in this browser only. Nothing is kept
             on a server and nothing is shared between devices. Clearing your browser data deletes
-            them. Uploaded material is sent out once, during generation, so the model can read it:
-            text files are read in the browser and sent as text, while PDFs are uploaded to
-            temporary storage so the model can read them, then deleted right after the questions
-            come back. No third parties beyond that are involved, and nothing is used for training or
-            advertising.
+            them.
+          </p>
+          <p>
+            Your material leaves the browser only when you generate questions. Text is sent as
+            text. PDFs and images go to temporary storage so the model can read them, and they are
+            deleted when the questions come back. If Gemini fails, Mistral is used as a fallback.
+            Nothing is used for training or advertising. See the{" "}
+            <Link href="/privacy" className="font-medium text-accent underline">
+              Privacy Policy
+            </Link>{" "}
+            for details.
           </p>
         </Section>
 
         <Section title="Known limitations" id="limitations">
           <ul className="flex list-disc flex-col gap-1.5 pl-5">
             <li>
-            Multiple formats exist: built-ins like Operating Systems Exam, Math, Language,
-            Science, and History, plus your own custom formats with whatever
-            question types your exam uses. It&apos;s still one reviewer format
-            at a time. General-purpose sharing beyond import/export
-            isn&apos;t here yet.
+              Built-in formats include Operating Systems Exam, Math, Language, Science, and
+              History. You can also build your own format with the question types your exam uses.
+              Each reviewer uses one format at a time.
             </li>
             <li>
               Question quality depends entirely on the material you upload. Thin or unfocused source
               material produces thin questions, and the model can still get things wrong.
             </li>
-            <li>No accounts, no multi-user, no collaboration. Sharing happens through Import/Export.</li>
+            <li>No accounts and no collaboration. You share a reviewer by exporting it and sending the file.</li>
             <li>
               Uploads accept <span className="font-mono">.pdf</span>,{" "}
               <span className="font-mono">.jpg</span>, <span className="font-mono">.png</span>,{" "}
@@ -77,9 +86,9 @@ export default function AboutPage() {
               screen. Answers are limited to 600 characters, and long essays aren&apos;t supported.
             </li>
             <li>
-              A past exam can be attached to a reviewer or kept on a format. The AI drafts
-              question types from it, but every draft needs your review before it becomes part
-              of a format, and generated questions still need checking before you study them.
+              You can attach a past exam to a reviewer or keep it on a format. The AI drafts
+              question types from it. You must review every draft before it becomes part of a
+              format. Check generated questions before you study from them.
             </li>
           </ul>
         </Section>
@@ -88,17 +97,21 @@ export default function AboutPage() {
           <p>Nothing here is promised, but these are the likely directions:</p>
           <ul className="flex list-disc flex-col gap-1.5 pl-5">
             <li>More question types and richer format building blocks.</li>
-            <li>Accounts, so reviewers aren&apos;t stuck in one browser. Sign in, and you can see your reviewers across devices.</li>
-            <li>An actual database (likely Supabase) to back that, instead of everything living in IndexedDB.</li>
-            <li>A page for browsing reviewers other people have made and installing one into your own account, 
-                with the option to keep the underlying source files private and only share the generated questions.</li>
-            <li>Better handling of longer or image-heavy source material: this one costs more per generation, 
-                so it depends on how the free tier holds up once more people are using it.</li>
+            <li>Accounts, so your reviewers are available on every device you sign in on.</li>
+            <li>A real database (likely Supabase) to back accounts, instead of browser storage.</li>
+            <li>
+              A page to browse reviewers other people made and add one to your account. Authors
+              could keep their source files private and share only the generated questions.
+            </li>
+            <li>
+              Better handling of long or image-heavy source material. This costs more per
+              generation, so it depends on how the free tier holds up as more people use it.
+            </li>
           </ul>
         </Section>
 
         <Section title="Feedback" id="feedback">
-          <p>Found a bug or want something? Tell me below. It opens your mail app.</p>
+          <p>Found a bug or have an idea? Write it below. This opens your mail app with a prefilled message.</p>
           <FeedbackForm />
         </Section>
 
@@ -118,9 +131,9 @@ export default function AboutPage() {
           <p className="mt-2 text-[0.875rem] text-text-tertiary">
             This is an independent personal project, not affiliated with or endorsed by any school,
             course, or instructor. Generated questions are practice material only. They&apos;re not
-            guaranteed to be accurate and are not official exam content. Always check your own
-            source material and verify the generated questions and answers before using them for 
-            studying or sharing them with others.
+            guaranteed to be accurate and are not official exam content. Check the generated
+            questions and answers against your own source material before you study from them or
+            share them.
           </p>
         </section>
       </div>

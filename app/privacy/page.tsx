@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { SUPPORT_EMAIL } from "@/app/lib/feedback";
+
+export const metadata: Metadata = { title: "Privacy Policy | May Reviewer" };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -13,7 +16,7 @@ export default function PrivacyPage() {
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
       <h1 className="text-[1.625rem] font-semibold text-text-primary">Privacy Policy</h1>
-      <p className="mt-1 text-[0.9375rem] text-text-secondary">Last updated September 12, 2026.</p>
+      <p className="mt-1 text-[0.9375rem] text-text-secondary">Last updated October 14, 2026.</p>
 
       <div className="mt-6 flex flex-col">
         <Section title="The short version">
@@ -37,12 +40,12 @@ export default function PrivacyPage() {
 
         <Section title="What is sent, and when">
           <p>
-            Only when you tap Generate (or ask the app to draft question types from a past
-            exam): the notes and material for that reviewer are sent so the model can read
-            them. Pasted text travels as text. PDFs and images are uploaded to temporary
-            storage so the model can read them natively, then deleted after the questions
-            come back. Nothing is sent at any other time. Browsing, editing, and quizzing
-            are fully local.
+            Only when you tap Generate, or ask the app to draft question types from a past
+            exam. The notes and material for that reviewer are sent so the model can read
+            them. Pasted text is sent as text. PDFs and images are uploaded to temporary
+            storage so the model can read them, then deleted after the questions come back.
+            Short-answer grading sends your answer to the model when you submit a quiz.
+            Nothing is sent at any other time. Browsing and editing are fully local.
           </p>
         </Section>
 

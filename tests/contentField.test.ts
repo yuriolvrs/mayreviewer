@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compose, filesToText, type UploadedTextFile } from "@/app/components/ContentField";
+import { compose, filesToText, formatFileSize, type UploadedTextFile } from "@/app/components/ContentField";
 
 function file(overrides: Partial<UploadedTextFile> = {}): UploadedTextFile {
   return {
@@ -60,5 +60,13 @@ describe("compose", () => {
     expect(second).toContain("MY PASTED NOTES");
     expect(second).toContain("SCHEDULING BASICS");
     expect(second).toContain("PAGING BASICS");
+  });
+});
+
+describe("formatFileSize", () => {
+  it("uses B, KB and MB", () => {
+    expect(formatFileSize(500)).toBe("500 B");
+    expect(formatFileSize(2048)).toBe("2 KB");
+    expect(formatFileSize(1.2 * 1024 * 1024)).toBe("1.2 MB");
   });
 });

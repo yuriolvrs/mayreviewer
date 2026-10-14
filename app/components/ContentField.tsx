@@ -28,6 +28,13 @@ export type UploadedTextFile = {
   error?: string;
 };
 
+// Exported for tests.
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function extensionOf(name: string): string {
   return name.split(".").pop()?.toLowerCase() ?? "";
 }
@@ -91,6 +98,67 @@ function isStoredFile(file: File): boolean {
   );
 }
 
+function FileRow({
+  fresh,
+  name,
+  href,
+  size,
+  status,
+  statusTitle,
+  isError,
+  onRemove,
+}: {
+  fresh: boolean;
+  name: string;
+  href: string;
+  size: number;
+  status: string;
+  statusTitle?: string;
+  isError?: boolean;
+  onRemove: () => void;
+}) {
+  return (
+    <li
+      className={`flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2 motion-safe:transition-colors motion-safe:duration-700 ${
+        fresh ? "motion-safe:bg-accent-subtle" : ""
+      }`}
+    >
+      <div className="flex min-w-0 items-start gap-2.5">
+        <span className="mt-0.5">
+          <FileTypeBadge name={name} />
+        </span>
+        <div className="min-w-0">
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={name}
+            className="block break-words text-[0.9375rem] text-text-primary hover:text-accent hover:underline"
+          >
+            {name}
+          </a>
+          <p
+            aria-live="polite"
+            title={statusTitle}
+            className={`text-[0.875rem] ${isError ? "text-error" : "text-text-tertiary"}`}
+          >
+            {size > 0 && `${formatFileSize(size)} · `}
+            {status}
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove ${name}`}
+        className="min-h-[44px] shrink-0 px-2 text-[0.9375rem] text-text-secondary hover:text-error"
+      >
+        Remove
+      </button>
+    </li>
+  );
+}
+
 export default function ContentField({
   initialText,
   onChange,
@@ -114,6 +182,8 @@ export default function ContentField({
   const [fileAttachments, setFileAttachments] = useState<Attachment[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [fileError, setFileError] = useState("");
+  // Ids of rows added this session; each one is highlighted for a moment.
+  const [freshIds, setFreshIds] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const isFirstRender = useRef(true);
   const textFilesRef = useRef(textFiles);
@@ -187,6 +257,12 @@ export default function ContentField({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [textFiles]);
 
+  function markFresh(ids: string[]) {
+    if (ids.length === 0) return;
+    setFreshIds((prev) => [...prev, ...ids]);
+    setTimeout(() => setFreshIds((prev) => prev.filter((id) => !ids.includes(id))), 1500);
+  }
+
   async function addFiles(incoming: File[]) {
     const heic = incoming.filter((f) => isHeicFile(f.name, f.type));
     const rest = incoming.filter((f) => !isHeicFile(f.name, f.type));
@@ -199,6 +275,7 @@ export default function ContentField({
     for (const file of stored) {
       const attachment = await addAttachment(reviewerId, field, file);
       setFileAttachments((prev) => [...prev, attachment]);
+      markFresh([attachment.id]);
     }
     if (stored.length) notifyAttachmentChange();
 
@@ -210,6 +287,7 @@ export default function ContentField({
       status: "extracting",
     }));
     setTextFiles((prev) => [...prev, ...entries]);
+    markFresh(entries.map((e) => e.id));
 
     others.forEach((file, i) => {
       const entryId = entries[i].id;
@@ -241,6 +319,8 @@ export default function ContentField({
     notifyAttachmentChange();
   }
 
+  const fileCount = fileAttachments.length + textFiles.length;
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-4 border-b border-border" role="tablist" aria-label="Content input mode">
@@ -255,7 +335,7 @@ export default function ContentField({
               : "border-transparent text-text-secondary hover:text-text-primary"
           }`}
         >
-          Upload files
+          {fileCount > 0 ? `Upload files (${fileCount})` : "Upload files"}
         </button>
         <button
           type="button"
@@ -269,6 +349,13 @@ export default function ContentField({
           }`}
         >
           Paste text
+          {pasteText.trim().length > 0 && (
+            <span
+              aria-hidden="true"
+              className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-accent align-middle"
+            />
+          )}
+          {pasteText.trim().length > 0 && <span className="sr-only"> (has text)</span>}
         </button>
       </div>
 
@@ -300,12 +387,18 @@ export default function ContentField({
               addFiles(Array.from(e.dataTransfer.files));
             }}
             onClick={() => inputRef.current?.click()}
-            className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed p-9 text-center text-text-secondary ${
+            className={`flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed text-center text-text-secondary ${
+              fileCount > 0 ? "justify-center px-4 py-3" : "flex-col p-9"
+            } ${
               dragOver ? "border-accent bg-accent-subtle" : "border-border"
             }`}
           >
-            <UploadIcon />
-            <p>Drop PDF, image, DOCX, TXT, or CPP files here, or click to browse.</p>
+            {fileCount === 0 && <UploadIcon />}
+            <p>
+              {fileCount > 0
+                ? "Add more files, or drop them here"
+                : "Drop PDF, image, DOCX, TXT, or CPP files here, or click to browse."}
+            </p>
             {fileError && (
               <p className="mx-auto mt-2 max-w-md text-[0.875rem] text-error">{fileError}</p>
             )}
@@ -326,65 +419,44 @@ export default function ContentField({
             />
           </div>
 
-          {(fileAttachments.length > 0 || textFiles.length > 0) && (
-            <ul className="divide-y divide-border">
-              {fileAttachments.map((a) => (
-                <li key={a.id} className="flex items-center justify-between gap-3 py-2.5">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <FileTypeBadge name={a.name} />
-                    <a
-                      href={fileUrls[a.id]}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="break-words text-[0.9375rem] text-text-primary hover:text-accent hover:underline"
-                    >
-                      {a.name}
-                    </a>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-4">
-                    <span className="text-[0.875rem] text-text-tertiary">sent as-is</span>
-                    <button
-                      type="button"
-                      onClick={() => removeFileAttachment(a.id)}
-                      aria-label={`Remove ${a.name}`}
-                      className="text-[0.9375rem] text-text-secondary hover:text-error"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </li>
-              ))}
-              {textFiles.map((f) => (
-                <li key={f.id} className="flex items-center justify-between gap-3 py-2.5">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <FileTypeBadge name={f.name} />
-                    <a
-                      href={textUrls[f.id]}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="break-words text-[0.9375rem] text-text-primary hover:text-accent hover:underline"
-                    >
-                      {f.name}
-                    </a>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-4">
-                    <span aria-live="polite" className="text-[0.875rem] text-text-tertiary">
-                      {f.status === "extracting" && "Extracting…"}
-                      {f.status === "done" && "converted to text"}
-                    </span>
-                    {f.status === "error" && <span className="text-[0.875rem] text-error">{f.error}</span>}
-                    <button
-                      type="button"
-                      onClick={() => removeTextFile(f.id)}
-                      aria-label={`Remove ${f.name}`}
-                      className="text-[0.9375rem] text-text-secondary hover:text-error"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+          {fileCount > 0 && (
+            <div className="flex flex-col gap-2">
+              <h3 className="text-[0.875rem] font-semibold text-text-secondary">
+                Uploaded files ({fileCount})
+              </h3>
+              <ul className="flex flex-col gap-2">
+                {fileAttachments.map((a) => (
+                  <FileRow
+                    key={a.id}
+                    fresh={freshIds.includes(a.id)}
+                    name={a.name}
+                    href={fileUrls[a.id]}
+                    size={a.data.byteLength}
+                    status="Ready"
+                    statusTitle="The AI reads this file directly"
+                    onRemove={() => removeFileAttachment(a.id)}
+                  />
+                ))}
+                {textFiles.map((f) => (
+                  <FileRow
+                    key={f.id}
+                    fresh={freshIds.includes(f.id)}
+                    name={f.name}
+                    href={textUrls[f.id]}
+                    size={f.file?.size ?? 0}
+                    status={
+                      f.status === "extracting"
+                        ? "Reading text..."
+                        : f.status === "done"
+                          ? "Converted to text"
+                          : (f.error ?? "Couldn't read this file.")
+                    }
+                    isError={f.status === "error"}
+                    onRemove={() => removeTextFile(f.id)}
+                  />
+                ))}
+              </ul>
+            </div>
           )}
         </div>
       )}

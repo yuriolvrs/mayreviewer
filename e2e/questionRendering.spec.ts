@@ -367,7 +367,7 @@ test.describe("Custom formats", () => {
     await row.locator('input[type="file"]').setInputFiles(path.join(__dirname, "fixtures", "facts.png"));
     await expect(row.getByText("facts.png")).toBeVisible();
     await expect(row.getByText("IMG")).toBeVisible();
-    await expect(row.getByText("sent as-is")).toBeVisible();
+    await expect(row.getByText(/· Ready$/)).toBeVisible();
   });
 
 // Answers every question by the option's TEXT — the only deterministic way once

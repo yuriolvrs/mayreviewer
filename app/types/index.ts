@@ -172,7 +172,7 @@ export type Reviewer = {
   // generation, alongside notes and project material.
   pastExamMaterial: string;
   // Which exam format this reviewer generates under. Reviewers saved before
-  // formats existed read back as the built-in CSOPESY Final (see `normalize`
+  // formats existed read back as the built-in Operating Systems Exam (see `normalize`
   // in storage.ts), so nothing about them changes.
   examFormatId: string;
   // The total, kept as a mirror of `questionCountByType`'s sum — it's what the

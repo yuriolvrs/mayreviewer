@@ -5,7 +5,7 @@ Turn your notes into a practice exam, in a question format you choose.
 ## What it does
 
 - **Reviewers** — one study unit each: notes, project material, past exams, generated questions.
-- **Formats** — built-in exam formats (CSOPESY Final, Math, Language, Science, History) plus your own custom formats with an inference helper that drafts types from a past exam.
+- **Formats** — built-in exam formats (Operating Systems Exam, Math, Language, Science, History) plus your own custom formats with an inference helper that drafts types from a past exam.
 - **Quiz** — immediate or end-only feedback, scope by type, retakes with reshuffled options.
 - **History** — every attempt across all reviewers, reopenable.
 - **Import/Export** — reviewers travel as `.json`, or as `.zip` with uploaded files bundled.

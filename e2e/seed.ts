@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import type { Question, Reviewer } from "@/app/types";
-import { CSOPESY_FINAL } from "@/app/lib/examFormats";
+import { OS_EXAM } from "@/app/lib/examFormats";
 
 // One Reviewer covering every shape the render paths branch on, so a single
 // seeded fixture exercises all of them:
@@ -115,7 +115,7 @@ export function seededReviewer(): Reviewer {
     notes: "seeded by the e2e fixture",
     projectMaterial: "",
     pastExamMaterial: "",
-    examFormatId: CSOPESY_FINAL.id,
+    examFormatId: OS_EXAM.id,
     questionCount: SEEDED_QUESTIONS.length,
     questionCountByType: { identification: 1, scenario: 1, timeline: 3, code: 2, "modified-tf": 1 },
     questions: SEEDED_QUESTIONS,

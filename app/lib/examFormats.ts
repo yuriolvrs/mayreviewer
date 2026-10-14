@@ -88,13 +88,22 @@ export type UnsupportedNote = {
   reason: string;
 };
 
-export const CSOPESY_FINAL_ID = "csopesy-final";
+export const OS_EXAM_ID = "os-exam";
+
+// Id this built-in shipped under before the rename; saved reviewers, attempts,
+// and export files may still carry it.
+export const LEGACY_OS_EXAM_ID = "csopesy-final";
+
+// Maps the legacy built-in id to the current one; any other id is unchanged.
+export function canonicalFormatId(id: string): string {
+  return id === LEGACY_OS_EXAM_ID ? OS_EXAM_ID : id;
+}
 
 // Today's five hardcoded types, frozen as data: generation, counts, filters,
 // and quiz scope behave exactly as before for reviewers on this format.
-export const CSOPESY_FINAL: ExamFormat = {
-  id: CSOPESY_FINAL_ID,
-  name: "CSOPESY Final",
+export const OS_EXAM: ExamFormat = {
+  id: OS_EXAM_ID,
+  name: "Operating Systems Exam",
   description:
     "Identification, Scenario, Timeline and Code sets, plus Modified True/False. This is the Intro to Operating Systems final format.",
   types: [
@@ -261,7 +270,7 @@ export const HISTORY: ExamFormat = {
 };
 
 export function getBuiltinFormats(): ExamFormat[] {
-  return [CSOPESY_FINAL, MATH_101, LANGUAGE, SCIENCE, HISTORY];
+  return [OS_EXAM, MATH_101, LANGUAGE, SCIENCE, HISTORY];
 }
 
 const CUSTOM_FORMATS_KEY = "mayreviewer-formats";
@@ -319,7 +328,7 @@ export function mergeFormats(builtins: ExamFormat[], customs: ExamFormat[]): Exa
 // custom format deleted out from under its reviewers must degrade to
 // something renderable, not "Reviewer not found".
 export function resolveFormat(id: string | undefined): ExamFormat {
-  return getAllFormats().find((f) => f.id === id) ?? CSOPESY_FINAL;
+  return getAllFormats().find((f) => f.id === id) ?? OS_EXAM;
 }
 
 // Same lookup against an already-loaded list. Render paths use this with
@@ -328,7 +337,7 @@ export function resolveFormat(id: string | undefined): ExamFormat {
 // server would render built-ins-only while the client hydrates with customs
 // (a guaranteed hydration mismatch wherever customs exist).
 export function resolveFromList(formats: ExamFormat[], id: string | undefined): ExamFormat {
-  return formats.find((f) => f.id === id) ?? CSOPESY_FINAL;
+  return formats.find((f) => f.id === id) ?? OS_EXAM;
 }
 
 // The format's type keys in the format's own order — the list every count

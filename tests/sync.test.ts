@@ -49,7 +49,7 @@ function reviewer(id: string, updatedAt: string): Reviewer {
     notes: "",
     projectMaterial: "",
     pastExamMaterial: "",
-    examFormatId: "csopesy-final",
+    examFormatId: "os-exam",
     questionCount: 0,
     questionCountByType: {},
     questions: [],
@@ -70,8 +70,8 @@ function attempt(id: string, reviewerId = "r1"): QuizAttempt {
     answers: {},
     unsureIds: [],
     questionSetGeneratedAt: "legacy",
-    examFormatId: "csopesy-final",
-    examFormatName: "CSOPESY Final",
+    examFormatId: "os-exam",
+    examFormatName: "Operating Systems Exam",
   };
 }
 

@@ -1,5 +1,11 @@
 import { DEFAULT_QUESTION_COUNT, splitCountEvenly, sumCounts, sumCredit } from "@/app/lib/questions";
-import { CSOPESY_FINAL, formatTypeKeys, resolveFormat } from "@/app/lib/examFormats";
+import {
+  LEGACY_OS_EXAM_ID,
+  OS_EXAM,
+  canonicalFormatId,
+  formatTypeKeys,
+  resolveFormat,
+} from "@/app/lib/examFormats";
 import { newId } from "@/app/lib/ids";
 import { markDeleted } from "@/app/lib/tombstones";
 import { notifyLocalChange } from "@/app/lib/localChange";
@@ -109,7 +115,8 @@ function normalize(reviewer: Reviewer): Reviewer {
     pastExamMaterial: reviewer.pastExamMaterial ?? "",
     // Reviewers saved before formats existed belong to the built-in they were
     // generated under — their questions, counts, and history are untouched.
-    examFormatId: reviewer.examFormatId ?? CSOPESY_FINAL.id,
+    // Also maps the pre-rename built-in id onto the current one.
+    examFormatId: canonicalFormatId(reviewer.examFormatId ?? OS_EXAM.id),
     questionCountByType,
     questionCount: sumCounts(questionCountByType),
     questions: reviewer.questions ?? [],
@@ -209,9 +216,12 @@ function normalizeAttempt(
   // The format snapshot backfills from the attempt's own reviewer, like the
   // set timestamp above; an orphaned attempt falls back to the built-in.
   const format = formatByReviewer.get(attempt.reviewerId) ?? {
-    id: CSOPESY_FINAL.id,
-    name: CSOPESY_FINAL.name,
+    id: OS_EXAM.id,
+    name: OS_EXAM.name,
   };
+  // An attempt snapshotted under the pre-rename id reads back under the
+  // current built-in, so history stops showing the old name.
+  const legacy = attempt.examFormatId === LEGACY_OS_EXAM_ID;
   return {
     ...attempt,
     questions: attempt.questions ?? [],
@@ -223,8 +233,8 @@ function normalizeAttempt(
     // Reviewer was deleted — there's no set to match it to.
     questionSetGeneratedAt:
       attempt.questionSetGeneratedAt ?? generatedAtByReviewer.get(attempt.reviewerId) ?? LEGACY_QUESTION_SET,
-    examFormatId: attempt.examFormatId ?? format.id,
-    examFormatName: attempt.examFormatName ?? format.name,
+    examFormatId: legacy ? OS_EXAM.id : (attempt.examFormatId ?? format.id),
+    examFormatName: legacy ? OS_EXAM.name : (attempt.examFormatName ?? format.name),
     durationSec: attempt.durationSec ?? 0,
     timedOut: attempt.timedOut ?? false,
     timeLimitSec: attempt.timeLimitSec ?? null,

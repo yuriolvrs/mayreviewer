@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { deleteWarning } from "@/app/lib/reviewers";
 import { saveQuizAttempt } from "@/app/lib/storage";
 import type { Question, Reviewer } from "@/app/types";
-import { CSOPESY_FINAL } from "@/app/lib/examFormats";
+import { OS_EXAM } from "@/app/lib/examFormats";
 
 function question(id: string): Question {
   return {
@@ -26,7 +26,7 @@ function reviewer(overrides: Partial<Reviewer> = {}): Reviewer {
     notes: "",
     projectMaterial: "",
     pastExamMaterial: "",
-    examFormatId: CSOPESY_FINAL.id,
+    examFormatId: OS_EXAM.id,
     questionCount: 10,
     questionCountByType: { identification: 3, scenario: 2, timeline: 2, code: 3, "modified-tf": 0 },
     questions: [question("q1"), question("q2")],

@@ -19,7 +19,7 @@ import {
   updateAttemptGrades,
 } from "@/app/lib/storage";
 import { mergeAttempts } from "@/app/lib/sync";
-import { CSOPESY_FINAL } from "@/app/lib/examFormats";
+import { OS_EXAM } from "@/app/lib/examFormats";
 import type { Question, QuizAttempt, Reviewer, ShortGrade } from "@/app/types";
 
 function short(overrides: Record<string, unknown> = {}) {
@@ -60,7 +60,7 @@ function reviewer(): Reviewer {
     notes: "",
     projectMaterial: "",
     pastExamMaterial: "",
-    examFormatId: CSOPESY_FINAL.id,
+    examFormatId: OS_EXAM.id,
     questionCount: 10,
     questionCountByType: {},
     questions: [],

@@ -147,8 +147,8 @@ describe("paceCalibrationFactor", () => {
       answers: { q1: 1, q2: 0 },
       unsureIds: [],
       questionSetGeneratedAt: "2026-09-18T09:00:00.000Z",
-      examFormatId: "csopesy-final",
-      examFormatName: "CSOPESY Final",
+      examFormatId: "os-exam",
+      examFormatName: "Operating Systems Exam",
       durationSec: 60,
       timedOut: false,
       ...overrides,
@@ -446,7 +446,7 @@ describe("dedupeQuestions", () => {
       question({
         id: "b",
         question:
-          "In the context of the CSOPESY OS, what is the maximum number of variables that can be stored in the symbol table segment of a process?",
+          "In the context of this course's OS, what is the maximum number of variables that can be stored in the symbol table segment of a process?",
       }),
     ];
     expect(dedupeQuestions(input).map((q) => q.id)).toEqual(["a"]);

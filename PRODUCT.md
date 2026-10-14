@@ -12,7 +12,7 @@ web
 
 Filipino college students, any course. They study for exams from their own lecture notes, slides, and past exams, often on a phone, often close to the exam date. The job: turn the material they already have into practice that looks like the real exam, then drill it.
 
-The product started with one student preparing for an Operating Systems final (CSOPESY) and grew to general courses.
+The product started with one student preparing for an Operating Systems final and grew to general courses.
 
 ## Product Purpose
 

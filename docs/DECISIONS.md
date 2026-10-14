@@ -42,3 +42,10 @@ Format: each entry has **Context**, **Decision**, **Reason**, **Status** (Accept
 - The Progress badge colors stay as a deliberate exception to the one-accent rule.
 **Reason:** These fix the critique's priority issues without restyling surfaces that already work.
 **Status:** Accepted
+
+## 2026-10-14: Built-in OS format renamed
+
+**Context:** The first built-in format used a school course code in its name and id. The user wants no mention of the course code in the app.
+**Decision:** The format is now "Operating Systems Exam" with id `os-exam`. One legacy id constant (`LEGACY_OS_EXAM_ID`) stays. Saved reviewers, attempts, and old export files with that id read back as `os-exam`, and attempts also take the new name. Old `/formats/<legacy id>` links are not redirected.
+**Reason:** Saved data and old export files keep working. An old export file is never saved as a custom copy of the built-in.
+**Status:** Accepted

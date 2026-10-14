@@ -47,7 +47,7 @@ export default function AboutPage() {
         <Section title="Known limitations" id="limitations">
           <ul className="flex list-disc flex-col gap-1.5 pl-5">
             <li>
-            Multiple formats exist: built-ins like CSOPESY Final, Math, Language,
+            Multiple formats exist: built-ins like Operating Systems Exam, Math, Language,
             Science, and History, plus your own custom formats with whatever
             question types your exam uses. It&apos;s still one reviewer format
             at a time. General-purpose sharing beyond import/export

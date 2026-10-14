@@ -15,8 +15,9 @@ import {
 } from "@/app/lib/questions";
 import { addAttachment } from "@/app/lib/attachments";
 import {
-  CSOPESY_FINAL,
   MAX_ID_CHARS,
+  OS_EXAM,
+  canonicalFormatId,
   defaultCounts,
   getBuiltinFormats,
   newFormatId,
@@ -45,7 +46,7 @@ export default function NewReviewerPage() {
   );
   // Customs arrive after mount (see useFormats): the first render is
   // built-ins-only on both server and client, so hydration always agrees.
-  const [examFormatId, setExamFormatId] = useState<string>(CSOPESY_FINAL.id);
+  const [examFormatId, setExamFormatId] = useState<string>(OS_EXAM.id);
   const formats = useFormats();
   // "Learn from course material": a draft format built by inference. It is
   // not stored until Create or "Save to Formats", and keeps one id so saving
@@ -212,9 +213,9 @@ export default function NewReviewerPage() {
       // the file's format when it carries a valid one.
       const embedded = importPending.format;
       const useFormatId =
-        embedded && !getBuiltinFormats().some((f) => f.id === embedded.id)
+        embedded && !getBuiltinFormats().some((f) => f.id === canonicalFormatId(embedded.id))
           ? (saveCustomFormat(embedded), embedded.id)
-          : CSOPESY_FINAL.id;
+          : OS_EXAM.id;
       const now = new Date().toISOString();
       const reviewer: Reviewer = {
         id: newId(),

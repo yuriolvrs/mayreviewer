@@ -90,7 +90,7 @@
       "kind": "card",
       "refersTo": "card",
       "description": "Paper on Desk, hairline border, no shadow.",
-      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">CSOPESY Finals</h3><p class=\"ds-card-meta\">42 questions · last quiz 8/10</p></div>",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">Operating Systems Final</h3><p class=\"ds-card-meta\">42 questions · last quiz 8/10</p></div>",
       "css": ".ds-card { width: 320px; padding: 24px; background: var(--color-surface, #ffffff); border: 1px solid var(--color-border, #dededc); border-radius: 8px; font-family: 'Libre Franklin', system-ui, sans-serif; } .ds-card-title { margin: 0; font-size: 1.1875rem; font-weight: 600; color: var(--color-text-primary, #1f1f1e); } .ds-card-meta { margin: 8px 0 0; font-size: 0.875rem; color: var(--color-text-secondary, #6b6b68); }"
     },
     {

@@ -204,7 +204,7 @@ test.describe("Exam formats", () => {
   test("the new-reviewer form offers the built-in format, preselected", async ({ page }) => {
     await page.goto("/reviewer/new");
     await expect(page.getByRole("radio", { name: "Use a saved format" })).toBeChecked();
-    await expect(page.getByRole("combobox", { name: /Exam format: CSOPESY Final/ })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: /Exam format: Operating Systems Exam/ })).toBeVisible();
     await expect(page.getByText("Modified True/False").first()).toBeVisible();
   });
 
@@ -225,7 +225,7 @@ test.describe("Exam formats", () => {
     await expect(page.getByText("Modified True/False").first()).toBeVisible();
     await expect(
       page.getByRole("link", { name: /New reviewer with this format/ }).first(),
-    ).toHaveAttribute("href", /\/reviewer\/new\?format=csopesy-final/);
+    ).toHaveAttribute("href", /\/reviewer\/new\?format=os-exam/);
   });
 
   test("the builder offers past-exam inference", async ({ page }) => {
@@ -259,7 +259,7 @@ test.describe("Exam formats", () => {
       await expect(page.getByLabel(`${label} questions to generate`)).toBeVisible();
     }
     await expect(page.getByText("Total: 25 questions")).toBeVisible();
-    await expect(page.getByRole("combobox", { name: /Exam format: CSOPESY Final/ })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: /Exam format: Operating Systems Exam/ })).toBeVisible();
   });
 });
 
@@ -320,10 +320,10 @@ test.describe("Custom formats", () => {
 
   test("clone creates an editable copy", async ({ page }) => {
     await page.goto("/formats");
-    const card = page.locator("li", { hasText: "CSOPESY Final" }).first();
+    const card = page.locator("li", { hasText: "Operating Systems Exam" }).first();
     await card.getByRole("link", { name: "Clone" }).click();
     await expect(page).toHaveURL(/\/formats\/.+/);
-    await expect(page.locator('input[value="CSOPESY Final (copy)"]')).toBeVisible();
+    await expect(page.locator('input[value="Operating Systems Exam (copy)"]')).toBeVisible();
   });
 
   test("delete removes a custom format", async ({ page }) => {

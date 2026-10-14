@@ -16,8 +16,8 @@ function attempt(id: string, takenAt: string, total: number) {
     answers: {},
     unsureIds: [],
     questionSetGeneratedAt: "legacy",
-    examFormatId: "csopesy-final",
-    examFormatName: "CSOPESY Final",
+    examFormatId: "os-exam",
+    examFormatName: "Operating Systems Exam",
   };
 }
 

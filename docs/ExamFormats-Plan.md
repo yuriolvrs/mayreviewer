@@ -2,7 +2,7 @@
 
 Header text (site title, case-sensitive): **`pre, May Reviewer ka ba?`**
 
-Today the app assumes one exam: 4 hardcoded CSOPESY question types
+Today the app assumes one exam: 4 hardcoded Operating Systems question types
 (identification / scenario / timeline / code) baked into the prompt text, the
 JSON response schema, the generation planner, and the renderers. A math formula
 question or a language sentence-blank has nowhere to go. This plan makes
@@ -58,17 +58,17 @@ console errors.
 
 ## Chapter 2 — Format data model + library + migration
 
-**Goal:** types become data; CSOPESY becomes one preset among many.
+**Goal:** types become data; the Operating Systems exam becomes one preset among many.
 
 - [x] 2.1. New `app/lib/examFormats.ts`:
   `ExamFormat { id, name, description, types: FormatTypeDef[] }`,
   `FormatTypeDef { key, label, format, shape, stimulus, guidance?, defaultCount }`.
   (No localStorage store yet — only built-ins exist; the custom-format store
   lands with the builder in Chapter 3.)
-- [x] 2.2. Built-in `CSOPESY Final` format = the 5 post-Chapter-1 types frozen
+- [x] 2.2. Built-in `Operating Systems Exam` format = the 5 post-Chapter-1 types frozen
   as data (MTF included).
 - [x] 2.3. `Reviewer` gains `examFormatId`; existing reviewers migrate to
-  `'csopesy-final'` with questions/history untouched; attempts snapshot
+  `'os-exam'` (the id it first shipped under is still read back as this one) with questions/history untouched; attempts snapshot
   `{ examFormatId, examFormatName }` (backfilled from the reviewer) so history
   stays truthful after format edits.
 - [x] 2.4. Generation derives schema type enums, the set/standalone split,
@@ -79,7 +79,7 @@ console errors.
   for the planner's set-placement order — the only existing format's sets
   are exactly timeline/code.
 - [x] 2.5. Formats library page (`/formats`, in the nav) + format picker in the
-  new-reviewer flow (default: CSOPESY Final, deep-linkable via
+  new-reviewer flow (default: Operating Systems Exam, deep-linkable via
   `?format=`); format also changeable later in Details. Home needs no picker
   — creation is the one entry point.
 

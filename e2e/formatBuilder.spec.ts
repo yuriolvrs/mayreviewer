@@ -74,16 +74,16 @@ test("leaving a dirty builder by link asks first", async ({ page }) => {
 });
 
 test("built-in format opens a read-only view with a sample", async ({ page }) => {
-  await page.goto("/formats/csopesy-final");
-  await expect(page.getByRole("heading", { name: "CSOPESY Final" })).toBeVisible();
+  await page.goto("/formats/os-exam");
+  await expect(page.getByRole("heading", { name: "Operating Systems Exam" })).toBeVisible();
   await expect(page.getByText("Directions:").first()).toBeVisible();
   await expect(page.getByRole("link", { name: "Use this format" })).toHaveAttribute(
     "href",
-    "/reviewer/new?format=csopesy-final",
+    "/reviewer/new?format=os-exam",
   );
   await page.getByRole("link", { name: "Clone to edit" }).click();
-  await expect(page).toHaveURL(/\/formats\/new\?from=csopesy-final/);
-  await expect(page.getByLabel("Format name")).toHaveValue("CSOPESY Final (copy)");
+  await expect(page).toHaveURL(/\/formats\/new\?from=os-exam/);
+  await expect(page.getByLabel("Format name")).toHaveValue("Operating Systems Exam (copy)");
 });
 
 test("clone from the list opens an unsaved draft", async ({ page }) => {

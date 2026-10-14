@@ -38,7 +38,7 @@ import {
   shortAnswerKeys,
   standaloneKeys,
   formatTypeKeys,
-  CSOPESY_FINAL,
+  OS_EXAM,
 } from "@/app/lib/examFormats";
 import type { AnswerFormat, ExamFormat, StimulusKind, TypeShape } from "@/app/lib/examFormats";
 import type { Question } from "@/app/types";
@@ -583,7 +583,7 @@ ${setsBlock}${focus}
 Stay inside the source material. Every question must be answerable from the topics,
 algorithms, code, and terminology the material actually covers. A topic that is standard
 for this course but absent from the material is off limits — this outranks the counts
-above, so return fewer questions rather than reaching outside it.${format.id === CSOPESY_FINAL.id ? " Never write a question about semaphores; they are not on this exam." : ""}
+above, so return fewer questions rather than reaching outside it.${format.id === OS_EXAM.id ? " Never write a question about semaphores; they are not on this exam." : ""}
 
 Before finalizing a question with a computed answer (an average, a total, a time), do the
 computation, confirm the result exactly matches one of its options, and only then write
@@ -1337,7 +1337,7 @@ export async function POST(request: Request) {
   // the format is dropped rather than generated — a stale breakdown after a
   // format switch must not smuggle an unwanted type back in. An unrecognised
   // or empty list falls back to the format's own types rather than erroring.
-  const format = sanitizeFormatDef(body.format) ?? CSOPESY_FINAL;
+  const format = sanitizeFormatDef(body.format) ?? OS_EXAM;
   // Past-exam text comes from two places: the reviewer's own field and the
   // format's kept sample exam. Combined into one fenced block — both are
   // "past exam" content by the source taxonomy.

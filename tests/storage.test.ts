@@ -13,7 +13,7 @@ import {
   updateReviewer,
 } from "@/app/lib/storage";
 import type { Question, Reviewer } from "@/app/types";
-import { CSOPESY_FINAL } from "@/app/lib/examFormats";
+import { LEGACY_OS_EXAM_ID, OS_EXAM } from "@/app/lib/examFormats";
 
 const REVIEWERS_KEY = "mayreviewer-reviewers";
 const ATTEMPTS_KEY = "mayreviewer-quiz-attempts";
@@ -38,7 +38,7 @@ function reviewer(overrides: Partial<Reviewer> = {}): Reviewer {
     notes: "notes",
     projectMaterial: "",
     pastExamMaterial: "",
-    examFormatId: CSOPESY_FINAL.id,
+    examFormatId: OS_EXAM.id,
     questionCount: 10,
     questionCountByType: { identification: 3, scenario: 2, timeline: 2, code: 2, "modified-tf": 1 },
     questions: [question("q1")],
@@ -185,7 +185,16 @@ describe("getReviewers", () => {
       JSON.stringify([{ id: "old", reviewerName: "Legacy", createdAt: "2026-08-01T00:00:00.000Z" }]),
     );
 
-    expect(getReviewers()[0].examFormatId).toBe(CSOPESY_FINAL.id);
+    expect(getReviewers()[0].examFormatId).toBe(OS_EXAM.id);
+  });
+
+  it("reads a Reviewer saved under the legacy built-in id as the current one", () => {
+    localStorage.setItem(
+      REVIEWERS_KEY,
+      JSON.stringify([reviewer({ examFormatId: LEGACY_OS_EXAM_ID })]),
+    );
+
+    expect(getReviewers()[0].examFormatId).toBe("os-exam");
   });
 });
 
@@ -328,8 +337,30 @@ describe("quiz history", () => {
     );
 
     const [attempt] = getQuizHistory("r1");
-    expect(attempt.examFormatId).toBe(CSOPESY_FINAL.id);
-    expect(attempt.examFormatName).toBe(CSOPESY_FINAL.name);
+    expect(attempt.examFormatId).toBe(OS_EXAM.id);
+    expect(attempt.examFormatName).toBe(OS_EXAM.name);
+  });
+
+  it("reads an attempt snapshotted under the legacy built-in id as the current built-in", () => {
+    saveReviewer(reviewer());
+    localStorage.setItem(
+      ATTEMPTS_KEY,
+      JSON.stringify([
+        {
+          id: "a1",
+          reviewerId: "r1",
+          takenAt: "2026-08-01T00:00:00.000Z",
+          score: 1,
+          total: 4,
+          examFormatId: LEGACY_OS_EXAM_ID,
+          examFormatName: "X",
+        },
+      ]),
+    );
+
+    const [attempt] = getQuizHistory("r1");
+    expect(attempt.examFormatId).toBe(OS_EXAM.id);
+    expect(attempt.examFormatName).toBe(OS_EXAM.name);
   });
 
   it("survives a corrupt attempts key", () => {

@@ -451,7 +451,7 @@ export function sampleProportionally(pool: Question[], count: number): Question[
 // Matching on the exact text alone missed the common case, though: the same
 // fact asked twice with different framing ("What is the maximum number of
 // variables in the symbol table segment?" against "In the context of the
-// CSOPESY OS, what is the maximum number of variables that can be stored in
+// course's OS, what is the maximum number of variables that can be stored in
 // the symbol table segment of a process?") is two strings, so both survived.
 // So the content words are compared too — see `isNearDuplicate`.
 export function dedupeQuestions(questions: Question[]): Question[] {

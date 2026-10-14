@@ -27,7 +27,7 @@ function progress(overrides: Partial<QuizProgress> = {}): QuizProgress {
     confirmedIds: ["q1"],
     timeLimitSec: 120,
     startedAt: Date.now() - 5000,
-    formatId: "csopesy-final",
+    formatId: "os-exam",
     feedbackMode: "immediate",
     savedAt: Date.now(),
     ...overrides,

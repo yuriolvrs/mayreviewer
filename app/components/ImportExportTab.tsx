@@ -7,6 +7,7 @@ import { updateReviewer } from "@/app/lib/storage";
 import { getAttachments, addAttachment } from "@/app/lib/attachments";
 import { parseReviewerFile, sanitizeFilename, type AttachmentManifestEntry, type ParsedAttachment } from "@/app/lib/reviewerFile";
 import {
+  canonicalFormatId,
   getBuiltinFormats,
   resolveFormat,
   saveCustomFormat,
@@ -191,7 +192,8 @@ export default function ImportExportTab({
   // are never written — the shipped definition always wins.
   function upsertEmbeddedFormat(format: ExamFormat | undefined): boolean {
     if (!format) return false;
-    if (getBuiltinFormats().some((f) => f.id === format.id)) return false;
+    // Old export files embed the built-in under its pre-rename id.
+    if (getBuiltinFormats().some((f) => f.id === canonicalFormatId(format.id))) return false;
     saveCustomFormat(format);
     return true;
   }

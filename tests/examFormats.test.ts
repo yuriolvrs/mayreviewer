@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  CSOPESY_FINAL,
+  LEGACY_OS_EXAM_ID,
+  OS_EXAM,
+  canonicalFormatId,
   cloneFormat,
   composePastExamText,
   coversAllTypes,
@@ -18,36 +20,50 @@ import {
 } from "@/app/lib/examFormats";
 import { QUESTION_TYPES } from "@/app/lib/questions";
 
-describe("CSOPESY_FINAL", () => {
+describe("OS_EXAM", () => {
   it("covers every global type exactly once, so no screen meets a question its format can't name", () => {
-    expect(coversAllTypes(CSOPESY_FINAL)).toBe(true);
-    expect(formatTypeKeys(CSOPESY_FINAL)).toHaveLength(QUESTION_TYPES.length);
+    expect(coversAllTypes(OS_EXAM)).toBe(true);
+    expect(formatTypeKeys(OS_EXAM)).toHaveLength(QUESTION_TYPES.length);
   });
 
   it("splits standalone from set types the way generation expects", () => {
-    expect(standaloneKeys(CSOPESY_FINAL)).toEqual(["identification", "scenario", "modified-tf"]);
-    expect(setKeys(CSOPESY_FINAL)).toEqual(["timeline", "code"]);
+    expect(standaloneKeys(OS_EXAM)).toEqual(["identification", "scenario", "modified-tf"]);
+    expect(setKeys(OS_EXAM)).toEqual(["timeline", "code"]);
   });
 
   it("defaults to an even 20-question mix", () => {
-    expect(CSOPESY_FINAL.types.reduce((sum, t) => sum + t.defaultCount, 0)).toBe(20);
+    expect(OS_EXAM.types.reduce((sum, t) => sum + t.defaultCount, 0)).toBe(20);
+  });
+});
+
+describe("canonicalFormatId", () => {
+  it("maps the legacy built-in id to the current one", () => {
+    expect(canonicalFormatId(LEGACY_OS_EXAM_ID)).toBe(OS_EXAM.id);
+  });
+
+  it.each([["os-exam"], ["math-101"], ["custom-abc"]])("leaves %s unchanged", (id) => {
+    expect(canonicalFormatId(id)).toBe(id);
   });
 });
 
 describe("resolveFormat", () => {
   it("returns the built-in for its id", () => {
-    expect(resolveFormat(CSOPESY_FINAL.id)).toBe(CSOPESY_FINAL);
+    expect(resolveFormat(OS_EXAM.id)).toBe(OS_EXAM);
   });
 
   // A custom format deleted out from under its reviewers (Chapter 3) must
   // degrade to something renderable, not "Reviewer not found".
   it.each([[undefined], ["deleted-format"]])("falls back to the built-in for %s", (id) => {
-    expect(resolveFormat(id)).toBe(CSOPESY_FINAL);
+    expect(resolveFormat(id)).toBe(OS_EXAM);
   });
 
-  it("lists the built-ins, CSOPESY first", () => {
+  it("resolves the legacy built-in id to the current built-in", () => {
+    expect(resolveFormat(LEGACY_OS_EXAM_ID)).toBe(OS_EXAM);
+  });
+
+  it("lists the built-ins, OS exam first", () => {
     const builtins = getBuiltinFormats();
-    expect(builtins[0]).toBe(CSOPESY_FINAL);
+    expect(builtins[0]).toBe(OS_EXAM);
     expect(builtins.length).toBeGreaterThan(1);
   });
 
@@ -199,10 +215,10 @@ describe("sanitizeFormatDef", () => {
 
 describe("cloneFormat", () => {
   it("copies under a new id with the same type keys", () => {
-    const copy = cloneFormat(CSOPESY_FINAL);
-    expect(copy.id).not.toBe(CSOPESY_FINAL.id);
+    const copy = cloneFormat(OS_EXAM);
+    expect(copy.id).not.toBe(OS_EXAM.id);
     expect(copy.name).toContain("copy");
-    expect(copy.types.map((t) => t.key)).toEqual(formatTypeKeys(CSOPESY_FINAL));
+    expect(copy.types.map((t) => t.key)).toEqual(formatTypeKeys(OS_EXAM));
   });
 
   it("clamps an already-max-length name instead of producing an invalid clone", () => {
@@ -220,7 +236,7 @@ describe("ids and counts", () => {  it("mints unique ids and slugged type keys",
   });
 
   it("sums a format's default mix", () => {
-    expect(defaultCounts(CSOPESY_FINAL)).toEqual({
+    expect(defaultCounts(OS_EXAM)).toEqual({
       identification: 4,
       scenario: 4,
       timeline: 4,

@@ -355,7 +355,7 @@ This document stopped being updated after 7e while the work kept going. Everythi
 Post-MVP work, built in chapters, each verified (`tsc`, unit, e2e, `build`, plus live API passes) before the next started:
 
 - [x] **Chapter 1 — Modified True/False as a 5th type.** Standalone statements + combination options; prompt forces truth-values-first, verify re-derives them. Pre-MTF count breakdowns re-split 5 ways on read.
-- [x] **Chapter 2 — Style data model + library.** `ExamFormat` built-ins (CSOPESY Final), `Reviewer.examFormatId` migration, attempt snapshots, counts/filters/scope driven by format data, server-side style resolution, `/styles` library + creation picker.
+- [x] **Chapter 2 — Style data model + library.** `ExamFormat` built-ins (Operating Systems Exam), `Reviewer.examFormatId` migration, attempt snapshots, counts/filters/scope driven by format data, server-side style resolution, `/styles` library + creation picker.
 - [x] **Chapter 3 — Builder + presets + string-keyed pipeline.** Custom formats (create/edit/clone/delete) with opaque type keys; prompt compiler from label/guidance/examples; Math/Language/Science/History presets; formats travel inside import/export.
 - [x] **Rename pass** — user-facing "style" became "format" everywhere (`/styles` → `/formats`, `examFormatId`, `resolveFormat`); stored data needed no migration since only the built-in value existed.
 - [x] **Chapter 4 — Past-exam inference + images.** JPG/PNG/WebP uploads with byte-sniffing (HEIC rejected with guidance), `POST /api/infer-format` with a mandatory builder review gate, past exams kept on formats and reviewers, `pastexam` question source.

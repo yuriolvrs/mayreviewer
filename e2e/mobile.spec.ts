@@ -42,8 +42,8 @@ for (const fontSize of ["normal", "large"] as const) test.describe(`Mobile 360px
         answers: {},
         unsureIds: [],
         questionSetGeneratedAt: "legacy",
-        examFormatId: "csopesy-final",
-        examFormatName: "CSOPESY Final",
+        examFormatId: "os-exam",
+        examFormatName: "Operating Systems Exam",
       },
     ]);
   });

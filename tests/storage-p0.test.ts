@@ -9,7 +9,7 @@ import {
   saveReviewer,
   storageCorruptionBackupKeys,
 } from "@/app/lib/storage";
-import { CSOPESY_FINAL } from "@/app/lib/examFormats";
+import { OS_EXAM } from "@/app/lib/examFormats";
 import type { Reviewer } from "@/app/types";
 
 const REVIEWERS_KEY = "mayreviewer-reviewers";
@@ -23,7 +23,7 @@ function reviewer(): Reviewer {
     notes: "",
     projectMaterial: "",
     pastExamMaterial: "",
-    examFormatId: CSOPESY_FINAL.id,
+    examFormatId: OS_EXAM.id,
     questionCount: 10,
     questionCountByType: { identification: 2, scenario: 2, timeline: 2, code: 2, "modified-tf": 2 },
     questions: [],

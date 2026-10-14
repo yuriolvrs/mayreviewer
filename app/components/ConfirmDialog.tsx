@@ -91,7 +91,7 @@ export default function ConfirmDialog({
       onKeyDown={handleKeyDown}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
     >
-      <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-6 shadow-menu">
+      <div className="max-h-[90dvh] w-full max-w-sm overflow-y-auto rounded-lg border border-border bg-surface p-6 shadow-menu">
         <h2 id="confirm-dialog-title" className="text-[1.1875rem] font-semibold text-text-primary">{title}</h2>
         <p id="confirm-dialog-body" className="mt-2 text-[0.9375rem] text-text-secondary">{body}</p>
         {children}

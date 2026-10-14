@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
 import {
@@ -19,6 +20,11 @@ import StimulusQuote from "@/app/components/StimulusQuote";
 import type { FeedbackMode, Question } from "@/app/types";
 
 export type Answers = Record<string, number>;
+
+// History entries this module has pushed as back-button guards since the user
+// last left the quiz. Mounting twice (cancel, then restart) stacks two, and
+// leaving by Back has to step past all of them.
+let guardEntries = 0;
 
 export default function QuizTaking({
   questions,
@@ -83,6 +89,11 @@ export default function QuizTaking({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [jumpOpen, setJumpOpen] = useState(false);
+  // Where a blocked in-app exit was headed; "back" is the browser Back button.
+  const [leaveTarget, setLeaveTarget] = useState<string | null>(null);
+  const router = useRouter();
+  const leavingRef = useRef(false);
   const visibleIds = useRef(new Set<string>());
 
   // Wall-clock start: remaining time derives from Date.now() rather than
@@ -186,6 +197,55 @@ export default function QuizTaking({
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [answers, textAnswers]);
 
+  // The quiz is a focused task: hide the phone tab bar (CSS keys off this
+  // attribute) and put every other way out behind a confirm. Answers persist,
+  // so leaving is safe, but it should never happen by accident.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.quiz = "active";
+    function onClick(e: MouseEvent) {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = (e.target as HTMLElement | null)?.closest("a[href]") as HTMLAnchorElement | null;
+      if (!a || (a.target && a.target !== "_self") || a.hasAttribute("download")) return;
+      const url = new URL(a.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      if (url.pathname === window.location.pathname) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setLeaveTarget(url.pathname + url.search + url.hash);
+    }
+    function onPopState() {
+      if (leavingRef.current) return;
+      // Re-arm the guard so the dialog can answer, then ask.
+      window.history.pushState(window.history.state, "");
+      setLeaveTarget("back");
+    }
+    window.history.pushState(window.history.state, "");
+    guardEntries += 1;
+    document.addEventListener("click", onClick, true);
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      delete root.dataset.quiz;
+      document.removeEventListener("click", onClick, true);
+      window.removeEventListener("popstate", onPopState);
+    };
+  }, []);
+
+  function confirmLeave() {
+    const target = leaveTarget;
+    setLeaveTarget(null);
+    if (target === "back") {
+      // Past every guard entry and the quiz entry itself.
+      leavingRef.current = true;
+      const steps = guardEntries + 1;
+      guardEntries = 0;
+      window.history.go(-steps);
+    } else if (target) {
+      guardEntries = 0;
+      router.push(target);
+    }
+  }
+
   // Stable callbacks: the keyboard-shortcuts effect lists them as deps, so
   // they must not change identity every render.
   const selectOption = useCallback(
@@ -207,6 +267,7 @@ export default function QuizTaking({
   }, []);
 
   const jumpTo = useCallback((questionId: string) => {
+    setJumpOpen(false);
     document.getElementById(`question-${questionId}`)?.scrollIntoView({
       behavior: "smooth",
       block: "start",
@@ -302,7 +363,7 @@ export default function QuizTaking({
 
   // The grid and its legend are the same on both layouts — the sidebar can't
   // fit beside the questions on a phone, so below `lg` the identical markup is
-  // served from a collapsed disclosure above them instead of being dropped.
+  // served from a bottom sheet above them instead of being dropped.
   const jumpGrid = (
     <div className="grid grid-cols-5 gap-1.5">
       {questions.map((question, index) => {
@@ -400,10 +461,11 @@ export default function QuizTaking({
             </p>
             <button
               type="button"
-              onClick={() => setConfirmCancelOpen(true)}
-              className="shrink-0 rounded-lg border border-error px-2.5 py-1 text-[0.875rem] font-medium text-error hover:bg-error-subtle"
+              onClick={() => setJumpOpen(true)}
+              aria-haspopup="dialog"
+              className="shrink-0 rounded-lg border border-border bg-surface-alt px-3 py-1 text-[0.875rem] font-medium text-text-primary"
             >
-              Cancel quiz
+              Jump to question
             </button>
           </div>
           {/* No live region: a per-second announcement would be noise; the
@@ -420,18 +482,47 @@ export default function QuizTaking({
           )}
         </div>
 
-        <details className="mb-4 rounded-lg border border-border bg-surface-alt lg:hidden">
-          <summary className="cursor-pointer px-4 py-2.5 text-[0.875rem] font-medium text-text-secondary hover:text-text-primary">
-            Jump to a question
-          </summary>
-          <div className="px-4 pb-4">
-            {jumpGrid}
-            <div className="mt-4">{legend}</div>
-            <p className="mt-3 text-[0.8125rem] text-text-tertiary">
-              Keys 1–4 answer the question in view, u flags it unsure, n/p move between questions.
-            </p>
+        {jumpOpen && (
+          // Bottom sheet: thumb-reachable on a phone, closes on pick, backdrop
+          // tap or Escape. Same grid and legend as the desktop sidebar.
+          <div
+            className="fixed inset-0 z-50 flex items-end bg-black/50 lg:hidden"
+            onClick={() => setJumpOpen(false)}
+            onKeyDown={(e) => e.key === "Escape" && setJumpOpen(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Jump to a question"
+              onClick={(e) => e.stopPropagation()}
+              className="max-h-[80vh] w-full overflow-y-auto rounded-t-2xl border-t border-border bg-bg px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-[1rem] font-semibold text-text-primary">Jump to a question</p>
+                <button
+                  type="button"
+                  autoFocus
+                  onClick={() => setJumpOpen(false)}
+                  className="rounded-lg px-3 text-[0.9375rem] font-medium text-text-secondary"
+                >
+                  Close
+                </button>
+              </div>
+              {jumpGrid}
+              <div className="mt-4">{legend}</div>
+              <button
+                type="button"
+                onClick={() => {
+                  setJumpOpen(false);
+                  setConfirmCancelOpen(true);
+                }}
+                className="mt-5 w-full rounded-lg border border-error px-3 text-[0.9375rem] font-medium text-error"
+              >
+                Cancel quiz
+              </button>
+            </div>
           </div>
-        </details>
+        )}
 
         <div className="flex flex-col">
           {groups.map((group) => {
@@ -717,6 +808,17 @@ export default function QuizTaking({
           Keys 1–4 answer the question in view, u flags it unsure, n/p move between questions.
         </p>
       </aside>
+
+      {leaveTarget !== null && (
+        <ConfirmDialog
+          title="Leave this quiz?"
+          body="Your answers are saved on this device. You can pick the quiz back up from this reviewer."
+          confirmLabel="Leave quiz"
+          cancelLabel="Keep working"
+          onConfirm={confirmLeave}
+          onCancel={() => setLeaveTarget(null)}
+        />
+      )}
 
       {confirmCancelOpen && (
         <ConfirmDialog

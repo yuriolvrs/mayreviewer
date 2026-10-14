@@ -445,7 +445,7 @@ export default function QuizResults({
       ) : (
         <Link
           href={`/reviewer/${reviewerId}`}
-          className="self-start text-[0.9375rem] text-text-secondary hover:text-text-primary"
+          className="back-link self-start text-[0.9375rem] text-text-secondary hover:text-text-primary"
         >
           ← {reviewerName}
         </Link>

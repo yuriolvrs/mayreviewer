@@ -212,14 +212,16 @@ export default function ReviewersHome() {
           {/* Swaps to the bulk action bar the moment anything is selected, same
               select-all/bulk-actions pattern as the Edit Questions tab. */}
           <div className="flex items-center gap-3">
+            <label className="-m-3 flex shrink-0 cursor-pointer p-3">
             <input
               type="checkbox"
               checked={allSelected}
               ref={selectAllRef}
               onChange={toggleSelectAll}
               aria-label={`Select all ${visible.length} reviewer${visible.length === 1 ? "" : "s"}`}
-              className="h-4 w-4 shrink-0 accent-accent"
+              className="h-4 w-4 accent-accent"
             />
+            </label>
             {selected.length === 0 ? (
               <span className="text-[0.9375rem] text-text-secondary">
                 Select all {visible.length} reviewer{visible.length === 1 ? "" : "s"}
@@ -254,13 +256,15 @@ export default function ReviewersHome() {
                     jumps straight to setup. Explicit actions beat a clickable
                     row hiding two destinations. */}
                 <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border bg-surface p-6">
+                  <label className="-m-3 flex shrink-0 cursor-pointer p-3">
                   <input
                     type="checkbox"
                     checked={selected.includes(reviewer.id)}
                     onChange={() => toggleSelected(reviewer.id)}
                     aria-label={`Select ${reviewer.reviewerName}`}
-                    className="h-4 w-4 shrink-0 accent-accent"
+                    className="h-4 w-4 accent-accent"
                   />
+                  </label>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[1.1875rem] font-semibold text-text-primary">
                       {reviewer.reviewerName}

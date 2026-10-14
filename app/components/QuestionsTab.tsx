@@ -1001,14 +1001,16 @@ function startCreate() {
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <label className="-m-3 flex shrink-0 cursor-pointer p-3">
             <input
               type="checkbox"
               checked={allVisibleSelected}
               ref={selectAllRef}
               onChange={toggleSelectAllVisible}
               aria-label={`Select all ${visible.length} question${visible.length === 1 ? "" : "s"}`}
-              className="h-4 w-4 shrink-0 accent-accent"
+              className="h-4 w-4 accent-accent"
             />
+            </label>
 
             {selected.length === 0 ? (
               <>
@@ -1077,13 +1079,15 @@ function startCreate() {
 
             return (
               <li key={question.id} className="flex gap-3 border-t border-border py-5 last:border-b">
+                <label className="-mx-3 -mb-3 -mt-2 flex shrink-0 cursor-pointer p-3">
                 <input
                   type="checkbox"
                   checked={selected.includes(question.id)}
                   onChange={() => toggleSelected(question.id)}
                   aria-label={`Select question ${number}`}
-                  className="mt-1 h-4 w-4 shrink-0 accent-accent"
+                  className="h-4 w-4 accent-accent"
                 />
+                </label>
 
                 <div className="min-w-0 flex-1">
                   {isEditing && draft ? (

@@ -133,6 +133,59 @@ html {
   }
 }
 
+/* Quiz in progress: no tab bar. QuizTaking sets the attribute and guards every
+   other exit with a confirm. */
+html[data-quiz="active"] nav[aria-label="Mobile"] {
+  display: none;
+}
+html[data-quiz="active"] body {
+  padding-bottom: 0;
+}
+
+/* Touch feedback: no grey tap flash, no double-tap-zoom delay, and a pressed
+   state, since `hover:` styles never show on a phone. */
+@media (hover: none) {
+  a,
+  button {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  button:not(:disabled):active,
+  a:active {
+    opacity: 0.7;
+  }
+}
+
+/* Touch targets: phones get at least 44px (Apple HIG / WCAG 2.5.5) on
+   buttons, summaries, footer links and small checkboxes. Unlayered, so it
+   outranks the per-control Tailwind sizes. The bottom bar is left alone.
+   Touch tablets wider than a phone count too, hence `pointer: coarse`. */
+@media (max-width: 767px), (pointer: coarse) {
+  main button:not([aria-hidden]),
+  main summary {
+    min-height: 44px;
+  }
+  main input[type="checkbox"]:not(.sr-only),
+  main input[type="radio"]:not(.sr-only) {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  footer nav a {
+    padding-block: 0.8125rem;
+  }
+  main nav[aria-label="Breadcrumb"] a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin-block: -14px;
+  }
+  main a.back-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
+
 /* "/" serves two pages: the landing for first-time visitors and the reviewers
    home for everyone else. EntryScript sets data-entry="app" before paint for
    returning visitors. Landing visitors get no bottom bar: the landing carries

@@ -396,7 +396,7 @@ function QuizPageInner() {
     <div className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
       <Link
         href={`/reviewer/${reviewer.id}`}
-        className="text-[0.9375rem] text-text-secondary hover:text-text-primary"
+        className="back-link text-[0.9375rem] text-text-secondary hover:text-text-primary"
       >
         ← Details
       </Link>

@@ -113,6 +113,15 @@ button:not(:disabled) {
   }
 }
 
+/* Reserve a thin scrollbar gutter on every page so the layout does not shift
+   sideways when a page starts to scroll. The html background (not body's)
+   paints the gutter, so it matches the header and reads as a track. */
+html {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  background: var(--color-surface);
+}
+
 /* iOS Safari zooms the page into any focused field whose text is under 16px,
    and doesn't zoom back out. Phones get 16px fields (1rem, so Large text still
    scales them). Unlayered, so it outranks the per-field Tailwind sizes. */

@@ -86,6 +86,23 @@ export default function NewReviewerPage() {
     topicList.add();
   }
 
+  // Enter in a topic input adds a row instead of submitting the form.
+  const topicsRef = useRef<HTMLDivElement>(null);
+  const focusNewTopic = useRef(false);
+  useEffect(() => {
+    if (!focusNewTopic.current) return;
+    focusNewTopic.current = false;
+    const inputs = topicsRef.current?.querySelectorAll("input");
+    inputs?.[inputs.length - 1]?.focus();
+  }, [topicList.rows.length]);
+
+  function handleTopicKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    focusNewTopic.current = true;
+    addTopic();
+  }
+
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = name.trim();
@@ -267,7 +284,7 @@ export default function NewReviewerPage() {
               Optional. Weights question generation toward these topics.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2">
+          <div ref={topicsRef} className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2">
             {topicList.rows.map((row) => {
               const showOverlay = Boolean(row.value) && focusedTopic !== row.id;
               return (
@@ -277,6 +294,7 @@ export default function NewReviewerPage() {
                     value={row.value}
                     title={row.value}
                     onChange={(e) => updateTopic(row.id, e.target.value)}
+                    onKeyDown={handleTopicKeyDown}
                     onFocus={() => setFocusedTopic(row.id)}
                     onBlur={() => setFocusedTopic(null)}
                     placeholder="e.g. Paging"

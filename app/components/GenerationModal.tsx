@@ -1,7 +1,17 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { GenerationProgress } from "@/app/lib/generate";
+import {
+  FILL_LABEL,
+  VERIFY_CREEP_PERCENT,
+  generationView,
+  monotonicPercent,
+  sourcesText,
+  stepStatus,
+  type StepId,
+  type StepStatus,
+} from "@/app/lib/generationSteps";
 
 // Generation blocks the page rather than running behind a progress bar: the run
 // takes a minute, writes the whole question pool at the end, and navigating
@@ -10,12 +20,43 @@ import type { GenerationProgress } from "@/app/lib/generate";
 
 const FOCUSABLE = "button:not([disabled])";
 
-function Spinner() {
+function prefersReducedMotion(): boolean {
+  if (typeof window === "undefined") return false;
   return (
-    <div
-      aria-hidden="true"
-      className="h-9 w-9 animate-spin rounded-full border-2 border-border-strong border-t-accent"
-    />
+    document.documentElement.dataset.reduceMotion === "true" ||
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+function StepMarker({ status }: { status: StepStatus }) {
+  if (status === "done") {
+    return (
+      <span
+        aria-hidden="true"
+        className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success-subtle text-success"
+      >
+        <svg width="12" height="12" viewBox="0 0 18 18" fill="none">
+          <path
+            d="M4 9.5 7.5 13 14 5.5"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </span>
+    );
+  }
+  return (
+    <span aria-hidden="true" className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
+      <span
+        className={
+          status === "active"
+            ? "h-2.5 w-2.5 rounded-full bg-accent motion-safe:animate-pulse"
+            : "h-2.5 w-2.5 rounded-full border-2 border-border-strong"
+        }
+      />
+    </span>
   );
 }
 
@@ -89,6 +130,27 @@ export default function GenerationModal({
   }
 
   const loading = state === "loading";
+  const success = !loading;
+
+  const view = generationView(progress);
+  // Adjusting state during render: the bar keeps the highest value seen.
+  const [maxPercent, setMaxPercent] = useState(0);
+  const creeping = loading && view.step === "verify" && !prefersReducedMotion();
+  const target = success ? 100 : creeping ? VERIFY_CREEP_PERCENT : view.percent;
+  const percent = monotonicPercent(maxPercent, target);
+  if (percent !== maxPercent) setMaxPercent(percent);
+
+  // The replacement step is listed only after the server first reports it.
+  const [sawFill, setSawFill] = useState(false);
+  if (view.showFill && !sawFill) setSawFill(true);
+
+  const steps: { id: StepId; label: string }[] = [
+    { id: "upload", label: "Preparing your files" },
+    { id: "write", label: "Reading your material and writing questions" },
+    { id: "verify", label: "Double-checking answers" },
+    ...(sawFill ? [{ id: "fill" as const, label: FILL_LABEL }] : []),
+  ];
+  const activeLabel = steps.find((st) => st.id === view.step)?.label ?? "";
 
   return (
     <div
@@ -100,9 +162,9 @@ export default function GenerationModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
     >
       <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-lg border border-border bg-surface px-6 py-8 text-center shadow-menu">
-        {loading ? <Spinner /> : <DoneIcon />}
+        {success && <DoneIcon />}
 
-        <div aria-live="polite">
+        <div>
           <h2 id="generation-modal-title" className="text-[1.1875rem] font-semibold text-text-primary">
             {loading
               ? "Generating questions"
@@ -113,14 +175,63 @@ export default function GenerationModal({
               This may take a minute. Stay on this page.
             </p>
           )}
-          {loading && progress && (
-            <p className="mt-1 text-[0.875rem] text-text-tertiary">
-              {progress.stage === "verify"
-                ? "Double-checking answers…"
-                : `${progress.completed} of ${progress.total} source${progress.total === 1 ? "" : "s"} processed`}
-            </p>
-          )}
         </div>
+
+        {/* Announces step changes only, not every progress tick. */}
+        <p aria-live="polite" className="sr-only">
+          {loading ? activeLabel : "Done"}
+        </p>
+
+        {loading && (
+          <>
+            <div
+              role="progressbar"
+              aria-label="Overall progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(percent)}
+              className="mt-2 h-2 w-full overflow-hidden rounded-full bg-border"
+            >
+              <div
+                className={`h-full rounded-full bg-accent ease-out motion-safe:transition-[width] ${
+                  creeping ? "duration-[40000ms]" : "duration-500"
+                }`}
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+
+            <ol className="mt-2 flex w-full flex-col gap-3 text-left">
+              {steps.map((st) => {
+                const status = stepStatus(st.id, view.step, false);
+                return (
+                  <li key={st.id} className="flex items-start gap-3">
+                    <StepMarker status={status} />
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={`text-[0.9375rem] ${
+                          status === "pending" ? "text-text-tertiary" : "text-text-primary"
+                        } ${status === "active" ? "font-medium" : ""}`}
+                      >
+                        {st.label}
+                      </p>
+                      {st.id === "write" && status === "active" && progress && progress.stage === undefined && (
+                        <p className="mt-0.5 text-[0.875rem] text-text-tertiary">
+                          {sourcesText(progress.completed, progress.total)}
+                        </p>
+                      )}
+                      {(st.id === "verify" || st.id === "fill") && status === "active" && (
+                        <div
+                          aria-hidden="true"
+                          className="mt-1.5 h-1 w-full rounded-full bg-border-strong motion-safe:animate-pulse"
+                        />
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </>
+        )}
 
         {loading ? (
           <button

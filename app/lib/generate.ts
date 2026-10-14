@@ -13,7 +13,7 @@ export type GenerationProgress = {
   completed: number;
   total: number;
   label: string;
-  stage?: "verify";
+  stage?: "upload" | "verify";
 };
 export type GenerationFailure = { label: string; reason: string };
 // One already-tested fact. The answer is the part that matters: a regeneration
@@ -37,7 +37,7 @@ type StreamMessage =
       label: string;
       completed: number;
       total: number;
-      stage?: "verify";
+      stage?: "upload" | "verify";
     }
   | {
       type: "done";
@@ -105,6 +105,7 @@ export async function generateQuestions(
     return ok;
   }
 
+  onProgress({ completed: 0, total: 1, label: "Preparing your files", stage: "upload" });
   const rawAttachments = await getAttachments(reviewer.id);
   // The format's own sample exam travels the same relay: past-exam files
   // generate with the "pastexam" source, like reviewer-level ones.

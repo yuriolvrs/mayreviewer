@@ -186,14 +186,14 @@ export default function GeneratedFormatPanel({
         <div className="mt-4 flex flex-col gap-3">
           <ul className="flex flex-col gap-2">
             {types.map((t, i) => (
-              <li key={t.key} className="flex items-center gap-2">
+              <li key={t.key} className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
                 <input
                   type="text"
                   value={t.label}
                   maxLength={MAX_LABEL_CHARS}
                   onChange={(e) => setLabel(t.key, e.target.value)}
                   aria-label={`Label for type ${i + 1}`}
-                  className="h-11 min-w-0 flex-1 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent"
+                  className="h-11 w-full min-w-0 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent sm:w-auto sm:flex-1"
                 />
                 <input
                   type="number"

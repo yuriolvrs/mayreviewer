@@ -115,9 +115,11 @@ button:not(:disabled) {
 
 /* Reserve the scrollbar's width even when a page doesn't overflow, so moving
    between a tall tab and a short one doesn't shift the layout sideways as the
-   scrollbar appears and disappears. */
+   scrollbar appears and disappears. A visible track (overflow-y: scroll) is
+   used instead of scrollbar-gutter: stable, which left an empty strip at the
+   right edge that the header did not cover. */
 html {
-  scrollbar-gutter: stable;
+  overflow-y: scroll;
 }
 
 /* iOS Safari zooms the page into any focused field whose text is under 16px,

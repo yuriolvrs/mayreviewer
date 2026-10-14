@@ -783,13 +783,13 @@ export default function FormatBuilder({
             id={`type-${t.key}`}
             className={`rounded-lg border bg-surface p-4 sm:p-5 ${err ? "border-error" : "border-border"}`}
           >
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0 sm:flex-nowrap">
               <button
                 type="button"
                 aria-expanded={isOpen}
                 aria-controls={bodyId}
                 onClick={() => setOpen((prev) => ({ ...prev, [t.key]: !isOpen }))}
-                className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left"
+                className="flex min-h-11 min-w-0 basis-full sm:basis-0 sm:flex-1 items-center gap-3 text-left"
               >
                 <span aria-hidden="true" className="shrink-0 font-mono text-[0.875rem] text-text-secondary">
                   {number}.
@@ -816,7 +816,7 @@ export default function FormatBuilder({
                   <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
-              <div className="flex shrink-0 items-center">
+              <div className="flex shrink-0 items-center ml-auto">
                 {(["up", "down"] as const).map((dir) => {
                   const label = t.label.trim() || `type ${number}`;
                   const atEnd = dir === "up" ? number === 1 : number === live.length;
@@ -835,9 +835,9 @@ export default function FormatBuilder({
                         viewBox="0 0 10 10"
                         fill="none"
                         aria-hidden="true"
-                        className={dir === "up" ? "rotate-180" : ""}
+                        className={dir === "down" ? "rotate-180" : ""}
                       >
-                        <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M5 9V1.5M2 4.5l3-3 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </button>
                   );

@@ -15,10 +15,21 @@ import {
   sumCounts,
 } from "@/app/lib/questions";
 import { addAttachment } from "@/app/lib/attachments";
-import { CSOPESY_FINAL, defaultCounts, getBuiltinFormats, resolveFromList, saveCustomFormat } from "@/app/lib/examFormats";
+import {
+  CSOPESY_FINAL,
+  MAX_ID_CHARS,
+  defaultCounts,
+  getBuiltinFormats,
+  newFormatId,
+  resolveFromList,
+  saveCustomFormat,
+  type ExamFormat,
+  type FormatTypeDef,
+} from "@/app/lib/examFormats";
 import { useFormats } from "@/app/lib/useFormats";
 import { parseReviewerFile, type ParsedReviewerFile } from "@/app/lib/reviewerFile";
 import QuestionCountControl from "@/app/components/QuestionCountControl";
+import GeneratedFormatPanel from "@/app/components/GeneratedFormatPanel";
 import SourceSections from "@/app/components/SourceSections";
 import type { Reviewer } from "@/app/types";
 
@@ -35,7 +46,22 @@ export default function NewReviewerPage() {
   // built-ins-only on both server and client, so hydration always agrees.
   const [examFormatId, setExamFormatId] = useState<string>(CSOPESY_FINAL.id);
   const formats = useFormats();
-  const format = resolveFromList(formats, examFormatId);
+  // "Learn from course material": a draft format built by inference. It is
+  // not stored until Create or "Save to Formats", and keeps one id so saving
+  // twice overwrites instead of duplicating.
+  const [learn, setLearn] = useState(false);
+  const [genTypes, setGenTypes] = useState<FormatTypeDef[]>([]);
+  const [genName, setGenName] = useState("");
+  const [genId] = useState(() => newFormatId());
+  const [genSaved, setGenSaved] = useState(false);
+  const genDefaultName = `${name.trim() || "New reviewer"} format`.slice(0, MAX_ID_CHARS);
+  const genFormat: ExamFormat = {
+    id: genId,
+    name: genName.trim() || genDefaultName,
+    description: "",
+    types: genTypes,
+  };
+  const format = learn ? genFormat : resolveFromList(formats, examFormatId);
   const [linkApplied, setLinkApplied] = useState(false);
 
   // Deep link from the formats library ("Use this format"). Read on mount
@@ -48,6 +74,7 @@ export default function NewReviewerPage() {
     if (id && formats.some((f) => f.id === id)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setExamFormatId(id);
+      setLearn(false);
       setCountByType(defaultCounts(resolveFromList(formats, id)));
       setLinkApplied(true);
     }
@@ -103,11 +130,31 @@ export default function NewReviewerPage() {
     addTopic();
   }
 
+  function saveGenerated() {
+    saveCustomFormat({
+      ...genFormat,
+      types: genTypes.map((t) => ({
+        ...t,
+        label: t.label.trim(),
+        defaultCount: countByType[t.key] ?? t.defaultCount,
+      })),
+    });
+    setGenSaved(true);
+  }
+
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) {
       setNameError(true);
+      return;
+    }
+    if (learn && genTypes.length === 0) {
+      setError("Suggest question types from your course material first, or pick another format.");
+      return;
+    }
+    if (learn && genTypes.some((t) => !t.label.trim())) {
+      setError("Every generated question type needs a label.");
       return;
     }
     const questionCount = sumCounts(countByType);
@@ -122,6 +169,9 @@ export default function NewReviewerPage() {
       return;
     }
 
+    // The generated format becomes a stored custom format so every page can
+    // resolve it by id. Re-saving the same id keeps one copy.
+    if (learn) saveGenerated();
     const now = new Date().toISOString();
     const reviewer: Reviewer = {
       id: draftId,
@@ -343,7 +393,7 @@ export default function NewReviewerPage() {
               <label
                 key={f.id}
                 className={`cursor-pointer rounded-lg border p-4 ${
-                  f.id === format.id
+                  !learn && f.id === format.id
                     ? "border-accent bg-accent-subtle"
                     : "border-border hover:border-border-strong"
                 }`}
@@ -352,10 +402,11 @@ export default function NewReviewerPage() {
                   <input
                     type="radio"
                     name="exam-format"
-                    checked={f.id === format.id}
+                    checked={!learn && f.id === format.id}
                     onChange={() => {
                       // Counts typed for another format's types are meaningless
                       // after a switch — re-seed from the new format's mix.
+                      setLearn(false);
                       setExamFormatId(f.id);
                       setCountByType(defaultCounts(resolveFromList(formats, f.id)));
                     }}
@@ -368,6 +419,30 @@ export default function NewReviewerPage() {
                 </span>
               </label>
             ))}
+            <label
+              className={`cursor-pointer rounded-lg border p-4 ${
+                learn ? "border-accent bg-accent-subtle" : "border-border hover:border-border-strong"
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <input
+                  type="radio"
+                  name="exam-format"
+                  checked={learn}
+                  onChange={() => {
+                    setLearn(true);
+                    setCountByType(Object.fromEntries(genTypes.map((t) => [t.key, t.defaultCount])));
+                  }}
+                  className="h-4 w-4 shrink-0 accent-accent"
+                />
+                <span className="text-[0.9375rem] font-semibold text-text-primary">
+                  Learn from course material
+                </span>
+              </span>
+              <span className="mt-1 block pl-[26px] text-[0.8125rem] text-text-tertiary">
+                The AI builds question types from the notes and slides you add below.
+              </span>
+            </label>
           </div>
         </div>
 
@@ -376,17 +451,43 @@ export default function NewReviewerPage() {
             <p className="text-[0.9375rem] font-medium text-text-primary">Question count</p>
             <p className="mt-1 text-[0.875rem] text-text-secondary">How many questions to generate per type.</p>
           </div>
-          <QuestionCountControl
-            format={format}
-            value={countByType}
-            onChange={setCountByType}
-          />
+          {learn && genTypes.length === 0 ? (
+            <p className="text-[0.875rem] text-text-secondary">
+              Suggest question types from your course material below. Counts appear here after that.
+            </p>
+          ) : (
+            <QuestionCountControl format={format} value={countByType} onChange={setCountByType} />
+          )}
         </div>
 
         <p className="border-t border-border pt-6 text-[0.875rem] text-text-secondary">
           A past exam added below gives this reviewer facts and style. To save a
           past exam&apos;s question types for reuse, build a format instead.
         </p>
+
+        {learn && (
+          <GeneratedFormatPanel
+            reviewerId={draftId}
+            notes={notes}
+            subject={subject || name}
+            types={genTypes}
+            counts={countByType}
+            onChange={(types, counts) => {
+              setGenTypes(types);
+              setCountByType(counts);
+              setGenSaved(false);
+              setError("");
+            }}
+            formatName={genName}
+            defaultName={genDefaultName}
+            onNameChange={(v) => {
+              setGenName(v);
+              setGenSaved(false);
+            }}
+            onSave={saveGenerated}
+            saved={genSaved}
+          />
+        )}
 
         <SourceSections
           reviewerId={draftId}

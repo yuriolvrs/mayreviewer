@@ -100,6 +100,14 @@ export async function getAttachments(
   return field ? all.filter((a) => a.field === field) : all;
 }
 
+// Lets a page that reads attachments (the New Reviewer inference panel) know
+// a file was added or removed without polling IndexedDB.
+export const ATTACHMENTS_CHANGED_EVENT = "reviewer-attachments-changed";
+
+function notifyAttachmentsChanged(): void {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(ATTACHMENTS_CHANGED_EVENT));
+}
+
 export async function addAttachment(
   reviewerId: string,
   field: AttachmentField,
@@ -126,12 +134,14 @@ export async function addAttachment(
   } catch {
     throw new Error("Couldn't save that file — browser storage may be full.");
   }
+  notifyAttachmentsChanged();
   return attachment;
 }
 
 export async function removeAttachment(id: string): Promise<void> {
   const db = await getDb();
   await db.delete("attachments", id);
+  notifyAttachmentsChanged();
 }
 
 export async function deleteAttachmentsForReviewer(reviewerId: string): Promise<void> {

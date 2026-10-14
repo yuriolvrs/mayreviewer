@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import UploadIcon from "@/app/components/UploadIcon";
-import { upload } from "@vercel/blob/client";
 import { extractTextFromFile } from "@/app/lib/extractText";
 import {
   ACCEPTED_UPLOAD_EXTENSIONS,
@@ -38,7 +37,7 @@ import { MAX_QUESTION_COUNT } from "@/app/lib/questions";
 import { newId } from "@/app/lib/ids";
 import { useOnline } from "@/app/lib/useOnline";
 import { useUnsavedGuard } from "@/app/lib/useUnsavedGuard";
-import { turnstileHeaders } from "@/app/lib/turnstileClient";
+import { inferFormat } from "@/app/lib/inferFormatClient";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
 import OptionSelect from "@/app/components/OptionSelect";
 
@@ -313,34 +312,14 @@ export default function FormatBuilder({
     setInferError("");
     setUnsupported([]);
     try {
-      // Files relay through Blob storage past the Function's body limit —
-      // the same relay generation uses for reviewer attachments.
-      const attachments = await Promise.all(
-        storedFiles.map(async (a) => {
-          const blob = await upload(`past-exam/${formatId}/${a.id}-${a.name}`, new Blob([a.data], { type: a.mimeType }), {
-            access: "public",
-            handleUploadUrl: "/api/blob-upload",
-          });
-          return { name: a.name, mimeType: a.mimeType, url: blob.url, field: "pastexam" };
-        }),
-      );
-      const res = await fetch("/api/infer-format", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(await turnstileHeaders()) },
+      const data = await inferFormat({
+        files: storedFiles,
+        text: pastExamText(),
         // The format name gives the analyst subject context ("midterm for
         // Math 101" beats "the course").
-        body: JSON.stringify({
-          attachments,
-          text: pastExamText(),
-          subject: name.trim() || undefined,
-        }),
+        subject: name.trim(),
+        uploadPrefix: `past-exam/${formatId}`,
       });
-      const data = (await res.json()) as {
-        types?: InferredType[];
-        unsupported?: UnsupportedNote[];
-        error?: string;
-      };
-      if (!res.ok) throw new Error(data.error || "Inference failed.");
       setUnsupported(data.unsupported ?? []);
       const drafts = data.types ?? [];
       if (drafts.length === 0) {
@@ -498,9 +477,9 @@ export default function FormatBuilder({
     (errors.list ? 1 : 0);
 
   const inferBlocked = !online
-    ? "Reading an exam needs an internet connection."
+    ? "Reading material needs an internet connection."
     : pastExamText().trim() === "" && storedFiles.length === 0
-      ? "Paste or upload a past exam first."
+      ? "Paste or upload a past exam or course material first."
       : "";
 
   const fieldClass = (bad: boolean) =>
@@ -511,15 +490,15 @@ export default function FormatBuilder({
   const pastExamCard = (
     <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
       <p className="text-[0.9375rem] font-semibold text-text-primary">
-        Learn from a past exam <span className="font-normal text-text-tertiary">(optional)</span>
+        Learn from a past exam or course material <span className="font-normal text-text-tertiary">(optional)</span>
       </p>
       <p className="mt-1 text-[0.875rem] text-text-secondary">
-        Upload or paste a past exam. The AI suggests question types from it, and you review
-        each one before saving. The exam stays attached to the format for later.
+        Upload or paste a past exam, notes, or slides. The AI suggests question types from
+        it, and you review each one before saving. The material stays attached to the format for later.
       </p>
 
       <div className="mt-3 flex flex-col gap-2">
-        <div className="flex gap-4 border-b border-border" role="tablist" aria-label="Past exam input mode">
+        <div className="flex gap-4 border-b border-border" role="tablist" aria-label="Material input mode">
           {(["upload", "paste"] as const).map((mode) => (
             <button
               key={mode}
@@ -543,8 +522,8 @@ export default function FormatBuilder({
             value={pastText}
             onChange={(e) => setPastText(e.target.value)}
             rows={3}
-            placeholder="Paste a past exam here…"
-            aria-label="Paste a past exam"
+            placeholder="Paste a past exam or course material here…"
+            aria-label="Paste a past exam or course material"
             className="rounded-lg border border-border px-3 py-2 text-text-primary outline-none focus:border-accent"
           />
         ) : (
@@ -578,7 +557,7 @@ export default function FormatBuilder({
                 type="file"
                 accept={ACCEPTED_UPLOAD_EXTENSIONS}
                 multiple
-                aria-label="Upload past-exam files"
+                aria-label="Upload past exam or course material files"
                 className="sr-only"
                 onClick={(e) => e.stopPropagation()}
                 onChange={(e) => {
@@ -634,7 +613,7 @@ export default function FormatBuilder({
             disabled={inferState === "running" || !!inferBlocked}
             className="min-h-11 rounded-lg border border-accent bg-surface px-4 py-2 text-[0.9375rem] font-medium text-accent enabled:hover:bg-accent-subtle disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {inferState === "running" ? "Reading exam…" : "Read the exam and suggest types"}
+            {inferState === "running" ? "Reading material…" : "Read the material and suggest types"}
           </button>
           {inferBlocked && inferState !== "running" && (
             <p className="text-[0.875rem] text-text-secondary">{inferBlocked}</p>
@@ -975,7 +954,7 @@ export default function FormatBuilder({
       {!pastExamFirst && (
         <details className="rounded-lg border border-border bg-surface">
           <summary className="flex min-h-11 cursor-pointer items-center px-4 text-[0.9375rem] font-medium text-text-primary sm:px-5">
-            Re-infer from a past exam
+            Re-infer from a past exam or course material
           </summary>
           <div className="px-4 pb-4 sm:px-5 sm:pb-5">{pastExamCard}</div>
         </details>
@@ -1022,7 +1001,7 @@ export default function FormatBuilder({
       {confirmReplace && (
         <ConfirmDialog
           title={`Replace ${live.length} existing type${live.length === 1 ? "" : "s"}?`}
-          body={`This will replace the ${live.length} type${live.length === 1 ? "" : "s"} above with ${confirmReplace.length} inferred from the past exam. This can't be undone, but you can still edit every draft before saving.`}
+          body={`This will replace the ${live.length} type${live.length === 1 ? "" : "s"} above with ${confirmReplace.length} inferred from the material. This can't be undone, but you can still edit every draft before saving.`}
           confirmLabel="Replace with inferred types"
           onConfirm={() => applyInferred(confirmReplace)}
           onCancel={() => setConfirmReplace(null)}

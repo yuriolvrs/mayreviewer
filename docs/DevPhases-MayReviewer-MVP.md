@@ -372,6 +372,17 @@ Post-MVP work, built in chapters, each verified (`tsc`, unit, e2e, `build`, plus
 
 ---
 
+## Sharing
+
+- [x] Migration `0002_sharing.sql`: `profiles`, `shares`, `share_reports`, `get_share`, `list_gallery`
+- [x] `Name#tag` display name: Account section and post-sign-in prompt
+- [x] Share dialog on reviewer and custom-format pages
+- [x] `/s/[code]` preview, add to library, report; `/browse` gallery
+- [x] "Your shares" in Account; Privacy and Terms updated
+- [x] Apply `0002_sharing.sql` to the Supabase project and run the manual share checks (all 8 pass)
+
+---
+
 ## Later / Not This Week (per TDD Migration Path)
 
 - Swap `lib/storage.ts` internals from `localStorage` to Supabase client calls (components untouched)

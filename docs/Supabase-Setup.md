@@ -16,6 +16,14 @@ project. Nothing here is committed — keys live in `.env.local` (gitignored).
 2. Paste the full contents of `supabase/migrations/0001_init.sql` and Run.
 3. Expect `Success. No rows returned` — it creates `reviewers`, `attempts`,
    `formats`, `settings` plus owner-only row-level-security policies.
+4. For sharing, run `supabase/migrations/0002_sharing.sql` the same way. It
+   creates `profiles`, `shares`, `share_reports` and the `get_share` and
+   `list_gallery` functions. Public reads go only through those functions.
+   To remove a reported share, delete its row in Table Editor > shares.
+5. Also run `supabase/migrations/0003_share_adds.sql`. It adds the `add_count`
+   column and the `record_share_add` function that counts how often a share
+   is added.
+   Reports are in `share_reports`.
 
 ## 3. Auth URL configuration
 

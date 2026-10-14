@@ -1,8 +1,10 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseClient, isSupabaseConfigured } from "@/app/lib/supabase";
+import DisplayNamePrompt from "@/app/components/DisplayNamePrompt";
+import { getMyProfile, type Profile } from "@/app/lib/profile";
 import { clearLocalSyncedData, getSyncMeta, syncNow } from "@/app/lib/sync";
 
 export type AuthResult = {
@@ -42,6 +44,20 @@ const AuthContext = createContext<AuthContextValue>({
   signOut: async () => ({ flushed: true }),
 });
 
+export type DisplayNamePromptValue = {
+  // Opens the "Pick your display name" modal, even after "Not now".
+  openDisplayNamePrompt: () => void;
+  // Null while loading, signed out, or when the user has no profile yet.
+  profile: Profile | null;
+  refreshProfile: () => Promise<void>;
+};
+
+const DisplayNamePromptContext = createContext<DisplayNamePromptValue>({
+  openDisplayNamePrompt: () => {},
+  profile: null,
+  refreshProfile: async () => {},
+});
+
 function shortError(err: unknown, fallback: string): string {
   if (err instanceof Error && err.message) return err.message.slice(0, 200);
   return fallback;
@@ -53,6 +69,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // derived once from env, not set inside the effect below.
   const [loading, setLoading] = useState(() => getSupabaseClient() !== null);
   const configured = isSupabaseConfigured();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [promptOpen, setPromptOpen] = useState(false);
+  // Id of the user whose sign-in sync has settled; gates the profile check.
+  const [syncedUserId, setSyncedUserId] = useState<string | null>(null);
+  const dismissedRef = useRef(false);
 
   useEffect(() => {
     const client = getSupabaseClient();
@@ -61,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     client.auth.getSession().then(({ data }) => {
       if (!cancelled) {
         setUser(data.session?.user ?? null);
+        setSyncedUserId(data.session?.user.id ?? null);
         setLoading(false);
       }
     });
@@ -79,9 +101,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // device starts empty and pulls the incoming account down fresh.
         // (Same-account sign-ins skip this — their leftovers are theirs.)
         if (getSyncMeta().lastUserId && getSyncMeta().lastUserId !== incomingId) {
-          void clearLocalSyncedData().then(() => syncNow(incomingId));
+          void clearLocalSyncedData()
+            .then(() => syncNow(incomingId))
+            .finally(() => !cancelled && setSyncedUserId(incomingId));
         } else {
-          void syncNow(incomingId);
+          void syncNow(incomingId).finally(() => !cancelled && setSyncedUserId(incomingId));
         }
       }
     });
@@ -90,6 +114,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.subscription.unsubscribe();
     };
   }, []);
+
+  const userId = user?.id ?? null;
+
+  const refreshProfile = useCallback(async () => {
+    setProfile(await getMyProfile());
+  }, []);
+
+  // After sign-in sync, look up the profile once; offer the prompt when the
+  // user has none, unless they already dismissed it this session.
+  useEffect(() => {
+    if (!userId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setProfile(null);
+      setPromptOpen(false);
+      return;
+    }
+    if (syncedUserId !== userId) return;
+    let cancelled = false;
+    void getMyProfile().then((p) => {
+      if (cancelled) return;
+      setProfile(p);
+      if (!p && !dismissedRef.current) setPromptOpen(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, syncedUserId]);
+
+  const promptValue: DisplayNamePromptValue = {
+    openDisplayNamePrompt: () => setPromptOpen(true),
+    profile,
+    refreshProfile,
+  };
 
   const value: AuthContextValue = {
     configured,
@@ -149,9 +206,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      <DisplayNamePromptContext.Provider value={promptValue}>
+        {children}
+        {promptOpen && user && (
+          <DisplayNamePrompt
+            onSaved={(p) => {
+              setProfile(p);
+              setPromptOpen(false);
+            }}
+            onClose={() => {
+              dismissedRef.current = true;
+              setPromptOpen(false);
+            }}
+          />
+        )}
+      </DisplayNamePromptContext.Provider>
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth(): AuthContextValue {
   return useContext(AuthContext);
+}
+
+export function useDisplayNamePrompt(): DisplayNamePromptValue {
+  return useContext(DisplayNamePromptContext);
 }

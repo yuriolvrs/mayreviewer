@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SUPPORT_EMAIL } from "@/app/lib/feedback";
+import BackLink from "@/app/components/BackLink";
 
 export const metadata: Metadata = { title: "Terms of Use | May Reviewer" };
 
@@ -15,6 +16,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function TermsPage() {
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
+      <BackLink href="/">Home</BackLink>
       <h1 className="text-[1.625rem] font-semibold text-text-primary">Terms of Use</h1>
       <p className="mt-1 text-[0.9375rem] text-text-secondary">Last updated October 14, 2026.</p>
 
@@ -52,6 +54,18 @@ export default function TermsPage() {
           </ul>
         </Section>
 
+        <Section title="Sharing">
+          <ul className="flex list-disc flex-col gap-1.5 pl-5">
+            <li>
+              You may share only what you have the right to share. The questions come from
+              your material. Do not share content you do not have the right to share.
+            </li>
+            <li>Do not share unlawful or abusive content.</li>
+            <li>Anyone can report a share. The operator may remove a share at any time.</li>
+            <li>You are responsible for what you share.</li>
+          </ul>
+        </Section>
+
         <Section title="No warranty">
           <p>
             The app is provided as-is, without warranties of any kind. To the extent
@@ -62,8 +76,8 @@ export default function TermsPage() {
 
         <Section title="Changes">
           <p>
-            These terms may change as the app grows. Accounts and sync are possible future
-            additions. We will list material changes here with a new date.
+            These terms may change as the app grows. We will list material changes here with
+            a new date.
           </p>
         </Section>
 

@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import FormatBuilder from "@/app/components/FormatBuilder";
+import BackLink from "@/app/components/BackLink";
 import FormatPreview from "@/app/components/FormatPreview";
 import PageSkeleton from "@/app/components/PageSkeleton";
+import ShareButton from "@/app/components/ShareDialog";
 import { getBuiltinFormats, saveCustomFormat } from "@/app/lib/examFormats";
 import { flagFormatSaved } from "@/app/lib/formatSaved";
 import { useFormats, useFormatsLoaded } from "@/app/lib/useFormats";
@@ -24,18 +26,7 @@ export default function EditFormatPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-6 py-8">
-      <nav
-        aria-label="Breadcrumb"
-        className="mb-2 flex items-center gap-1.5 text-[0.75rem] tracking-wide uppercase"
-      >
-        <Link href="/formats" className="text-text-secondary hover:text-text-primary">
-          Formats
-        </Link>
-        <span aria-hidden="true" className="text-text-tertiary">
-          /
-        </span>
-        <span className="text-text-tertiary">{custom ? "Edit format" : "Format"}</span>
-      </nav>
+      <BackLink href="/formats">Formats</BackLink>
 
       {builtin ? (
         <>
@@ -72,7 +63,10 @@ export default function EditFormatPage() {
         </>
       ) : (
         <>
-          <h1 className="text-[2.125rem] font-bold leading-10 tracking-tight text-text-primary">Edit format</h1>
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="text-[2.125rem] font-bold leading-10 tracking-tight text-text-primary">Edit format</h1>
+            <ShareButton source={{ kind: "format", format: custom }} />
+          </div>
           <p className="mt-1 text-[0.9375rem] text-text-secondary">
             Reviewers already on this format keep their questions. New generations use the
             edited definition.

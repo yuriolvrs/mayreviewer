@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { getReviewer } from "@/app/lib/storage";
+import BackLink from "@/app/components/BackLink";
 import { deleteWarning, removeReviewerCompletely } from "@/app/lib/reviewers";
 import { resolveFromList } from "@/app/lib/examFormats";
 import { useFormats } from "@/app/lib/useFormats";
@@ -13,6 +14,8 @@ import ImportExportTab from "@/app/components/ImportExportTab";
 import DetailsTab from "@/app/components/DetailsTab";
 import QuestionsTab from "@/app/components/QuestionsTab";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
+import ShareButton from "@/app/components/ShareDialog";
+import { customFormatFor } from "@/app/lib/shareInput";
 
 type Tab = "details" | "questions" | "import-export";
 
@@ -105,26 +108,22 @@ function ReviewerSpace() {
   return (
     <div className="flex flex-1 flex-col">
       <div className="mx-auto w-full max-w-4xl shrink-0 px-6 pt-8">
-        {/* Sits outside the tab switch below, so it holds position while only
-            the tab content changes. */}
-        <nav
-          aria-label="Breadcrumb"
-          className="mb-2 flex items-center gap-1.5 text-[0.75rem] tracking-wide uppercase"
-        >
-          <Link href="/" className="text-text-secondary hover:text-text-primary">
-            Reviewers
-          </Link>
-          <span aria-hidden="true" className="text-text-tertiary">
-            /
-          </span>
-          <span className="text-text-tertiary">{reviewer.reviewerName}</span>
-        </nav>
+        {/* Back link sits outside the tab switch below, so it holds position
+            while only the tab content changes. */}
+        <BackLink href="/">Reviewers</BackLink>
 
         <div className="flex items-center justify-between gap-3">
           <h1 className="min-w-0 break-words text-[1.625rem] font-semibold text-text-primary">
             {reviewer.reviewerName}
           </h1>
-          <div className="flex shrink-0 items-center gap-4">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+            <ShareButton
+              source={{
+                kind: "reviewer",
+                reviewer,
+                customFormat: customFormatFor(formats, reviewer.examFormatId),
+              }}
+            />
             {hasQuestions ? (
               <Link
                 href={`/reviewer/${reviewer.id}/quiz`}

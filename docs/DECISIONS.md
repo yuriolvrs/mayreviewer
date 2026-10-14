@@ -49,3 +49,28 @@ Format: each entry has **Context**, **Decision**, **Reason**, **Status** (Accept
 **Decision:** The format is now "Operating Systems Exam" with id `os-exam`. One legacy id constant (`LEGACY_OS_EXAM_ID`) stays. Saved reviewers, attempts, and old export files with that id read back as `os-exam`, and attempts also take the new name. Old `/formats/<legacy id>` links are not redirected.
 **Reason:** Saved data and old export files keep working. An old export file is never saved as a custom copy of the built-in.
 **Status:** Accepted
+
+## 2026-10-14: Sharing reviewers and formats
+
+**Context:** The only way to share was a file export. Users want in-app sharing.
+**Decision:**
+- A share is a questions-only snapshot. Notes, files, past exams, and quiz history are never shared. A custom format may travel with a reviewer, without its past exam.
+- Each share has a 6-character code and the link `/s/CODE`. It is unlisted by default. The owner can tick "List publicly" to show it on `/browse`.
+- One share per item. "Update share" replaces the snapshot under the same code. Copies already in a library do not change.
+- Only signed-in users share. Anyone can open a share and add a copy to their local library.
+- Signed-in users have a `Name#tag` display name. The name is free-form. The pair is unique, compared case-insensitively. Each share chooses whether to show it.
+- Public reads go through the `get_share` and `list_gallery` functions. The `shares` table has owner-only RLS.
+- Moderation: a Report button writes to `share_reports`. The operator removes shares by hand.
+- Owners see an anonymous add count ("Added N times"). Views and quiz counts are not tracked. No viewer identity is stored.
+**Reason:** Questions-only keeps copyright and privacy exposure small and needs no file storage. Files can be added later as an opt-in.
+**Status:** Accepted
+
+## 2026-10-15: Shared BackLink component
+
+**Context:** Users could not tell how to go back. Some pages had a small breadcrumb, some a plain text link, and many had nothing.
+**Decision:**
+- One `BackLink` component (bordered button with a left arrow) replaces the breadcrumbs and the ad-hoc back links.
+- It goes to a fixed parent page. It does not call `history.back()`.
+- Landing, history, progress, the formats list, goodbye, the quiz "taking" stage, and auth callback have no back link.
+**Reason:** A fixed parent works for deep links and refreshes. History-based back does not.
+**Status:** Accepted

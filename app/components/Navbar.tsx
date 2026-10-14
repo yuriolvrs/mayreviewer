@@ -32,6 +32,7 @@ export default function Navbar() {
   const formatsActive = pathname.startsWith("/formats");
   const historyActive = pathname.startsWith("/history");
   const progressActive = pathname.startsWith("/progress");
+  const browseActive = pathname.startsWith("/browse") || pathname.startsWith("/s/");
   const settingsActive = pathname.startsWith("/settings");
   const accountActive = pathname.startsWith("/account");
 
@@ -88,6 +89,16 @@ export default function Navbar() {
           }`}
         >
           Progress
+        </Link>
+        <Link
+          href="/browse"
+          className={`hidden text-[0.875rem] md:inline md:text-[0.9375rem] ${
+            browseActive
+              ? "font-semibold text-text-primary"
+              : "text-text-secondary hover:text-text-primary"
+          }`}
+        >
+          Browse
         </Link>
 
         <div

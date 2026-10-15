@@ -52,7 +52,11 @@ export default function PasswordInput({
   required,
   minLength,
   className = "relative",
+  invalid,
+  describedBy,
 }: {
+  invalid?: boolean;
+  describedBy?: string;
   id?: string;
   autoComplete: string;
   value: string;
@@ -78,7 +82,11 @@ export default function PasswordInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={ariaLabel}
-        className="h-12 w-full rounded-lg border border-border bg-surface py-2 pr-14 pl-3 text-[0.9375rem] text-text-primary outline-none placeholder:text-text-tertiary focus:border-accent"
+        aria-invalid={invalid ? "true" : undefined}
+        aria-describedby={describedBy}
+        className={`h-12 w-full rounded-lg border bg-surface py-2 pr-14 pl-3 text-[0.9375rem] text-text-primary outline-none placeholder:text-text-tertiary ${
+          invalid ? "border-error" : "border-border focus:border-accent"
+        }`}
       />
       <button
         type="button"

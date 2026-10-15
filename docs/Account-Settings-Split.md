@@ -11,9 +11,14 @@ where it diverged from the original plan.
   live on `/about` and in the layout footer, so nothing orphaned — but note
   the "Free plan" note has no surface anymore. If plan copy matters later,
   it needs a home.
-- `/account` — identity + cloud: signed-in email row, Display name, Sync row
-  with Sync now, Change password, Log out, Delete account, plus the
-  logged-out "Sign in to sync" CTA and the unconfigured-build note.
+- `/account` — an identity header (avatar, handle, email, Log out), then
+  sections: Profile (display name, edited inline), Sign-in methods (Google
+  status when linked, Password with the change/set dialog), Sync (last
+  synced + Sync now), Shares, and a separate Delete account row at the
+  bottom. Logged-out state is a "Sync your reviewers" pitch with a Sign in
+  button; unconfigured builds show a note. The reset-link dialog has a
+  client-side limit (60s cooldown, 3 sends per hour, kept in localStorage);
+  Supabase's own rate limits are the real guard.
   Cross-links: Navbar menu carries the Account item (with active state);
   BottomBar unchanged (no fifth tab), as planned.
 
@@ -25,10 +30,28 @@ Two features were built that the plan listed as non-goals:
   with the account. Caveat: it is NOT in the export-all backup (that covers
   settings/reviewers/attempts only). Acceptable — the cloud is its backup —
   but don't claim exports are complete accounts.
-- **Change password** — `auth.updateUser`, 6-char minimum, match check, eye
-  toggles shared with `/login` via `PasswordInput`. No current-password
-  gate and no recovery flow; both are future work if shared-device threat
-  models ever demand them.
+- **Change password** — opens a dialog (`PasswordDialog`). Two paths:
+  - Current password: email users enter it, we check it with
+    `signInWithPassword`, then call `updateUser` with `current_password`.
+  - Reset link: `resetPasswordForEmail` sends Supabase's default "Reset
+    password" email, which lands on `/auth/reset`. That link gives a
+    recovery session, so `updateUser` needs no `current_password` there.
+    Google-only users ("Set a password") always use this path. Email users
+    who forgot the password use it too.
+  - There are no emailed codes. Editing Supabase email templates needs
+    custom SMTP, and the project has no domain.
+  - After any successful update we store `password_set: true` in
+    `user_metadata`, because Supabase adds no "email" provider when an
+    OAuth user sets a password. `hasPassword()` reads that flag. Eye
+    toggles are shared with `/login` via `PasswordInput`.
+- **Supabase setup needed:**
+  - Add `<site>/auth/reset` (localhost and production) to Authentication →
+    URL Configuration → Redirect URLs.
+  - Turn on "Require current password when updating". The browser-side
+    check can be bypassed by anyone holding the session token; this
+    enforces it on the server.
+  - The built-in mailer only delivers to project team members and is
+    rate-limited. Real users need custom SMTP before launch.
 
 ## Preserved behaviors
 

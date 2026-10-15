@@ -1,15 +1,103 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import FeedbackForm from "@/app/components/FeedbackForm";
+import BackLink from "@/app/components/BackLink";
 import { APP_VERSION } from "@/app/lib/feedback";
 
 export const metadata: Metadata = { title: "About | May Reviewer" };
 
-function Section({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
+const LINK = "font-medium text-accent underline underline-offset-2";
+
+const NAV = [
+  { href: "#how", label: "How it works" },
+  { href: "#data", label: "Your data" },
+  { href: "#limitations", label: "Limitations" },
+  { href: "#feedback", label: "Feedback" },
+  { href: "#credits", label: "Credits" },
+];
+
+const STEPS = [
+  {
+    title: "Add your material",
+    body: "Name the subject and its topics. Paste notes or upload PDFs, images, DOCX, TXT, or code files. Attach a past exam if you have one.",
+  },
+  {
+    title: "Pick a question format",
+    body: "Use a built-in format or build your own with the question types your exam uses. A past exam can draft the types for you. You review every draft.",
+  },
+  {
+    title: "Generate, check, study",
+    body: "Gemini writes the questions. Edit or delete any of them, then take quizzes as often as you like. Short answers are graded by AI, and you can override any grade.",
+  },
+];
+
+const DATA = [
+  {
+    title: "On your device",
+    body: "Reviewers, questions, quiz history, and settings are stored in this browser. Uploaded files stay on the device that uploaded them.",
+  },
+  {
+    title: "With an account",
+    body: "Sign in and your reviewers, formats, and history sync across your devices. Without an account, nothing is kept on a server.",
+  },
+  {
+    title: "When you generate",
+    body: "Your material goes to the AI model once. Text is sent as text. PDFs and images go to temporary storage and are deleted when the questions come back. Mistral is the fallback if Gemini fails.",
+  },
+  {
+    title: "When you share",
+    body: "Only the questions become public. Notes, files, past exams, and history stay private. Sharing is optional and needs an account.",
+  },
+];
+
+const LIMITS = [
+  {
+    title: "Questions can be wrong",
+    body: "Quality follows your material. Thin or unfocused notes give thin questions, and the model can still make mistakes. Check questions before you study from them.",
+  },
+  {
+    title: "One format per reviewer",
+    body: "Built-in formats are Operating Systems Exam, Math, Language, Science, and History. You can build your own, but each reviewer uses one format at a time.",
+  },
+  {
+    title: "Upload limits",
+    body: (
+      <>
+        Accepts <span className="font-mono">.pdf</span>, <span className="font-mono">.jpg</span>,{" "}
+        <span className="font-mono">.png</span>, <span className="font-mono">.webp</span>,{" "}
+        <span className="font-mono">.docx</span>, <span className="font-mono">.txt</span>, and{" "}
+        <span className="font-mono">.cpp</span>. Up to 10 files per field, 15 MB each, 40 MB in total.
+        HEIC photos are not supported. Convert them to JPEG first.
+      </>
+    ),
+  },
+  {
+    title: "Rate limits",
+    body: "8 generations and 8 past-exam format inferences every 10 minutes, and 30 file uploads every 10 minutes. This keeps the free service affordable.",
+  },
+  {
+    title: "AI grading",
+    body: "Short answers are graded against a key-point rubric. It can miss nuance, so you can override any grade on the results screen. Answers are limited to 600 characters. Long essays are not supported.",
+  },
+  {
+    title: "Sharing is questions only",
+    body: "A share is a snapshot. Later edits do not reach people who already added it, unless you update the share. Files and past exams never travel with it.",
+  },
+];
+
+function Section({
+  title,
+  id,
+  children,
+}: {
+  title: string;
+  id: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section id={id} className="border-t border-border py-6 scroll-mt-6">
-      <h2 className="text-[0.9375rem] font-medium text-text-primary">{title}</h2>
-      <div className="mt-2 flex flex-col gap-2 text-[0.9375rem] text-text-secondary">{children}</div>
+    <section id={id} className="scroll-mt-20 border-t border-border py-8">
+      <h2 className="text-[1.1875rem] font-semibold tracking-tight text-text-primary">{title}</h2>
+      <div className="mt-4">{children}</div>
     </section>
   );
 }
@@ -17,123 +105,113 @@ function Section({ title, children, id }: { title: string; children: React.React
 export default function AboutPage() {
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
+      <BackLink href="/">Home</BackLink>
       <h1 className="text-[1.625rem] font-semibold text-text-primary">About</h1>
       <p className="mt-1 text-[0.9375rem] text-text-secondary">pre, May Reviewer ka ba?</p>
 
-      <div className="mt-6 flex flex-col">
-        <Section title="What this is">
-          <p>
-            May Reviewer turns your notes, handouts, and project material into a practice quiz you
-            can retake as often as you want. It started as a tool for one exam and now supports
-            several formats. See{" "}
-            <a href="#limitations" className="font-medium text-accent underline">
-              Known limitations
-            </a>{" "}
-            for what it cannot do yet.
-          </p>
+      <p className="mt-8 max-w-[34rem] text-[1.0625rem] leading-relaxed text-text-primary text-pretty">
+        May Reviewer turns the notes and handouts you already have into practice exams in the
+        format your exam actually uses. Retake them as often as you want.
+      </p>
+      <p className="mt-3 max-w-[34rem] text-[0.9375rem] text-text-secondary">
+        It began as a way to prepare for one Operating Systems final. It now works for any
+        course. It is free, and the core loop works without an account.
+      </p>
+
+      <nav aria-label="On this page" className="mt-6 flex flex-wrap gap-2">
+        {NAV.map((n) => (
+          <a
+            key={n.href}
+            href={n.href}
+            className="inline-flex min-h-[44px] items-center rounded-full border border-border bg-surface px-4 text-[0.875rem] font-medium text-text-secondary hover:border-border-strong hover:text-text-primary"
+          >
+            {n.label}
+          </a>
+        ))}
+      </nav>
+
+      <div className="mt-8 flex flex-col">
+        <Section title="How it works" id="how">
+          <ol className="flex flex-col">
+            {STEPS.map((s, i) => (
+              <li key={s.title} className="relative flex gap-4 pb-6 last:pb-0">
+                {i < STEPS.length - 1 && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute left-[0.9375rem] top-9 bottom-1 w-px bg-border"
+                  />
+                )}
+                <span
+                  aria-hidden="true"
+                  className="flex size-[1.875rem] shrink-0 items-center justify-center rounded-full bg-accent-subtle text-[0.875rem] font-semibold text-accent"
+                >
+                  {i + 1}
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-[0.9375rem] font-semibold text-text-primary">{s.title}</h3>
+                  <p className="mt-1 max-w-[34rem] text-[0.9375rem] text-text-secondary">{s.body}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
         </Section>
 
-        <Section title="How it works">
-          <p>
-            You describe a subject and its topics, paste or upload your material, and questions are
-            generated by Google&apos;s Gemini model (<span className="font-mono">gemini-3.1-flash-lite</span>).
-          </p>
-          <p>
-            Your reviewers, questions, and quiz history live in this browser only. Nothing is kept
-            on a server and nothing is shared between devices. Clearing your browser data deletes
-            them.
-          </p>
-          <p>
-            Your material leaves the browser only when you generate questions. Text is sent as
-            text. PDFs and images go to temporary storage so the model can read them, and they are
-            deleted when the questions come back. If Gemini fails, Mistral is used as a fallback.
-            Nothing is used for training or advertising. See the{" "}
-            <Link href="/privacy" className="font-medium text-accent underline">
+        <Section title="Where your data goes" id="data">
+          <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
+            {DATA.map((d) => (
+              <div key={d.title}>
+                <dt className="text-[0.9375rem] font-semibold text-text-primary">{d.title}</dt>
+                <dd className="mt-1 text-[0.9375rem] text-text-secondary">{d.body}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-6 text-[0.9375rem] text-text-secondary">
+            Nothing is used for training or advertising, and there are no analytics. Read the{" "}
+            <Link href="/privacy" className={LINK}>
               Privacy Policy
             </Link>{" "}
-            for details.
+            for the full detail.
           </p>
         </Section>
 
         <Section title="Known limitations" id="limitations">
-          <ul className="flex list-disc flex-col gap-1.5 pl-5">
-            <li>
-              Built-in formats include Operating Systems Exam, Math, Language, Science, and
-              History. You can also build your own format with the question types your exam uses.
-              Each reviewer uses one format at a time.
-            </li>
-            <li>
-              Question quality depends entirely on the material you upload. Thin or unfocused source
-              material produces thin questions, and the model can still get things wrong.
-            </li>
-            <li>No accounts and no collaboration. You share a reviewer by exporting it and sending the file.</li>
-            <li>
-              Uploads accept <span className="font-mono">.pdf</span>,{" "}
-              <span className="font-mono">.jpg</span>, <span className="font-mono">.png</span>,{" "}
-              <span className="font-mono">.webp</span>, <span className="font-mono">.docx</span>,{" "}
-              <span className="font-mono">.txt</span>, and <span className="font-mono">.cpp</span>.
-              Up to 10 files per field, 15 MB each and 40 MB in total. HEIC photos
-              aren&apos;t supported. Convert them to JPEG first.
-            </li>
-            <li>
-              Generation is rate limited to 8 runs every 10 minutes to keep model costs in check.
-              Past-exam type inference has its own separate 8-per-10-minutes bucket, and file
-              uploads are limited to 30 per 10 minutes.
-            </li>
-            <li>
-              Short-answer questions are graded by AI against a key-point rubric when you
-              submit. Grading can miss nuance, so you can override any grade on the results
-              screen. Answers are limited to 600 characters, and long essays aren&apos;t supported.
-            </li>
-            <li>
-              You can attach a past exam to a reviewer or keep it on a format. The AI drafts
-              question types from it. You must review every draft before it becomes part of a
-              format. Check generated questions before you study from them.
-            </li>
-          </ul>
-        </Section>
-
-        <Section title="What's next">
-          <p>Nothing here is promised, but these are the likely directions:</p>
-          <ul className="flex list-disc flex-col gap-1.5 pl-5">
-            <li>More question types and richer format building blocks.</li>
-            <li>Accounts, so your reviewers are available on every device you sign in on.</li>
-            <li>A real database (likely Supabase) to back accounts, instead of browser storage.</li>
-            <li>
-              A page to browse reviewers other people made and add one to your account. Authors
-              could keep their source files private and share only the generated questions.
-            </li>
-            <li>
-              Better handling of long or image-heavy source material. This costs more per
-              generation, so it depends on how the free tier holds up as more people use it.
-            </li>
+          <ul className="flex flex-col divide-y divide-border">
+            {LIMITS.map((l) => (
+              <li key={l.title} className="grid gap-1 py-4 first:pt-0 last:pb-0 sm:grid-cols-[11rem_minmax(0,1fr)] sm:gap-6">
+                <h3 className="text-[0.9375rem] font-semibold text-text-primary">{l.title}</h3>
+                <p className="text-[0.9375rem] text-text-secondary">{l.body}</p>
+              </li>
+            ))}
           </ul>
         </Section>
 
         <Section title="Feedback" id="feedback">
-          <p>Found a bug or have an idea? Write it below. This opens your mail app with a prefilled message.</p>
+          <p className="max-w-[34rem] text-[0.9375rem] text-text-secondary">
+            Found a bug or have an idea? Write it below and it opens in your mail app, ready to
+            send. You can also email the address directly.
+          </p>
           <FeedbackForm />
         </Section>
 
-        <Section title="Credits">
-          <p>
-            Question generation is powered by Google Gemini. Built with Next.js, React, and Tailwind
-            CSS, with <span className="font-mono">mammoth</span> for reading{" "}
-            <span className="font-mono">.docx</span> files,{" "}
-            <span className="font-mono">fflate</span> for zip import/export, and{" "}
+        <Section title="Credits" id="credits">
+          <p className="max-w-[34rem] text-[0.9375rem] text-text-secondary">
+            Questions are generated by Google Gemini, with Mistral as a fallback. Temporary file
+            storage uses Vercel Blob, and accounts and sync run on Supabase. The app is built with
+            Next.js, React, and Tailwind CSS, with <span className="font-mono">mammoth</span> for
+            reading <span className="font-mono">.docx</span> files,{" "}
+            <span className="font-mono">fflate</span> for zip import and export, and{" "}
             <span className="font-mono">idb</span> for storing uploaded files in the browser.
           </p>
-          <p className="text-[0.875rem] text-text-tertiary">May Reviewer v{APP_VERSION}.</p>
+          <p className="mt-3 text-[0.875rem] text-text-tertiary">May Reviewer v{APP_VERSION}</p>
         </Section>
 
-        <section className="border-t border-border py-6">
-          <h2 className="text-[0.9375rem] font-medium text-text-primary">Disclaimer</h2>
-          <p className="mt-2 text-[0.875rem] text-text-tertiary">
-            This is an independent personal project, not affiliated with or endorsed by any school,
-            course, or instructor. Generated questions are practice material only. They&apos;re not
-            guaranteed to be accurate and are not official exam content. Check the generated
-            questions and answers against your own source material before you study from them or
-            share them.
+        <section id="disclaimer" className="scroll-mt-20 border-t border-border pt-8">
+          <h2 className="text-[1.1875rem] font-semibold tracking-tight text-text-primary">Disclaimer</h2>
+          <p className="mt-4 max-w-[34rem] rounded-lg bg-surface-alt px-4 py-3 text-[0.9375rem] text-text-secondary">
+            May Reviewer is an independent personal project. No school, course, or instructor
+            endorses it. Generated questions are practice material, not official exam content,
+            and they may be inaccurate. Check questions and answers against your own source
+            material before you study from them or share them.
           </p>
         </section>
       </div>

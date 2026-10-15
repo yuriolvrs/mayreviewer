@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
+import BackLink from "@/app/components/BackLink";
 import { useAuth } from "@/app/components/AuthProvider";
 import { removeReviewerCompletely } from "@/app/lib/reviewers";
 import { MAX_QUESTION_COUNT, MIN_QUESTION_COUNT } from "@/app/lib/questions";
@@ -208,6 +209,7 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
+      <BackLink href="/">Home</BackLink>
       <h1 className="text-[1.625rem] font-semibold text-text-primary">Settings</h1>
       <p className="mt-1 text-[0.9375rem] text-text-secondary">Study defaults, appearance, reminders, and your data.</p>
 

@@ -173,12 +173,6 @@ html[data-quiz="active"] body {
   footer nav a {
     padding-block: 0.8125rem;
   }
-  main nav[aria-label="Breadcrumb"] a {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    margin-block: -14px;
-  }
   main a.back-link {
     display: inline-flex;
     align-items: center;

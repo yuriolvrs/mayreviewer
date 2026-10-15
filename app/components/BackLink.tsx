@@ -4,9 +4,11 @@ export default function BackLink({ href, children }: { href: string; children: R
   return (
     <Link
       href={href}
-      className="back-link mb-4 inline-flex min-h-9 w-fit items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-[0.9375rem] font-medium text-text-secondary hover:border-border-strong hover:text-text-primary"
+      className="back-link group mb-3 inline-flex w-fit items-center gap-2 text-[0.9375rem] font-medium text-text-secondary hover:text-accent"
     >
-      <span aria-hidden="true">←</span>
+      <span aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5">
+        ←
+      </span>
       {children}
     </Link>
   );

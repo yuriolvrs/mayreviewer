@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import {
   formatCountdown,
@@ -21,6 +20,7 @@ import {
   type ExamFormat,
 } from "@/app/lib/examFormats";
 import StimulusBlock from "@/app/components/StimulusBlock";
+import BackLink from "@/app/components/BackLink";
 import StimulusQuote from "@/app/components/StimulusQuote";
 import type { QuestionGroup } from "@/app/lib/questions";
 import type { Question, ShortGrade } from "@/app/types";
@@ -438,20 +438,18 @@ export default function QuizResults({
         <button
           type="button"
           onClick={onBack}
-          className="self-start text-[0.9375rem] text-text-secondary hover:text-text-primary"
+          className="group mb-3 inline-flex w-fit items-center gap-2 self-start text-[0.9375rem] font-medium text-text-secondary hover:text-accent"
         >
-          ← Your attempts
+          <span aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5">
+            ←
+          </span>
+          Your attempts
         </button>
       ) : (
-        <Link
-          href={`/reviewer/${reviewerId}`}
-          className="back-link self-start text-[0.9375rem] text-text-secondary hover:text-text-primary"
-        >
-          ← {reviewerName}
-        </Link>
+        <BackLink href={`/reviewer/${reviewerId}`}>{reviewerName}</BackLink>
       )}
 
-      <h1 className="mt-4 text-[1.625rem] font-semibold text-text-primary">Quiz results</h1>
+      <h1 className="text-[1.625rem] font-semibold text-text-primary">Quiz results</h1>
       <p className="mt-1 text-[0.9375rem] text-text-secondary">
         {reviewerName}
         {takenAt &&

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/app/components/AuthProvider";
+import BackLink from "@/app/components/BackLink";
 import PasswordInput from "@/app/components/PasswordInput";
 
 // Labelled password row: label above, shared input + eye toggle below.
@@ -142,6 +143,7 @@ export default function LoginPage() {
 
   return (
     <div className="mx-auto w-full max-w-md flex-1 px-6 py-10">
+      <BackLink href="/">Home</BackLink>
       <h1 className="text-[1.625rem] font-semibold text-text-primary">Sync your reviewers</h1>
       <p className="mt-1 text-[0.9375rem] text-text-secondary">
         Sign in to back up reviewers, questions, history, and settings, and pick them up on

@@ -27,6 +27,7 @@ export type ShareRow = {
   showName?: boolean;
   // Owner reads only. get_share and list_gallery do not return it.
   addCount?: number;
+  createdAt?: string;
 };
 
 // Gallery cards carry no questions.
@@ -200,6 +201,7 @@ function toShareRow(r: DbRow): ShareRow {
     authorTag: (r.author_tag as string | null) ?? null,
     ...(typeof r.show_name === "boolean" ? { showName: r.show_name } : {}),
     ...(typeof r.add_count === "number" ? { addCount: r.add_count } : {}),
+    ...(typeof r.created_at === "string" ? { createdAt: r.created_at } : {}),
   };
 }
 

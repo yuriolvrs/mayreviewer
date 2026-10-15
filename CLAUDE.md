@@ -106,3 +106,22 @@ Two checklists are tracked: `docs/DevPhases-MayReviewer-MVP.md` and `docs/ExamFo
 - Prefer plain words over jargon. No idioms or metaphors.
 - Apply it mainly to chat replies, and to code comments, commit messages, and UI copy where it fits.
 - Blend it rather than applying it everywhere - keep enough ordinary prose that reasoning and tradeoffs still read naturally.
+
+## 10. Model Workflow
+
+**Opus plans and reviews. Sonnet writes code.**
+
+Commands: `npm run build` · `npm run lint` · `npm run test` (vitest) · `npm run test:e2e` (playwright) · `npx tsc --noEmit`
+
+- Main session (Opus) plans, writes specs, reviews, and updates docs. The `implementer` agent (Sonnet) writes code.
+- Size rule: a change that touches 3 files or fewer and is under about 50 lines is done directly by the main session. Otherwise, use the loop.
+- Loop:
+  1. Plan in `docs/plans/NN-<feature>.md`: goal, doc links, numbered tasks.
+  2. Write each task spec so it stands alone. Use `docs/plans/_template.md`.
+  3. Delegate the task to `implementer`.
+  4. Review the diff against the spec and `docs/DECISIONS.md`.
+  5. Send findings back to the same implementer with SendMessage. Repeat until clean.
+  6. Record decisions in `docs/DECISIONS.md` and tick the task.
+- The main session writes no production code outside the size rule, except small fixes found during review.
+- Run tasks in parallel only if they touch different files.
+- To read a single known file, read it directly. Do not spawn an agent.

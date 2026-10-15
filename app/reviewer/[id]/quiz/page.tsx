@@ -11,6 +11,7 @@ import {
   updateAttemptGrades,
 } from "@/app/lib/storage";
 import { gradeShortAnswers } from "@/app/lib/grade";
+import BackLink from "@/app/components/BackLink";
 import { blankGrade, buildGradeItems } from "@/app/lib/grading";
 import { clearQuizProgress, getQuizProgress, saveQuizProgress } from "@/app/lib/quizProgress";
 import { getSettings } from "@/app/lib/settings";
@@ -394,14 +395,9 @@ function QuizPageInner() {
 
   return (
     <div className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
-      <Link
-        href={`/reviewer/${reviewer.id}`}
-        className="back-link text-[0.9375rem] text-text-secondary hover:text-text-primary"
-      >
-        ← Details
-      </Link>
+      <BackLink href={`/reviewer/${reviewer.id}`}>Details</BackLink>
 
-      <h1 className="mt-4 text-[1.625rem] font-semibold text-text-primary">
+      <h1 className="text-[1.625rem] font-semibold text-text-primary">
         {reviewer.reviewerName} - Quiz
       </h1>
       <p className="mt-1 text-[1rem] font-medium text-text-primary">

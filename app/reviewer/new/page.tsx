@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { newId } from "@/app/lib/ids";
+import BackLink from "@/app/components/BackLink";
 import { useTopicList } from "@/app/lib/useTopics";
 import { saveReviewer } from "@/app/lib/storage";
 import { getSettings } from "@/app/lib/settings";
@@ -260,18 +260,7 @@ export default function NewReviewerPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-6 py-8">
-      <nav
-        aria-label="Breadcrumb"
-        className="mb-2 flex items-center gap-1.5 text-[0.75rem] tracking-wide uppercase"
-      >
-        <Link href="/" className="text-text-secondary hover:text-text-primary">
-          Reviewers
-        </Link>
-        <span aria-hidden="true" className="text-text-tertiary">
-          /
-        </span>
-        <span className="text-text-tertiary">New reviewer</span>
-      </nav>
+      <BackLink href="/">Reviewers</BackLink>
 
       <h1 className="text-[1.625rem] font-semibold text-text-primary">New reviewer</h1>
 

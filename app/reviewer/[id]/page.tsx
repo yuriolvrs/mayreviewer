@@ -14,7 +14,7 @@ import ImportExportTab from "@/app/components/ImportExportTab";
 import DetailsTab from "@/app/components/DetailsTab";
 import QuestionsTab from "@/app/components/QuestionsTab";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
-import ShareButton from "@/app/components/ShareDialog";
+import ShareButton, { ShareStatus } from "@/app/components/ShareDialog";
 import { customFormatFor } from "@/app/lib/shareInput";
 
 type Tab = "details" | "questions" | "import-export";
@@ -150,18 +150,16 @@ function ReviewerSpace() {
             Add questions to take a quiz.
           </p>
         )}
-        <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[0.875rem] text-text-secondary">
-          <span>Format: {format.name.replace(/\s+format$/i, "")}</span>
-          <span aria-hidden="true" className="text-text-tertiary">
-            ·
-          </span>
+        <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[0.875rem] text-text-secondary">
+          <span>Format:</span>
           <Link
             href={`/formats/${format.id}`}
             className="inline-flex min-h-[44px] items-center font-medium text-accent underline"
           >
-            View format
+            {format.name.replace(/\s+format$/i, "")}
           </Link>
         </p>
+        <ShareStatus kind="reviewer" sourceId={reviewer.id} />
 
         {/* The three labels are wider than a narrow phone at their desktop
             size, so they step down below `sm`; anything still over scrolls

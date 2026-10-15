@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import FeedbackForm from "@/app/components/FeedbackForm";
 import BackLink from "@/app/components/BackLink";
+import AboutNav from "@/app/components/AboutNav";
 import { APP_VERSION } from "@/app/lib/feedback";
 
 export const metadata: Metadata = { title: "About | May Reviewer" };
@@ -118,17 +119,7 @@ export default function AboutPage() {
         course. It is free, and the core loop works without an account.
       </p>
 
-      <nav aria-label="On this page" className="mt-6 flex flex-wrap gap-2">
-        {NAV.map((n) => (
-          <a
-            key={n.href}
-            href={n.href}
-            className="inline-flex min-h-[44px] items-center rounded-full border border-border bg-surface px-4 text-[0.875rem] font-medium text-text-secondary hover:border-border-strong hover:text-text-primary"
-          >
-            {n.label}
-          </a>
-        ))}
-      </nav>
+      <AboutNav items={NAV} />
 
       <div className="mt-8 flex flex-col">
         <Section title="How it works" id="how">

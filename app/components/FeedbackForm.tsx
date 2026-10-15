@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy } from "lucide-react";
+import CopyEmail from "@/app/components/CopyEmail";
 import { useState } from "react";
 import {
   FEEDBACK_TYPES,
@@ -16,17 +16,6 @@ export default function FeedbackForm() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  async function onCopy() {
-    try {
-      await navigator.clipboard.writeText(SUPPORT_EMAIL);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard blocked: the address is also shown as a link after sending.
-    }
-  }
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,43 +30,7 @@ export default function FeedbackForm() {
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3">
-      <div className="mt-4 flex w-full max-w-md items-center justify-between gap-2 rounded-lg border border-border bg-surface-alt py-1 pl-4 pr-1">
-        <div className="min-w-0">
-          <p className="text-[0.75rem] font-medium text-text-tertiary">Email</p>
-          <a
-            href={`mailto:${SUPPORT_EMAIL}`}
-            className="block break-all text-[0.9375rem] font-medium text-text-primary underline-offset-2 hover:underline"
-          >
-            {SUPPORT_EMAIL}
-          </a>
-        </div>
-        <span className="relative inline-flex shrink-0">
-          <button
-            type="button"
-            onClick={onCopy}
-            aria-label="Copy email address"
-            title="Copy email address"
-            className="inline-flex size-11 items-center justify-center rounded-lg text-text-secondary hover:bg-surface hover:text-text-primary"
-          >
-            {copied ? (
-              <Check size={18} aria-hidden="true" className="text-accent" />
-            ) : (
-              <Copy size={18} aria-hidden="true" />
-            )}
-          </button>
-          {copied && (
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute -top-5 right-0 whitespace-nowrap rounded bg-text-primary px-2 py-0.5 text-[0.75rem] font-medium text-surface"
-            >
-              Copied
-            </span>
-          )}
-          <span role="status" className="sr-only">
-            {copied ? "Email address copied" : ""}
-          </span>
-        </span>
-      </div>
+      <CopyEmail className="mt-4" />
       <label className="flex flex-col gap-1.5">
         <span className="text-[0.9375rem] font-medium text-text-primary">What is this about?</span>
         <select

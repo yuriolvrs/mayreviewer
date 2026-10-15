@@ -326,8 +326,9 @@ export default function AccountPage() {
               hint={editingName ? undefined : (handle ?? "Not set. You need one to share.")}
               below={
                 editingName ? (
-                  <div className="mt-2 max-w-sm">
+                  <div className="mt-2">
                     <DisplayNameForm
+                      layout="inline"
                       key={profile ? `${profile.displayName}#${profile.tag}` : "none"}
                       initial={profile}
                       onSaved={() => {

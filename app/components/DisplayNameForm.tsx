@@ -11,13 +11,18 @@ export default function DisplayNameForm({
   submitLabel = "Save",
   firstFieldRef,
   extraActions,
+  layout = "stacked",
 }: {
   initial: Profile | null;
   onSaved: (profile: Profile) => void;
   submitLabel?: string;
   firstFieldRef?: React.Ref<HTMLInputElement>;
   extraActions?: React.ReactNode;
+  // "inline" puts the buttons on the same line as the fields from `sm` up,
+  // for rows whose other controls sit at the right edge (Account page).
+  layout?: "stacked" | "inline";
 }) {
+  const inline = layout === "inline";
   const id = useId();
   const [name, setName] = useState(initial?.displayName ?? "");
   const [tag, setTag] = useState(initial?.tag ?? "");
@@ -54,8 +59,15 @@ export default function DisplayNameForm({
     "h-11 min-w-0 rounded-lg border border-border bg-surface px-2 py-2 text-[0.9375rem] text-text-primary outline-none focus:border-accent";
 
   return (
-    <form onSubmit={(e) => void submit(e)} className="grid gap-2">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,5.5rem)] items-center gap-2">
+    <form
+      onSubmit={(e) => void submit(e)}
+      className={inline ? "flex flex-wrap items-center gap-x-3 gap-y-2" : "grid gap-2"}
+    >
+      <div
+        className={`grid grid-cols-[minmax(0,1fr)_auto_minmax(0,5.5rem)] items-center gap-2 ${
+          inline ? "w-full sm:w-auto sm:max-w-md sm:flex-1" : ""
+        }`}
+      >
         <input
           ref={firstFieldRef}
           id={`${id}-name`}
@@ -92,16 +104,16 @@ export default function DisplayNameForm({
         />
       </div>
       {error && (
-        <p role="alert" className="text-[0.875rem] font-medium text-error">
+        <p role="alert" className={`text-[0.875rem] font-medium text-error ${inline ? "order-last basis-full" : ""}`}>
           {error}
         </p>
       )}
       {saved && !error && (
-        <p role="status" className="text-[0.875rem] text-text-secondary">
+        <p role="status" className={`text-[0.875rem] text-text-secondary ${inline ? "order-last basis-full" : ""}`}>
           Saved.
         </p>
       )}
-      <div className="flex flex-wrap items-center justify-end gap-3">
+      <div className={`flex flex-wrap items-center justify-end gap-3 ${inline ? "ml-auto" : ""}`}>
         {extraActions}
         <button
           type="submit"

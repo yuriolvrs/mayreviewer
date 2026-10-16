@@ -2,6 +2,13 @@
 
 Format: each entry has **Context**, **Decision**, **Reason**, **Status** (Accepted/Proposed).
 
+## 2026-10-16: Progress loop overhaul
+
+**Context:** An audit found the reward layer invisible. Quiz results never mention goal, streak or badges. Claims are manual and can dead-end at "Bank full". A blanks-only 50-question submit fills the goal and the streak day.
+**Decision:** (1) A streak day, the goal and Riddler count questions answered (`answers` entries plus non-empty typed text), not served. Attempts with no `answers` field fall back to `total`. (2) `MIN_DAILY_GOAL` rises to 5, the streak bar. A stored goal of 1-4 clamps up on read. (3) Levels bank automatically. A level reached at a full bank waits as `pending` and settles when a restore is spent. This supersedes the manual claim and the "No claims at the restore cap" entry. (4) Milestone families shrink to five: Relentless, Riddler, Flawless, Goal Getter, Explorer. Speedster, Enduring, Night Owl and Early Bird are removed. Flawless needs 5 or more questions. (5) The badge hue exception ends. The Progress page uses accent and neutrals only.
+**Reason:** Blank submits must not earn rewards. One daily number must not disagree with the streak bar. A reward should arrive, not be collected. Removed families rewarded when, not what, the user studied. Levels already banked stay banked.
+**Status:** Accepted
+
 ## 2026-10-13: Badge claims stay allowed while signed out
 
 **Context:** The Progress page lets a signed-out user claim badge levels.

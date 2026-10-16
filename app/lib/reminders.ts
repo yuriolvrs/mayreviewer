@@ -3,6 +3,22 @@
 // Notification once per day. The fired date lives in localStorage beside the
 // setting that enables it.
 
+import type { StreakStatus } from "@/app/lib/streaks";
+
+export const DEFAULT_REMINDER_BODY = "Open May Reviewer for a quick practice round.";
+
+// Picks the reminder text from the streak state. A restore message needs at
+// least one banked restore. Other cases use the default text.
+export function reminderBody(status: StreakStatus, banked: number): string {
+  if (status.kind === "pending") {
+    return `Your ${status.count}-day streak ends tonight. Answer ${status.remaining} more to keep it.`;
+  }
+  if (status.kind === "restorable" && banked >= 1) {
+    return `Your ${status.count}-day streak ended yesterday. Open the app to restore it.`;
+  }
+  return DEFAULT_REMINDER_BODY;
+}
+
 export const REMINDER_FIRED_KEY = "mayreviewer-reminder-fired";
 
 export function todayKey(now: Date): string {

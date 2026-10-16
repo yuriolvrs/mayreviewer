@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 import {
+  getAllQuizHistory,
   getQuizHistory,
   getReviewer,
   overrideGrade,
@@ -14,7 +15,8 @@ import { gradeShortAnswers } from "@/app/lib/grade";
 import BackLink from "@/app/components/BackLink";
 import { blankGrade, buildGradeItems } from "@/app/lib/grading";
 import { clearQuizProgress, getQuizProgress, saveQuizProgress } from "@/app/lib/quizProgress";
-import { getSettings } from "@/app/lib/settings";
+import { getSettings, getStreakState, updateSettings } from "@/app/lib/settings";
+import { awardReachedLevels, loopDelta, type LoopDelta, type LoopSnapshot } from "@/app/lib/streaks";
 import { resolveFromList } from "@/app/lib/examFormats";
 import PageSkeleton from "@/app/components/PageSkeleton";
 import { useFormats, useFormatsLoaded } from "@/app/lib/useFormats";
@@ -72,6 +74,9 @@ function QuizPageInner() {
   // Set while short answers are being graded at submit, or while that failed
   // and the reader is choosing between retry and saving without grades.
   const [grading, setGrading] = useState<GradingState | null>(null);
+  // What this attempt earned (goal, streak, badge levels). Set only for a
+  // fresh attempt, never for one reopened from history.
+  const [delta, setDelta] = useState<LoopDelta | null>(null);
   const pendingRef = useRef<PendingSubmit | null>(null);
   // Guards against a second submit while grading is in flight — the countdown
   // can expire during the call and would otherwise save the attempt twice.
@@ -173,6 +178,18 @@ function QuizPageInner() {
   // Writes the finished attempt and moves to the results screen. Grades are
   // whatever the grade call returned (or the ungraded placeholders).
   const recordAttempt = (pending: PendingSubmit, grades: Record<string, ShortGrade>) => {
+    // Snapshot before saving so the result screen can show what changed.
+    let before: LoopSnapshot | null = null;
+    try {
+      before = {
+        attempts: getAllQuizHistory(),
+        state: getStreakState(),
+        goal: getSettings().dailyGoal,
+        now: new Date(),
+      };
+    } catch {
+      before = null;
+    }
     // The budget and the par travel with the attempt so milestones can tell
     // timed quizzes apart — and fast ones — later.
     const attempt = saveQuizAttempt(
@@ -185,6 +202,21 @@ function QuizPageInner() {
     );
     clearQuizProgress(reviewer.id);
     setHistory(getQuizHistory(reviewer.id));
+    // A reward failure must never block the results.
+    let earned: LoopDelta | null = null;
+    try {
+      if (before) {
+        const attempts = getAllQuizHistory();
+        const state = getStreakState();
+        const goal = getSettings().dailyGoal;
+        const awarded = awardReachedLevels(state, attempts, goal);
+        if (awarded !== state) updateSettings({ streak: awarded });
+        earned = loopDelta(before, { attempts, state: awarded, goal, now: new Date() });
+      }
+    } catch {
+      earned = null;
+    }
+    setDelta(earned);
     setSubmitted({
       answers: pending.answers,
       textAnswers: pending.textAnswers,
@@ -340,6 +372,7 @@ function QuizPageInner() {
           onOverride={submitted.attemptId ? overrideShortGrade : undefined}
           onGradeNow={submitted.attemptId ? gradeNow : undefined}
           unsureIds={submitted.unsureIds}
+          delta={reviewedAt ? undefined : (delta ?? undefined)}
           takenAt={reviewedAt ?? undefined}
           durationSec={resultTiming?.durationSec}
           timedOut={resultTiming?.timedOut}
@@ -371,6 +404,7 @@ function QuizPageInner() {
               savedAt: now,
             });
             setSubmitted(null);
+            setDelta(null);
             setReviewedAt(null);
             setResultTiming(null);
             setStage("taking");

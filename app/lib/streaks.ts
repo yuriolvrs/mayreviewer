@@ -5,11 +5,12 @@
 // day the user experiences (device timezone), not a UTC slice.
 
 export const DEFAULT_DAILY_GOAL = 10;
-export const MIN_DAILY_GOAL = 1;
 export const MAX_DAILY_GOAL = 200;
 
 // Questions answered on one calendar day before it counts toward the streak.
 export const STREAK_DAY_MIN_QUESTIONS = 5;
+// A goal below the streak-day bar would be easier than a streak day.
+export const MIN_DAILY_GOAL = STREAK_DAY_MIN_QUESTIONS;
 
 // Restores: each repairs one missed day, spendable only the day after the
 // miss. The free grant tops the bank up to three every calendar month — one
@@ -38,9 +39,35 @@ export type Streak = { count: number; todayDone: boolean };
 
 // The per-day totals the streak counts. Split attempts on one day sum — two
 // 3-question quizzes still make the day.
-export type StreakDay = { takenAt: string; total: number };
+export type StreakDay = {
+  takenAt: string;
+  total: number;
+  answers?: Record<string, number>;
+  textAnswers?: Record<string, string>;
+};
 
-// Days that count: per-day answered totals at or above the bar, plus repaired
+function finiteTotal(total: unknown): number {
+  return typeof total === "number" && Number.isFinite(total) ? Math.max(0, total) : 0;
+}
+
+// Questions the user really answered in one attempt: picked options plus
+// typed text (not already picked). Blank submits count zero. An attempt with
+// no `answers` field is legacy: fall back to its total.
+export function answeredCount(attempt: Pick<StreakDay, "total" | "answers" | "textAnswers">): number {
+  const { answers, textAnswers } = attempt;
+  if (!answers) return finiteTotal(attempt.total);
+  let count = Object.keys(answers).length;
+  for (const [id, text] of Object.entries(textAnswers ?? {})) {
+    if (typeof text === "string" && text.trim() !== "" && !(id in answers)) count++;
+  }
+  return count;
+}
+
+export function isCountedAttempt(attempt: Pick<StreakDay, "total" | "answers" | "textAnswers">): boolean {
+  return answeredCount(attempt) > 0;
+}
+
+// Days that count: per-day answered counts at or above the bar, plus repaired
 // (restored) days, which read as active for every computation below. Exported
 // for the week dots, which need the set itself rather than a derived number.
 export function activeDays(attempts: StreakDay[], restoredDays: string[]): Set<string> {
@@ -49,8 +76,7 @@ export function activeDays(attempts: StreakDay[], restoredDays: string[]): Set<s
     const ms = Date.parse(attempt.takenAt);
     if (Number.isNaN(ms)) continue;
     const key = dayKey(new Date(ms));
-    const total = Number.isFinite(attempt.total) ? Math.max(0, attempt.total) : 0;
-    totals.set(key, (totals.get(key) ?? 0) + total);
+    totals.set(key, (totals.get(key) ?? 0) + answeredCount(attempt));
   }
   const days = new Set<string>();
   for (const [key, total] of totals) {
@@ -124,10 +150,14 @@ export type StreakState = {
   // tap). Replaces the old one-claim-per-id milestone list — see the legacy
   // mapping in normalizeStreakState.
   claimedLevels: Partial<Record<BadgeFamilyId, number>>;
+  // Awards earned while the bank was full. They move into the bank as
+  // restores are spent, so no reached level is ever lost.
+  pending: number;
 };
 
 export const DEFAULT_STREAK_STATE: StreakState = {
   banked: 0,
+  pending: 0,
   grantedMonth: "",
   restoredDays: [],
   claimedLevels: {},
@@ -153,16 +183,24 @@ export function ensureMonthlyGrant(state: StreakState, now: Date): StreakState {
 
 // Spends one banked restore on a day, or null when illegal: empty bank, or
 // the day already repaired. Callers check restorableDay first for whether a
-// restore is meaningful — this only guards the accounting.
+// restore is meaningful — this only guards the accounting. The freed slot is
+// filled from pending awards.
 export function spendRestore(state: StreakState, day: string): StreakState | null {
   if (state.banked < 1 || state.restoredDays.includes(day)) return null;
-  return { ...state, banked: state.banked - 1, restoredDays: [...state.restoredDays, day] };
+  const settle = state.pending > 0 ? 1 : 0;
+  return {
+    ...state,
+    banked: state.banked - 1 + settle,
+    pending: state.pending - settle,
+    restoredDays: [...state.restoredDays, day],
+  };
 }
 
 // Sync merge of two streak states (winner = the settings side that won
 // last-write-wins). Nothing either side spent or claimed is lost: restored
 // days union, claimed levels take the per-family max, and the bank follows the
-// winner plus the claims (+1 each) and spends (-1 each) only the loser made.
+// winner plus the awards (+1 each) and spends (-1 each) only the loser made.
+// Bank and pending merge as one pool: anything past the cap stays pending.
 export function mergeStreakState(winner: StreakState, loser: StreakState): StreakState {
   const restoredDays = [...new Set([...winner.restoredDays, ...loser.restoredDays])].slice(0, 366);
   const claimedLevels: Partial<Record<BadgeFamilyId, number>> = { ...winner.claimedLevels };
@@ -177,11 +215,11 @@ export function mergeStreakState(winner: StreakState, loser: StreakState): Strea
   }
   const winnerDays = new Set(winner.restoredDays);
   const loserOnlySpends = new Set(loser.restoredDays.filter((d) => !winnerDays.has(d))).size;
+  const pool = Math.max(0, winner.banked + winner.pending + loserOnlyClaims - loserOnlySpends);
+  const banked = Math.min(RESTORES_CAP, pool);
   return {
-    banked: Math.min(
-      RESTORES_CAP,
-      Math.max(0, winner.banked + loserOnlyClaims - loserOnlySpends),
-    ),
+    banked,
+    pending: pool - banked,
     grantedMonth: winner.grantedMonth,
     restoredDays,
     claimedLevels,
@@ -197,11 +235,7 @@ export type BadgeFamilyId =
   | "questions"
   | "perfects"
   | "goals"
-  | "speed"
-  | "marathon"
-  | "explorer"
-  | "owl"
-  | "bird";
+  | "explorer";
 
 export type BadgeFamily = {
   id: BadgeFamilyId;
@@ -215,11 +249,7 @@ export const BADGE_FAMILIES: BadgeFamily[] = [
   { id: "questions", label: "Riddler", description: "Lifetime questions answered", levels: [100, 200, 300, 500, 750, 1000] },
   { id: "perfects", label: "Flawless", description: "Quizzes scored 100%", levels: [1, 3, 5, 10, 15, 25, 50, 75, 100] },
   { id: "goals", label: "Goal Getter", description: "Days you hit the daily goal", levels: [1, 10, 30, 60] },
-  { id: "speed", label: "Speedster", description: "Quizzes finished in half the estimate", levels: [1, 5, 15] },
-  { id: "marathon", label: "Enduring", description: "Quizzes with 50+ questions taken", levels: [1, 3, 5] },
   { id: "explorer", label: "Explorer", description: "Different reviewers quizzed", levels: [3, 5, 10] },
-  { id: "owl", label: "Night Owl", description: "Quizzes after 10pm", levels: [1, 5, 15] },
-  { id: "bird", label: "Early Bird", description: "Quizzes before 9am", levels: [1, 5, 15] },
 ];
 
 export type BadgeAttempt = {
@@ -227,22 +257,11 @@ export type BadgeAttempt = {
   total: number;
   score: number;
   reviewerId: string;
-  timeLimitSec?: number | null;
-  durationSec?: number;
-  parSec?: number | null;
+  answers?: Record<string, number>;
+  textAnswers?: Record<string, string>;
   // Goal setting when the attempt was taken; absent on legacy attempts.
   dailyGoal?: number;
 };
-
-function finiteTotal(total: unknown): number {
-  return typeof total === "number" && Number.isFinite(total) ? Math.max(0, total) : 0;
-}
-
-function attemptHour(takenAt: string): number | null {
-  const ms = Date.parse(takenAt);
-  if (Number.isNaN(ms)) return null;
-  return new Date(ms).getHours();
-}
 
 // The raw count a family levels on.
 export function familyValue(
@@ -254,9 +273,9 @@ export function familyValue(
     case "streak":
       return bestStreak(attempts, opts.restoredDays ?? []);
     case "questions":
-      return attempts.reduce((sum, a) => sum + finiteTotal(a.total), 0);
+      return attempts.reduce((sum, a) => sum + answeredCount(a), 0);
     case "perfects":
-      return attempts.filter((a) => a.total > 0 && a.score === a.total).length;
+      return attempts.filter((a) => a.total >= STREAK_DAY_MIN_QUESTIONS && a.score === a.total).length;
     case "goals": {
       if (!(opts.goal > 0)) return 0;
       // A day's goal is the highest one stamped on its attempts. An unstamped
@@ -269,10 +288,10 @@ export function familyValue(
         if (Number.isNaN(ms)) continue;
         const key = dayKey(new Date(ms));
         const day = perDay.get(key) ?? { total: 0, goal: 0 };
-        day.total += finiteTotal(a.total);
+        day.total += answeredCount(a);
         const stamped =
-          typeof a.dailyGoal === "number" && Number.isFinite(a.dailyGoal) && a.dailyGoal >= MIN_DAILY_GOAL
-            ? a.dailyGoal
+          typeof a.dailyGoal === "number" && Number.isFinite(a.dailyGoal) && a.dailyGoal > 0
+            ? Math.max(a.dailyGoal, MIN_DAILY_GOAL)
             : legacyGoal;
         day.goal = Math.max(day.goal, stamped);
         perDay.set(key, day);
@@ -281,28 +300,8 @@ export function familyValue(
       for (const day of perDay.values()) if (day.total >= day.goal) days++;
       return days;
     }
-    case "speed":
-      return attempts.filter(
-        (a) =>
-          a.timeLimitSec != null &&
-          a.parSec != null &&
-          a.parSec > 0 &&
-          (a.durationSec ?? Number.POSITIVE_INFINITY) * 2 <= a.parSec,
-      ).length;
-    case "marathon":
-      return attempts.filter((a) => a.total >= 50).length;
     case "explorer":
       return new Set(attempts.map((a) => a.reviewerId)).size;
-    case "owl":
-      return attempts.filter((a) => {
-        const h = attemptHour(a.takenAt);
-        return h !== null && h >= 22;
-      }).length;
-    case "bird":
-      return attempts.filter((a) => {
-        const h = attemptHour(a.takenAt);
-        return h !== null && h < 9;
-      }).length;
   }
 }
 
@@ -325,25 +324,29 @@ export function badgeStatus(family: BadgeFamily, value: number): BadgeStatus {
   return { family, value, level, nextAt: level < family.levels.length ? family.levels[level] : null };
 }
 
-// Claims the next unclaimed reached level (+1 restore). Null when nothing new
-// is reached, the id is unknown, or the bank is full — callers
-// check badgeStatus first for whether a claim is meaningful.
-export function claimBadgeLevel(
+// Awards every newly reached level (+1 restore each), automatically. A full
+// bank sends the award to pending instead; the level still counts as claimed,
+// so it is never awarded twice. Idempotent: a second call awards nothing.
+export function awardReachedLevels(
   state: StreakState,
-  family: BadgeFamily,
-  value: number,
-): StreakState | null {
-  if (!BADGE_FAMILIES.some((f) => f.id === family.id)) return null;
-  const claimed = state.claimedLevels[family.id] ?? 0;
-  const { level } = badgeStatus(family, value);
-  if (level <= claimed) return null;
-  // A full bank would swallow the award: keep the level claimable instead.
-  if (state.banked >= RESTORES_CAP) return null;
-  return {
-    ...state,
-    banked: Math.min(RESTORES_CAP, state.banked + 1),
-    claimedLevels: { ...state.claimedLevels, [family.id]: claimed + 1 },
-  };
+  attempts: BadgeAttempt[],
+  goal: number,
+): StreakState {
+  let { banked, pending } = state;
+  const claimedLevels = { ...state.claimedLevels };
+  for (const family of BADGE_FAMILIES) {
+    const { level } = badgeStatus(
+      family,
+      familyValue(family.id, attempts, { goal, restoredDays: state.restoredDays }),
+    );
+    for (let claimed = claimedLevels[family.id] ?? 0; claimed < level; claimed++) {
+      if (banked < RESTORES_CAP) banked++;
+      else pending++;
+      claimedLevels[family.id] = claimed + 1;
+    }
+  }
+  if (banked === state.banked && pending === state.pending) return state;
+  return { ...state, banked, pending, claimedLevels };
 }
 
 // One-shot ids from the flat milestone era, mapped to family levels so
@@ -382,8 +385,11 @@ export function normalizeStreakState(value: unknown): StreakState {
       claimedLevels[mapped.family] = Math.max(claimedLevels[mapped.family] ?? 0, mapped.level);
     }
   }
+  const pending =
+    typeof v.pending === "number" && Number.isFinite(v.pending) ? Math.max(0, Math.floor(v.pending)) : 0;
   return {
     banked: Math.min(Math.max(banked, 0), RESTORES_CAP),
+    pending,
     grantedMonth:
       typeof v.grantedMonth === "string" && /^\d{4}-\d{2}$/.test(v.grantedMonth) ? v.grantedMonth : "",
     restoredDays: [
@@ -395,10 +401,11 @@ export function normalizeStreakState(value: unknown): StreakState {
 
 export type GoalProgress = { answered: number; goal: number; done: boolean };
 
-// Questions answered today = each attempt's total (the questions it asked),
-// summed over today's attempts. Done implies todayDone on the streak.
+// Questions answered today = each attempt's answeredCount, summed over
+// today's attempts. With the goal at or above the streak bar, done implies
+// todayDone on the streak.
 export function todayProgress(
-  attempts: { takenAt: string; total: number }[],
+  attempts: StreakDay[],
   goal: number,
   now: Date,
 ): GoalProgress {
@@ -406,7 +413,84 @@ export function todayProgress(
   let answered = 0;
   for (const a of attempts) {
     const ms = Date.parse(a.takenAt);
-    if (!Number.isNaN(ms) && dayKey(new Date(ms)) === today) answered += a.total;
+    if (!Number.isNaN(ms) && dayKey(new Date(ms)) === today) answered += answeredCount(a);
   }
   return { answered, goal, done: answered >= goal };
+}
+
+export type LoopSnapshot = {
+  attempts: BadgeAttempt[];
+  state: StreakState;
+  goal: number;
+  now: Date;
+};
+
+export type LoopDelta = {
+  goalMet: boolean;
+  goalDone: boolean;
+  // Today's questions answered and the goal, after the attempt.
+  goalAnswered: number;
+  goalTarget: number;
+  streakCount: number;
+  streakDayJustEarned: boolean;
+  levelsReached: { family: BadgeFamilyId; label: string; level: number }[];
+};
+
+function snapshotLevel(family: BadgeFamily, snap: LoopSnapshot): number {
+  const value = familyValue(family.id, snap.attempts, {
+    goal: snap.goal,
+    restoredDays: snap.state.restoredDays,
+  });
+  return badgeStatus(family, value).level;
+}
+
+// What one attempt changed: goal, streak day and badge levels. The result
+// screen reads this to show the reward right away.
+export function loopDelta(before: LoopSnapshot, after: LoopSnapshot): LoopDelta {
+  const goalBefore = todayProgress(before.attempts, before.goal, before.now).done;
+  const goalAfter = todayProgress(after.attempts, after.goal, after.now);
+  const streakBefore = computeStreak(before.attempts, before.now, before.state.restoredDays);
+  const streakAfter = computeStreak(after.attempts, after.now, after.state.restoredDays);
+  const levelsReached: LoopDelta["levelsReached"] = [];
+  for (const family of BADGE_FAMILIES) {
+    const level = snapshotLevel(family, after);
+    if (level > snapshotLevel(family, before)) {
+      levelsReached.push({ family: family.id, label: family.label, level });
+    }
+  }
+  return {
+    goalMet: !goalBefore && goalAfter.done,
+    goalDone: goalAfter.done,
+    goalAnswered: goalAfter.answered,
+    goalTarget: goalAfter.goal,
+    streakCount: streakAfter.count,
+    streakDayJustEarned: !streakBefore.todayDone && streakAfter.todayDone,
+    levelsReached,
+  };
+}
+
+export type StreakStatus = {
+  kind: "none" | "safe" | "pending" | "restorable";
+  // Current streak, or the run length before the missed day when restorable.
+  count: number;
+  // Streak length after a restore (restorable only, else 0).
+  restoredCount: number;
+  // Questions still needed today to make the streak day.
+  remaining: number;
+};
+
+export function streakStatus(attempts: StreakDay[], state: StreakState, now: Date): StreakStatus {
+  const answered = todayProgress(attempts, STREAK_DAY_MIN_QUESTIONS, now).answered;
+  const remaining = Math.max(0, STREAK_DAY_MIN_QUESTIONS - answered);
+  const missed = restorableDay(attempts, now, state.restoredDays);
+  if (missed !== null) {
+    const days = activeDays(attempts, state.restoredDays);
+    let count = 0;
+    for (let back = shiftDay(missed, -1); days.has(back); back = shiftDay(back, -1)) count++;
+    const restoredCount = computeStreak(attempts, now, [...state.restoredDays, missed]).count;
+    return { kind: "restorable", count, restoredCount, remaining };
+  }
+  const current = computeStreak(attempts, now, state.restoredDays);
+  if (current.count === 0) return { kind: "none", count: 0, restoredCount: 0, remaining };
+  return { kind: current.todayDone ? "safe" : "pending", count: current.count, restoredCount: 0, remaining };
 }

@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { toRoman } from "@/app/lib/roman";
+import type { LoopDelta } from "@/app/lib/streaks";
 import {
   formatCountdown,
   formatScore,
@@ -25,6 +27,60 @@ import StimulusQuote from "@/app/components/StimulusQuote";
 import type { QuestionGroup } from "@/app/lib/questions";
 import type { Question, ShortGrade } from "@/app/types";
 import type { Answers } from "@/app/components/QuizTaking";
+
+// One quiet line of what this attempt earned. Plain text on a hairline:
+// numbers in mono, accent only on the small goal bar.
+function TodayStrip({ delta }: { delta: LoopDelta }) {
+  const target = Math.max(1, delta.goalTarget);
+  const fraction = Math.min(1, delta.goalAnswered / target);
+  // Start empty, then fill on the next frame so the bar animates once.
+  const [filled, setFilled] = useState(false);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setFilled(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  const mono = "font-mono text-text-primary";
+  const showStreak = delta.streakCount > 0;
+  if (delta.goalAnswered <= 0 && !showStreak && delta.levelsReached.length === 0) return null;
+
+  return (
+    <div
+      data-testid="today-strip"
+      className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border pt-3 text-[0.9375rem] text-text-secondary"
+    >
+      <span className="text-[0.75rem] tracking-wide text-text-tertiary uppercase">Today</span>
+      <span className="flex items-center gap-2">
+        <span aria-hidden="true" className="h-1 w-16 overflow-hidden rounded-full bg-border">
+          <span
+            className="block h-full rounded-full bg-accent motion-safe:transition-[width] motion-safe:duration-[400ms] motion-safe:ease-out"
+            style={{ width: `${(filled ? fraction : 0) * 100}%` }}
+          />
+        </span>
+        {delta.goalDone ? (
+          <span className="text-text-primary">Goal met</span>
+        ) : (
+          <span>
+            <span className={mono}>{delta.goalAnswered}</span> of{" "}
+            <span className={mono}>{delta.goalTarget}</span> today
+          </span>
+        )}
+      </span>
+      {showStreak && (
+        <span>
+          <span className={mono}>{delta.streakCount}</span>-day streak
+          {delta.streakDayJustEarned && <span className="text-text-primary"> · Streak day earned</span>}
+        </span>
+      )}
+      {delta.levelsReached.map((reached) => (
+        <span key={reached.family} className="text-text-primary">
+          {reached.label} <span className="font-mono">{toRoman(reached.level)}</span> reached
+          <span className="text-text-secondary"> (+1 restore)</span>
+        </span>
+      ))}
+    </div>
+  );
+}
 
 function Chevron({ open }: { open: boolean }) {
   return (
@@ -362,6 +418,7 @@ export default function QuizResults({
   onOverride,
   onGradeNow,
   unsureIds,
+  delta,
   takenAt,
   durationSec,
   timedOut,
@@ -385,6 +442,8 @@ export default function QuizResults({
   // error message, or null on success.
   onGradeNow?: () => Promise<string | null>;
   unsureIds: string[];
+  // What a just-finished attempt earned. Omitted when viewing an old attempt.
+  delta?: LoopDelta;
   // Both set only when reopening a past attempt from the history list, so the
   // screen says which attempt this is and can get back to that list.
   takenAt?: string;
@@ -472,6 +531,8 @@ export default function QuizResults({
           {formatCountdown(durationSec)}
         </p>
       ) : null}
+
+      {delta && <TodayStrip delta={delta} />}
 
       {ungradedCount > 0 && onGradeNow && (
         <div

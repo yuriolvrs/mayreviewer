@@ -7,7 +7,7 @@ import BackLink from "@/app/components/BackLink";
 import { useAuth } from "@/app/components/AuthProvider";
 import { removeReviewerCompletely } from "@/app/lib/reviewers";
 import { MAX_QUESTION_COUNT, MIN_QUESTION_COUNT } from "@/app/lib/questions";
-import { MAX_DAILY_GOAL, MIN_DAILY_GOAL } from "@/app/lib/streaks";
+import { MAX_DAILY_GOAL, MIN_DAILY_GOAL, STREAK_DAY_MIN_QUESTIONS } from "@/app/lib/streaks";
 import { DEFAULT_SETTINGS, getSettings, SETTINGS_CHANGED_EVENT, updateSettings } from "@/app/lib/settings";
 import { getAllQuizHistory, getReviewers } from "@/app/lib/storage";
 import type { FeedbackMode, ThemePreference, UserSettings } from "@/app/types";
@@ -259,7 +259,7 @@ export default function SettingsPage() {
             checked={settings.shuffle}
             onChange={(shuffle) => patch({ shuffle })}
           />
-          <Row label="Daily goal" hint={`1–${MAX_DAILY_GOAL} questions a day. Tracked on the home screen.`}>
+          <Row label="Daily goal" hint={`${MIN_DAILY_GOAL}–${MAX_DAILY_GOAL} questions a day. Tracked on the home screen. A streak day needs ${STREAK_DAY_MIN_QUESTIONS} answered questions, so the goal starts at ${MIN_DAILY_GOAL}.`}>
             <input
               type="number"
               min={MIN_DAILY_GOAL}

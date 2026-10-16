@@ -1,5 +1,42 @@
 import { describe, expect, it } from "vitest";
-import { shouldFireReminder, todayKey } from "@/app/lib/reminders";
+import {
+  DEFAULT_REMINDER_BODY,
+  reminderBody,
+  shouldFireReminder,
+  todayKey,
+} from "@/app/lib/reminders";
+import type { StreakStatus } from "@/app/lib/streaks";
+
+function status(kind: StreakStatus["kind"], count = 0, remaining = 0): StreakStatus {
+  return { kind, count, restoredCount: 0, remaining };
+}
+
+describe("reminderBody", () => {
+  it("warns when the streak is pending", () => {
+    expect(reminderBody(status("pending", 5, 3), 0)).toBe(
+      "Your 5-day streak ends tonight. Answer 3 more to keep it.",
+    );
+  });
+
+  it("uses 1-day for a one-day streak", () => {
+    expect(reminderBody(status("pending", 1, 2), 0)).toContain("Your 1-day streak");
+  });
+
+  it("offers a restore when restorable and a restore is banked", () => {
+    expect(reminderBody(status("restorable", 7), 1)).toBe(
+      "Your 7-day streak ended yesterday. Open the app to restore it.",
+    );
+  });
+
+  it("uses the default text when restorable with none banked", () => {
+    expect(reminderBody(status("restorable", 7), 0)).toBe(DEFAULT_REMINDER_BODY);
+  });
+
+  it("uses the default text for safe and none", () => {
+    expect(reminderBody(status("safe", 4), 2)).toBe(DEFAULT_REMINDER_BODY);
+    expect(reminderBody(status("none"), 2)).toBe(DEFAULT_REMINDER_BODY);
+  });
+});
 
 function at(time: string): Date {
   const [h, m] = time.split(":").map(Number);

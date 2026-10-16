@@ -1,8 +1,16 @@
 "use client";
 
 import { useEffect } from "react";
-import { REMINDER_FIRED_KEY, shouldFireReminder, todayKey } from "@/app/lib/reminders";
-import { getSettings } from "@/app/lib/settings";
+import {
+  DEFAULT_REMINDER_BODY,
+  REMINDER_FIRED_KEY,
+  reminderBody,
+  shouldFireReminder,
+  todayKey,
+} from "@/app/lib/reminders";
+import { getSettings, getStreakState } from "@/app/lib/settings";
+import { getAllQuizHistory } from "@/app/lib/storage";
+import { streakStatus } from "@/app/lib/streaks";
 
 // Fifteen minutes is plenty precise for a daily nudge, and cheap.
 const CHECK_INTERVAL_MS = 15 * 60_000;
@@ -39,17 +47,28 @@ export default function ReminderInit() {
 }
 
 const TITLE = "Time to review";
-const OPTIONS: NotificationOptions = { body: "Open May Reviewer for a quick practice round." };
+
+// Reads the streak at fire time. Any failure gives the default text.
+function currentBody(): string {
+  try {
+    const state = getStreakState();
+    const status = streakStatus(getAllQuizHistory(), state, new Date());
+    return reminderBody(status, state.banked);
+  } catch {
+    return DEFAULT_REMINDER_BODY;
+  }
+}
 
 // Android Chrome throws on `new Notification()` — pages there must show
 // notifications through a service worker registration. Use the worker when
 // one is active, and fall back to the constructor (desktop, dev mode).
 async function showReminder(): Promise<void> {
+  const options: NotificationOptions = { body: currentBody() };
   const registration =
     "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : undefined;
   if (registration) {
-    await registration.showNotification(TITLE, OPTIONS);
+    await registration.showNotification(TITLE, options);
     return;
   }
-  new Notification(TITLE, OPTIONS);
+  new Notification(TITLE, options);
 }

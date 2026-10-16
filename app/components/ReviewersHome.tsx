@@ -6,11 +6,12 @@ import PageSkeleton from "@/app/components/PageSkeleton";
 import { getAllQuizHistory, getReviewers } from "@/app/lib/storage";
 import { getSettings, getStreakState, updateSettings } from "@/app/lib/settings";
 import {
-  computeStreak,
+  awardReachedLevels,
   DEFAULT_DAILY_GOAL,
   DEFAULT_STREAK_STATE,
   restorableDay,
   spendRestore,
+  streakStatus,
   todayProgress,
   type StreakState,
 } from "@/app/lib/streaks";
@@ -41,9 +42,14 @@ export default function ReviewersHome() {
   const selectAllRef = useRef<HTMLInputElement>(null);
 
   function refreshDaily() {
-    setAttempts(getAllQuizHistory());
-    setDailyGoal(getSettings().dailyGoal);
-    setStreak(getStreakState());
+    const history = getAllQuizHistory();
+    setAttempts(history);
+    const goal = getSettings().dailyGoal;
+    setDailyGoal(goal);
+    // Home-only users still bank reached rewards. Persist only on change.
+    const current = getStreakState();
+    const awarded = awardReachedLevels(current, history, goal);
+    setStreak(awarded === current ? current : updateSettings({ streak: awarded }).streak);
     setNow(new Date());
   }
 
@@ -60,6 +66,13 @@ export default function ReviewersHome() {
       refreshDaily();
     }
     window.addEventListener(SYNC_APPLIED_EVENT, onSyncApplied);
+    // A tab left open across midnight must roll the day on return.
+    function onReturn() {
+      if (document.visibilityState === "hidden") return;
+      refreshDaily();
+    }
+    window.addEventListener("focus", onReturn);
+    document.addEventListener("visibilitychange", onReturn);
     // One-time confirmation after account creation (?welcome=1 from /login):
     // show the banner, then strip the param so refresh and back-navigation
     // never re-show it.
@@ -70,7 +83,11 @@ export default function ReviewersHome() {
       const query = url.searchParams.toString();
       window.history.replaceState(null, "", `${url.pathname}${query ? `?${query}` : ""}${url.hash}`);
     }
-    return () => window.removeEventListener(SYNC_APPLIED_EVENT, onSyncApplied);
+    return () => {
+      window.removeEventListener(SYNC_APPLIED_EVENT, onSyncApplied);
+      window.removeEventListener("focus", onReturn);
+      document.removeEventListener("visibilitychange", onReturn);
+    };
   }, []);
 
   function toggleSelected(id: string) {
@@ -79,7 +96,7 @@ export default function ReviewersHome() {
 
   const term = search.trim().toLowerCase();
   const progress = todayProgress(attempts, dailyGoal, now);
-  const streakNow = computeStreak(attempts, now, streak.restoredDays);
+  const status = streakStatus(attempts, streak, now);
   const restorable = restorableDay(attempts, now, streak.restoredDays);
 
   function onRestore() {
@@ -133,7 +150,7 @@ export default function ReviewersHome() {
           <button
             onClick={() => setShowWelcome(false)}
             aria-label="Dismiss welcome message"
-            className="flex min-h-[44px] min-w-[44px] flex-none items-center justify-center rounded-md text-[1.125rem] text-text-secondary hover:text-text-primary"
+            className="flex min-h-[44px] min-w-[44px] flex-none items-center justify-center rounded-md text-[1.1875rem] text-text-secondary hover:text-text-primary"
           >
             ×
           </button>
@@ -160,25 +177,36 @@ export default function ReviewersHome() {
         <>
           <p role="status" className="text-[0.9375rem] font-medium text-text-primary">
             {progress.done ? "Goal met" : `Today ${progress.answered}/${progress.goal} questions`}
-            {streakNow.count > 0 && (
+            {(status.kind === "safe" || status.kind === "pending") && (
               <>
                 {" · "}
-                <span className="font-semibold text-accent">{streakNow.count}-day streak</span>
+                <span className="font-semibold text-accent">{status.count}-day streak</span>
               </>
             )}
           </p>
-          {restorable !== null && (
+          {status.kind === "pending" && (
+            <p className="text-[0.875rem] text-text-secondary">
+              Your {status.count}-day streak ends tonight. {status.remaining} more to keep it.
+            </p>
+          )}
+          {status.kind === "restorable" && (
             <div className="flex items-center justify-between gap-3">
               <p className="text-[0.875rem] text-text-secondary">
-                Oh no! You forgot to review yesterday.
+                Your {status.count}-day streak ended yesterday.
+                {streak.banked < 1 && " You have 0 restores, so it cannot be repaired."}
               </p>
-              <button
-                type="button"
-                onClick={onRestore}
-                className="shrink-0 rounded-lg border border-accent px-3.5 py-1.5 text-[0.8125rem] font-semibold text-accent hover:bg-accent-subtle"
-              >
-                Restore
-              </button>
+              {streak.banked >= 1 && (
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <button
+                    type="button"
+                    onClick={onRestore}
+                    className="rounded-lg border border-accent px-3.5 py-1.5 text-[0.8125rem] font-semibold text-accent hover:bg-accent-subtle"
+                  >
+                    Restore {status.restoredCount}-day streak
+                  </button>
+                  <span className="text-[0.75rem] text-text-secondary">uses 1 restore</span>
+                </div>
+              )}
             </div>
           )}
         </>

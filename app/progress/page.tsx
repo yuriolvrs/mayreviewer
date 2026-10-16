@@ -1,146 +1,32 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import PageSkeleton from "@/app/components/PageSkeleton";
-import { getAllQuizHistory } from "@/app/lib/storage";
+import { getAllQuizHistory, getReviewers } from "@/app/lib/storage";
 import { getSettings, getStreakState, updateSettings, SETTINGS_CHANGED_EVENT } from "@/app/lib/settings";
 import {
   activeDays,
+  restorableDay,
+  RESTORES_CAP,
+  RESTORES_PER_MONTH,
+  STREAK_DAY_MIN_QUESTIONS,
+  awardReachedLevels,
   BADGE_FAMILIES,
   badgeStatus,
   bestStreak,
-  claimBadgeLevel,
-  computeStreak,
   dayKey,
   DEFAULT_DAILY_GOAL,
   familyValue,
-  restorableDay,
-  RESTORES_CAP,
   shiftDay,
   spendRestore,
-  STREAK_DAY_MIN_QUESTIONS,
+  streakStatus,
   todayProgress,
-  type BadgeFamily,
-  type BadgeFamilyId,
   type StreakState,
 } from "@/app/lib/streaks";
+import { toRoman } from "@/app/lib/roman";
 import { SYNC_APPLIED_EVENT } from "@/app/lib/sync";
 import type { QuizAttempt } from "@/app/types";
-
-// Badge levels render as Roman numerals beside the title (Goal Getter I),
-// so the progress line underneath carries just the numbers.
-function toRoman(n: number): string {
-  const table: [number, string][] = [
-    [10, "X"],
-    [9, "IX"],
-    [5, "V"],
-    [4, "IV"],
-    [1, "I"],
-  ];
-  let numeral = "";
-  let rest = n;
-  for (const [value, symbol] of table) {
-    while (rest >= value) {
-      numeral += symbol;
-      rest -= value;
-    }
-  }
-  return numeral;
-}
-
-// Presentation half of the badge system: the medal color per family and one
-// consistent hand-drawn stroke icon each. Locked tiles render the same shapes
-// in gray — state from color, meaning from the label beside it.
-const FAMILY_STYLE: Record<BadgeFamilyId, { color: string; icon: React.ReactNode }> = {
-  streak: {
-    color: "#22c55e",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7" aria-hidden="true">
-        <path d="M12 2c0 0-7 9-7 14a7 7 0 0 0 14 0c0-5-7-14-7-14z" />
-        <path d="M12 22v-6" />
-      </svg>
-    ),
-  },
-  questions: {
-    color: "#3b82f6",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-7 w-7" aria-hidden="true">
-        {/* The Riddler's mark: a question mark is the badge, not decoration. */}
-        <text
-          x="12"
-          y="17.5"
-          textAnchor="middle"
-          fontSize="16"
-          fontWeight="bold"
-          fill="currentColor"
-          fontFamily="inherit"
-        >
-          ?
-        </text>
-      </svg>
-    ),
-  },
-  perfects: {
-    color: "#ec4899",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7" aria-hidden="true">
-        <path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8-6.1-3.4-6.1 3.4 1.4-6.8-5.1-4.7 6.9-.8L12 2z" />
-      </svg>
-    ),
-  },
-  goals: {
-    color: "#e8a33f",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7" aria-hidden="true">
-        <path d="M6 3v18" />
-        <path d="M6 4h11l-2.5 4L17 12H6" />
-      </svg>
-    ),
-  },
-  speed: {
-    color: "#ef4444",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7" aria-hidden="true">
-        <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" />
-      </svg>
-    ),
-  },
-  marathon: {
-    color: "#a855f7",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7" aria-hidden="true">
-        <path d="M12 3l9 5-9 5-9-5 9-5z" />
-        <path d="M3 13l9 5 9-5" />
-      </svg>
-    ),
-  },
-  explorer: {
-    color: "#6366f1",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7" aria-hidden="true">
-        <circle cx="12" cy="12" r="9" />
-        <path d="M15 9l-2 4-4 2 2-4 4-2z" />
-      </svg>
-    ),
-  },
-  owl: {
-    color: "#0ea5e9",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7" aria-hidden="true">
-        <path d="M20 13A8 8 0 1 1 11 4a6.5 6.5 0 0 0 9 9z" />
-      </svg>
-    ),
-  },
-  bird: {
-    color: "#fb7185",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7" aria-hidden="true">
-        <circle cx="12" cy="12" r="4" />
-        <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1" />
-      </svg>
-    ),
-  },
-};
 
 export default function ProgressPage() {
   const [attempts, setAttempts] = useState<QuizAttempt[]>([]);
@@ -150,11 +36,15 @@ export default function ProgressPage() {
   const [loaded, setLoaded] = useState(false);
 
   function refresh() {
-    setAttempts(getAllQuizHistory());
+    const history = getAllQuizHistory();
+    const goal = getSettings().dailyGoal;
+    setAttempts(history);
     // Applies (and persists) the monthly top-up when the month rolls over,
-    // so every surface reads the same bank.
-    setStreak(getStreakState());
-    setDailyGoal(getSettings().dailyGoal);
+    // so every surface reads the same bank. Reached levels are awarded here.
+    const current = getStreakState();
+    const awarded = awardReachedLevels(current, history, goal);
+    setStreak(awarded === current ? current : updateSettings({ streak: awarded }).streak);
+    setDailyGoal(goal);
     setNow(new Date());
   }
 
@@ -179,106 +69,126 @@ export default function ProgressPage() {
   if (!loaded || !streak) return <PageSkeleton />;
 
   const progress = todayProgress(attempts, dailyGoal, now);
-  const current = computeStreak(attempts, now, streak.restoredDays);
-  const restorable = restorableDay(attempts, now, streak.restoredDays);
+  const status = streakStatus(attempts, streak, now);
   const best = bestStreak(attempts, streak.restoredDays);
   const active = activeDays(attempts, streak.restoredDays);
   const badgeOpts = { goal: dailyGoal, restoredDays: streak.restoredDays };
-  // One tile per family in stable order — positions never jump when a claim
-  // lands; the Claim button carries findability instead.
   const badges = BADGE_FAMILIES.map((family) => {
     const value = familyValue(family.id, attempts, badgeOpts);
-    const status = badgeStatus(family, value);
-    const claimedUpTo = streak.claimedLevels[family.id] ?? 0;
-    return { family, value, status, claimable: status.level > claimedUpTo };
+    return { family, value, status: badgeStatus(family, value) };
   });
-  const bankFull = streak.banked >= RESTORES_CAP;
-  const unlockedCount = badges.filter((b) => b.status.level > 0).length;
+  const goalLeft = Math.max(0, progress.goal - progress.answered);
 
-  // The streak a restore would return to — what the button names.
-  const restoredCount =
-    restorable !== null ? computeStreak(attempts, now, [...streak.restoredDays, restorable]).count : 0;
+  // The quiz link goes to the most-used reviewer that still exists.
+  const existing = new Set(getReviewers().map((r) => r.id));
+  const uses = new Map<string, number>();
+  for (const a of attempts) {
+    if (existing.has(a.reviewerId)) uses.set(a.reviewerId, (uses.get(a.reviewerId) ?? 0) + 1);
+  }
+  const topId = [...uses.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const quizHref = topId ? `/reviewer/${topId}/quiz` : "/";
 
   const today = dayKey(now);
   const week = Array.from({ length: 7 }, (_, i) => {
     const key = shiftDay(today, i - 6);
     const [y, m, d] = key.split("-").map(Number);
     const date = new Date(y, m - 1, d);
-    return {
-      key,
-      hit: active.has(key),
-      isToday: i === 6,
-      narrow: date.toLocaleDateString(undefined, { weekday: "narrow" }),
-      short: i === 6 ? "Today" : date.toLocaleDateString(undefined, { weekday: "short" }),
-    };
+    const isToday = i === 6;
+    const label = isToday ? "Today" : date.toLocaleDateString(undefined, { weekday: "short" });
+    const state = streak.restoredDays.includes(key)
+      ? "restored"
+      : active.has(key)
+        ? "active"
+        : isToday
+          ? "not yet"
+          : "missed";
+    return { key, label, state, isToday, date: d };
   });
 
-  const grantLabel = (() => {
-    const first = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    return `${first.toLocaleDateString(undefined, { month: "short" })} 1`;
-  })();
-
   function onRestore() {
-    if (restorable === null) return;
-    const next = spendRestore(streak!, restorable);
+    const missed = restorableDay(attempts, now, streak!.restoredDays);
+    if (missed === null) return;
+    const next = spendRestore(streak!, missed);
     if (!next) return;
     setStreak(updateSettings({ streak: next }).streak);
   }
 
-  function onClaim(family: BadgeFamily) {
-    const next = claimBadgeLevel(
-      streak!,
-      family,
-      familyValue(family.id, attempts, { goal: dailyGoal, restoredDays: streak!.restoredDays }),
-    );
-    if (!next) return;
-    setStreak(updateSettings({ streak: next }).streak);
-  }
+  const buttonClass =
+    "inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-accent px-6 py-3 text-[0.9375rem] font-semibold text-on-accent hover:bg-accent-hover";
+  const section = "mt-8 border-t border-border pt-6";
+  const h2 = "text-[0.9375rem] font-semibold text-text-primary";
 
   return (
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
       <h1 className="text-[1.625rem] font-semibold text-text-primary">Progress</h1>
+      <p className="text-[0.9375rem] text-text-secondary">Your daily goal, streak and milestones.</p>
 
-      {/* The page's one decisive action: no heading, just the fact and the
-          button. Only renders while a restore can still save the streak. */}
-      {restorable !== null && (
-        <div className="mt-8 border-t border-border pt-6">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[0.9375rem] font-medium text-text-primary">
-              Oh no! You forgot to review yesterday.
-              <span className="mt-0.5 block text-[0.8125rem] font-normal text-text-secondary">
-                Restore your streak now or else it will be lost forever (a long time!)
-              </span>
-            </p>
-            <button
-              type="button"
-              onClick={onRestore}
-              className="shrink-0 rounded-lg bg-accent px-6 py-3 text-[0.9375rem] font-semibold text-on-accent hover:bg-accent-hover"
-            >
-              Restore {restoredCount}-day streak
-            </button>
-          </div>
+      {attempts.length === 0 ? (
+        <div className={section}>
+          <h2 className={h2}>Start your first quiz</h2>
+          <p className="mt-2 text-[0.9375rem] text-text-secondary">
+            Your daily goal is {dailyGoal} questions. Answer {STREAK_DAY_MIN_QUESTIONS} or more in a day to
+            make a streak day. Streak days in a row build your streak. If you miss one day, a restore
+            repairs it. You get {RESTORES_PER_MONTH} restores each month.
+          </p>
+          <Link href="/" className={`${buttonClass} mt-4`}>
+            Go to your reviewers
+          </Link>
         </div>
-      )}
+      ) : (
+        <>
+          {!progress.done && (
+            <div className="mt-6">
+              <Link href={quizHref} className={buttonClass}>
+                Answer {goalLeft} more
+              </Link>
+            </div>
+          )}
 
-      <div className="mt-8 border-t border-border pt-6">
-        <h2 className="text-[0.9375rem] font-semibold text-text-primary">Today&apos;s goal</h2>
-        {progress.done ? (
-          <p className="mt-2 text-[0.9375rem] font-semibold text-text-primary">Goal met</p>
-        ) : (
-          <>
+          {status.kind === "restorable" && (
+            <div className={section}>
+              <p className="text-[0.9375rem] font-medium text-text-primary">
+                Your {status.count}-day streak ended yesterday. Restore it now or it is lost.
+              </p>
+              {streak.banked > 0 ? (
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button type="button" onClick={onRestore} className={buttonClass}>
+                    Restore {status.restoredCount}-day streak
+                  </button>
+                  <span className="text-[0.875rem] text-text-secondary">
+                    Uses 1 of {streak.banked} restore{streak.banked === 1 ? "" : "s"}.
+                  </span>
+                </div>
+              ) : (
+                <p className="mt-2 text-[0.875rem] text-text-secondary">
+                  You have 0 restores, so this streak cannot be repaired.
+                </p>
+              )}
+            </div>
+          )}
+          {status.kind === "pending" && (
+            <div className={section}>
+              <p className="text-[0.9375rem] font-medium text-text-primary">
+                Your {status.count}-day streak ends tonight. Answer {status.remaining} more to keep it.
+              </p>
+            </div>
+          )}
+
+          <div className={section}>
+            <h2 className={h2}>Today&apos;s goal</h2>
             <div className="mt-2 flex items-baseline justify-between gap-3">
               <p className="text-[0.9375rem] text-text-primary">
-                <span className="font-semibold">{progress.answered}</span> of {progress.goal}
+                <span className="font-mono font-semibold">{progress.answered}</span> of{" "}
+                <span className="font-mono">{progress.goal}</span>
               </p>
               <p className="text-[0.875rem] text-text-secondary">
-                {progress.goal - progress.answered} more to go
+                {progress.done ? "Goal met" : `${goalLeft} more to go`}
               </p>
             </div>
             <div
               className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-alt"
               role="progressbar"
-              aria-valuenow={progress.answered}
+              aria-valuenow={Math.min(progress.answered, progress.goal)}
               aria-valuemin={0}
               aria-valuemax={progress.goal}
               aria-label="Today's goal progress"
@@ -288,140 +198,111 @@ export default function ProgressPage() {
                 style={{ width: `${Math.min(100, (progress.answered / progress.goal) * 100)}%` }}
               />
             </div>
-          </>
-        )}
-      </div>
-
-      <div className="mt-8 border-t border-border pt-6">
-        <h2 className="text-[0.9375rem] font-semibold text-text-primary">Streak</h2>
-        {current.count > 0 ? (
-          <p className="mt-2 text-[1.1875rem] font-semibold text-text-primary">
-            {current.count === 1 ? "1 day" : `${current.count} days`}{" "}
-            <span className="text-[0.875rem] font-normal text-text-secondary">· best: {best}</span>
-          </p>
-        ) : (
-          <p className="mt-2 text-[0.9375rem] text-text-secondary">
-            No streak yet. Answer {STREAK_DAY_MIN_QUESTIONS}+ questions today to start one.
-          </p>
-        )}
-        {/* Connected track: one line with the seven days as nodes, so the week
-            reads as a single journey. Node columns match the circle size, so
-            the line passes exactly through every center. */}
-        <div className="relative mt-5 px-[18px] md:px-[22px]">
-          <span
-            aria-hidden="true"
-            className="absolute top-[18px] right-[36px] left-[36px] h-[2px] bg-border md:top-[22px] md:right-[44px] md:left-[44px]"
-          />
-          <div className="relative flex justify-between" role="img" aria-label={`Active days this week`}>
-            {week.map((d) => (
-              <span
-                key={d.key}
-                className="flex w-9 flex-col items-center gap-2 text-[0.6875rem] text-text-tertiary md:w-11"
-              >
-                <span
-                  className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-[0.75rem] md:h-11 md:w-11 md:text-[0.875rem] ${
-                    d.hit
-                      ? "border-accent bg-accent font-bold text-on-accent"
-                      : d.isToday
-                        ? "border-accent bg-bg text-accent shadow-[0_0_0_4px_var(--color-accent-subtle)]"
-                        : "border-border-strong bg-bg text-text-tertiary"
-                  }`}
-                >
-                  {d.narrow}
-                </span>
-                {d.short}
-              </span>
-            ))}
           </div>
-        </div>
-        {current.count > 0 && (
-          <p className="mt-3 text-[0.875rem] text-text-secondary">
-            {current.todayDone
-              ? `Answer ${STREAK_DAY_MIN_QUESTIONS} questions tomorrow to keep it going.`
-              : `Answer ${Math.max(0, STREAK_DAY_MIN_QUESTIONS - progress.answered)} today to keep it going.`}
-          </p>
-        )}
-        <p className="mt-2 text-[0.875rem] text-text-secondary">
-          {streak.banked} restore{streak.banked === 1 ? "" : "s"} left · tops up to 3 on{" "}
-          {grantLabel}.
-        </p>
-      </div>
 
-      <div className="mt-8 border-t border-border pt-6">
-        <h2 className="text-[0.9375rem] font-semibold text-text-primary">Milestones</h2>
-        <p className="mt-1 text-[0.875rem] text-text-secondary">
-          Every level-up banks +1 restore. Unlocked {unlockedCount} of {badges.length}.
-        </p>
-        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
-          {badges.map(({ family, value, status, claimable }) => {
-            const style = FAMILY_STYLE[family.id];
-            const locked = status.level === 0;
-            const maxed = status.nextAt === null && !locked;
-            const fraction =
-              status.nextAt === null ? 1 : Math.min(1, value / status.nextAt);
-            return (
-              <div
-                key={family.id}
-                className="flex flex-col items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-5 text-center"
-              >
-                <span
-                  aria-hidden="true"
-                  className="flex h-16 w-[70px] items-center justify-center"
-                  style={{
-                    clipPath: "polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)",
-                    backgroundColor: locked ? "var(--color-border-strong)" : style.color,
-                    color: locked ? "var(--color-text-tertiary)" : "#fff",
-                  }}
+          <div className={section}>
+            <h2 className={h2}>Streak</h2>
+            {status.count > 0 ? (
+              <p className="mt-2 text-[1.1875rem] font-semibold text-text-primary">
+                <span className="font-mono">{status.count}</span> {status.count === 1 ? "day" : "days"}{" "}
+                <span className="text-[0.875rem] font-normal text-text-secondary">
+                  · best: <span className="font-mono">{best}</span>
+                </span>
+              </p>
+            ) : (
+              <p className="mt-2 text-[0.9375rem] text-text-secondary">
+                No streak yet. Answer {STREAK_DAY_MIN_QUESTIONS} or more questions in a day to start one.
+              </p>
+            )}
+            {/* Connected track: one line with seven day nodes. Node width
+                matches the circle, so the line passes through every center. */}
+            <ul
+              role="list"
+              aria-label="Last 7 days"
+              className="relative mt-5 flex justify-between px-[18px] md:px-[22px]"
+            >
+              <span
+                aria-hidden="true"
+                className="absolute top-[18px] right-[36px] left-[36px] h-[2px] bg-border md:top-[22px] md:right-[44px] md:left-[44px]"
+              />
+              {week.map((d) => (
+                <li
+                  key={d.key}
+                  aria-label={`${d.label}, ${d.state}`}
+                  className="relative flex w-9 flex-col items-center gap-2 text-[0.75rem] text-text-secondary md:w-11"
                 >
-                  {style.icon}
-                </span>
-                <p className={`text-[0.875rem] font-semibold ${locked ? "text-text-secondary" : "text-text-primary"}`}>
-                  {family.label}
-                  {status.level > 0 ? ` ${toRoman(status.level)}` : ""}
-                </p>
-                <p className="text-[0.75rem] leading-snug text-text-secondary">{family.description}</p>
-                <p className={`text-[0.75rem] ${claimable ? "font-semibold text-accent" : "text-text-tertiary"}`}>
-                  {/* Streak counts a running best, not a lifetime total — the
-                      line says so, so "2 of 7" never reads as "2 done". */}
-                  {locked
-                    ? value === 0
-                      ? "Not started yet"
-                      : `${family.id === "streak" ? "Best " : ""}${value} of ${status.nextAt}`
-                    : maxed
-                      ? "Maxed"
-                      : `${family.id === "streak" ? "Best " : ""}${value} of ${status.nextAt}`}
-                </p>
-                <span className="h-1 w-full max-w-[130px] overflow-hidden rounded-full bg-surface-alt">
                   <span
-                    className={`block h-full rounded-full ${locked ? "bg-text-tertiary" : "bg-accent"}`}
-                    style={{ width: `${Math.round(fraction * 100)}%` }}
-                  />
-                </span>
-                {claimable &&
-                  (bankFull ? (
-                    <button
-                      type="button"
-                      disabled
-                      aria-label={`Claim ${family.label} level ${status.level} unavailable, restore bank is full`}
-                      className="mt-1.5 shrink-0 rounded-lg bg-surface-alt px-4 py-1.5 text-[0.8125rem] font-semibold text-text-tertiary"
-                    >
-                      Bank full
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => onClaim(family)}
-                      aria-label={`Claim ${family.label} level ${status.level}, plus 1 restore`}
-                      className="mt-1.5 shrink-0 rounded-lg bg-accent px-4 py-1.5 text-[0.8125rem] font-semibold text-on-accent hover:bg-accent-hover"
-                    >
-                      Claim +1
-                    </button>
-                  ))}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+                    aria-hidden="true"
+                    className={`flex h-9 w-9 items-center justify-center rounded-full border-2 font-mono text-[0.75rem] md:h-11 md:w-11 md:text-[0.875rem] ${
+                      d.state === "active"
+                        ? "border-accent bg-accent font-bold text-on-accent"
+                        : d.state === "restored"
+                          ? "border-dashed border-accent bg-bg font-bold text-text-primary"
+                          : d.isToday
+                            ? "border-accent bg-bg text-text-primary shadow-[0_0_0_4px_var(--color-accent-subtle)]"
+                            : "border-border-strong bg-bg text-text-secondary"
+                    }`}
+                  >
+                    {d.date}
+                  </span>
+                  <span aria-hidden="true">{d.label}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-4 text-[0.875rem] text-text-secondary">
+              <span className="font-mono">{streak.banked}</span> restore{streak.banked === 1 ? "" : "s"}. Each
+              repairs one missed day. Refills to {RESTORES_PER_MONTH} each month if below {RESTORES_PER_MONTH}.
+              {streak.pending > 0 && (
+                <>
+                  {" "}
+                  <span className="font-mono">{streak.pending}</span> more waiting: the bank holds{" "}
+                  {RESTORES_CAP}.
+                </>
+              )}
+            </p>
+          </div>
+
+          <div className={section}>
+            <h2 className={h2}>Milestones</h2>
+            <p className="mt-1 text-[0.875rem] text-text-secondary">
+              Each level-up banks +1 restore automatically.
+            </p>
+            <ul className="mt-4 divide-y divide-border">
+              {badges.map(({ family, value, status: st }) => {
+                const maxed = st.nextAt === null;
+                const fraction = maxed ? 1 : Math.min(1, value / st.nextAt!);
+                return (
+                  <li key={family.id} className="py-3">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="text-[0.9375rem] font-semibold text-text-primary">
+                        {family.label}
+                        {st.level > 0 ? ` ${toRoman(st.level)}` : ""}
+                      </p>
+                      <p className="font-mono text-[0.875rem] text-text-secondary">
+                        {maxed ? (
+                          "Maxed"
+                        ) : (
+                          <>
+                            {family.id === "streak" ? "Best " : ""}
+                            {value} of {st.nextAt}
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <p className="text-[0.875rem] text-text-secondary">{family.description}</p>
+                    <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface-alt">
+                      <div
+                        className="h-full rounded-full bg-accent"
+                        style={{ width: `${Math.round(fraction * 100)}%` }}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </>
+      )}
     </div>
   );
 }

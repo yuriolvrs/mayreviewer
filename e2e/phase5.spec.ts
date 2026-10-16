@@ -13,7 +13,7 @@ function attempt(id: string, takenAt: string, total: number) {
     score: total,
     total,
     questions: [],
-    answers: {},
+    answers: Object.fromEntries(Array.from({ length: total }, (_, i) => [`q${i}`, 0])),
     unsureIds: [],
     questionSetGeneratedAt: "legacy",
     examFormatId: "os-exam",

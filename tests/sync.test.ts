@@ -364,7 +364,7 @@ describe("runSync", () => {
   });
 
   it("keeps the loser's streak claims and spends when cloud settings win", async () => {
-    const streak = { banked: 3, grantedMonth: "2026-03", restoredDays: [] as string[], claimedLevels: {} };
+    const streak = { banked: 3, pending: 0, grantedMonth: "2026-03", restoredDays: [] as string[], claimedLevels: {} };
     replaceSettings(
       {
         ...DEFAULT_SETTINGS,
@@ -396,7 +396,7 @@ describe("runSync", () => {
   });
 
   it("keeps the cloud's streak claims when local settings win", async () => {
-    const streak = { banked: 3, grantedMonth: "2026-03", restoredDays: [] as string[] };
+    const streak = { banked: 3, pending: 0, grantedMonth: "2026-03", restoredDays: [] as string[] };
     replaceSettings(
       { ...DEFAULT_SETTINGS, theme: "dark", streak: { ...streak, claimedLevels: { questions: 1 } } },
       "2026-04-01T00:00:00.000Z",

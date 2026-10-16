@@ -1,22 +1,27 @@
 import { describe, expect, it } from "vitest";
+import { normalizeSettings } from "@/app/lib/settings";
 import {
+  answeredCount,
+  awardReachedLevels,
   BADGE_FAMILIES,
   badgeStatus,
   bestStreak,
-  claimBadgeLevel,
   computeStreak,
   dayKey,
   DEFAULT_STREAK_STATE,
   ensureMonthlyGrant,
   familyValue,
+  loopDelta,
   mergeStreakState,
   monthKey,
   normalizeStreakState,
   restorableDay,
   shiftDay,
   spendRestore,
+  streakStatus,
   todayProgress,
   type BadgeAttempt,
+  type LoopSnapshot,
   type StreakDay,
 } from "@/app/lib/streaks";
 
@@ -170,6 +175,12 @@ describe("spendRestore", () => {
     });
   });
 
+  it("settles one pending award into the freed slot", () => {
+    const full = { ...stocked, banked: 6, pending: 2 };
+    expect(spendRestore(full, "2026-09-17")).toMatchObject({ banked: 6, pending: 1 });
+    expect(spendRestore({ ...full, pending: 0 }, "2026-09-17")).toMatchObject({ banked: 5, pending: 0 });
+  });
+
   it("refuses an empty bank and a double repair", () => {
     expect(spendRestore(DEFAULT_STREAK_STATE, "2026-09-17")).toBeNull();
     const spent = { ...stocked, banked: 2, restoredDays: ["2026-09-17"] };
@@ -215,8 +226,16 @@ describe("mergeStreakState", () => {
     const spent = { ...base, banked: 0 };
     const loserSpent = { ...base, banked: 1, restoredDays: ["2026-09-01", "2026-09-02"] };
     expect(mergeStreakState(spent, loserSpent).banked).toBe(0);
+  });
+
+  it("sends loser-only awards past the cap to pending, and keeps pending whole", () => {
     const full = { ...base, banked: 6 };
-    expect(mergeStreakState(full, { ...base, claimedLevels: { questions: 3 } }).banked).toBe(6);
+    const merged = mergeStreakState(full, { ...base, claimedLevels: { questions: 3 } });
+    expect(merged).toMatchObject({ banked: 6, pending: 3 });
+    // Winner pending carries over; a loser-only spend takes from the pool.
+    const winner = { ...base, banked: 6, pending: 2, claimedLevels: { questions: 2 } };
+    const loser = { ...base, banked: 5, restoredDays: ["2026-09-10"], claimedLevels: { questions: 2 } };
+    expect(mergeStreakState(winner, loser)).toMatchObject({ banked: 6, pending: 1 });
   });
 });
 
@@ -236,23 +255,24 @@ describe("badge families", () => {
 
   it("counts levels per family from the same attempts", () => {
     const attempts: BadgeAttempt[] = [
-      { ...noon(16), total: 60, score: 60, timeLimitSec: 600, durationSec: 200, parSec: 600 },
+      { ...noon(16), total: 60, score: 60 },
       { ...noon(17), reviewerId: "rv2" },
       { ...atHour(18, 23) },
       { ...atHour(18, 7) },
     ];
     const opts = { goal: 10, restoredDays: [] as string[] };
-    // best streak 3 (16,17,18 at 10+ each) — medal assertions below use it.
     expect(familyValue("streak", attempts, opts)).toBe(3);
     expect(familyValue("questions", attempts, opts)).toBe(90);
     expect(familyValue("perfects", attempts, opts)).toBe(1);
     expect(familyValue("goals", attempts, opts)).toBe(3);
-    // 200s against a 600s par: half or better, counts.
-    expect(familyValue("speed", attempts, opts)).toBe(1);
-    expect(familyValue("marathon", attempts, opts)).toBe(1);
     expect(familyValue("explorer", attempts, opts)).toBe(2);
-    expect(familyValue("owl", attempts, opts)).toBe(1);
-    expect(familyValue("bird", attempts, opts)).toBe(1);
+  });
+
+  it("Flawless needs five or more questions", () => {
+    const tiny: BadgeAttempt = { ...noon(18), total: 4, score: 4 };
+    const ok: BadgeAttempt = { ...noon(18), total: 5, score: 5 };
+    expect(familyValue("perfects", [tiny], { goal: 10 })).toBe(0);
+    expect(familyValue("perfects", [ok], { goal: 10 })).toBe(1);
   });
 
   it("resolves levels and the next threshold", () => {
@@ -262,41 +282,34 @@ describe("badge families", () => {
     expect(badgeStatus(streak, 500)).toMatchObject({ level: 8, nextAt: null });
   });
 
-  it("a too-slow finish is not speedy, and goal days use the goal", () => {
-    const slow: BadgeAttempt[] = [
-      { ...noon(18), timeLimitSec: 600, durationSec: 500, parSec: 600 },
-    ];
-    expect(familyValue("speed", slow, { goal: 10, restoredDays: [] })).toBe(0);
+  it("goal days use the goal", () => {
     expect(familyValue("goals", [noon(18)], { goal: 10, restoredDays: [] })).toBe(1);
     expect(familyValue("goals", [noon(18)], { goal: 11, restoredDays: [] })).toBe(0);
     expect(familyValue("goals", [noon(18)], { goal: 0, restoredDays: [] })).toBe(0);
   });
 
-  it("claims one level per tap, then refuses until the next level", () => {
-    const questions = BADGE_FAMILIES.find((f) => f.id === "questions")!;
+  const manyAnswers = (n: number) => Object.fromEntries(Array.from({ length: n }, (_, i) => [`q${i}`, 0]));
+  // 250 lifetime questions: Riddler levels 1 and 2 reached.
+  const lifetime250: BadgeAttempt[] = [
+    { ...noon(10), total: 125, score: 0, answers: manyAnswers(125) },
+    { ...noon(11), total: 125, score: 0, answers: manyAnswers(125) },
+  ];
+
+  it("awards every reached level once, and is idempotent", () => {
     const state = { ...DEFAULT_STREAK_STATE, banked: 1 };
-    // 250 lifetime: levels 1 and 2 reached, nothing claimed.
-    const once = claimBadgeLevel(state, questions, 250);
-    expect(once).toEqual({ ...state, banked: 2, claimedLevels: { questions: 1 } });
-    const twice = claimBadgeLevel(once!, questions, 250);
-    expect(twice).toEqual({ ...once, banked: 3, claimedLevels: { questions: 2 } });
-    expect(claimBadgeLevel(twice!, questions, 250)).toBeNull();
-    // Unknown family and unearned levels refuse too.
-    expect(claimBadgeLevel(state, { ...questions, id: "nope" } as never, 250)).toBeNull();
-    expect(claimBadgeLevel(state, questions, 0)).toBeNull();
+    const once = awardReachedLevels(state, lifetime250, 200);
+    expect(once).toMatchObject({ banked: 3, pending: 0, claimedLevels: { questions: 2 } });
+    expect(awardReachedLevels(once, lifetime250, 200)).toBe(once);
+    expect(awardReachedLevels(state, [], 200)).toBe(state);
   });
 
-  it("refuses a claim at the bank cap, so the level stays claimable", () => {
-    const questions = BADGE_FAMILIES.find((f) => f.id === "questions")!;
+  it("sends awards past the cap to pending without re-awarding", () => {
     const full = { ...DEFAULT_STREAK_STATE, banked: 6 };
-    expect(claimBadgeLevel(full, questions, 250)).toBeNull();
-    // After a restore is spent, the same level claims.
-    const spent = { ...full, banked: 5 };
-    expect(claimBadgeLevel(spent, questions, 250)).toEqual({
-      ...spent,
-      banked: 6,
-      claimedLevels: { questions: 1 },
-    });
+    const awarded = awardReachedLevels(full, lifetime250, 200);
+    expect(awarded).toMatchObject({ banked: 6, pending: 2, claimedLevels: { questions: 2 } });
+    expect(awardReachedLevels(awarded, lifetime250, 200)).toBe(awarded);
+    // Spending then settles one pending into the bank.
+    expect(spendRestore(awarded, "2026-09-17")).toMatchObject({ banked: 6, pending: 1 });
   });
 
   it("measures each day against its own goal, not the current one", () => {
@@ -320,6 +333,9 @@ describe("badge families", () => {
     const mixed = [stamped(16, 6, 5), stamped(16, 6, 20)];
     expect(familyValue("goals", mixed, { goal: 1 })).toBe(0);
     expect(familyValue("goals", [stamped(16, 6, 5), stamped(16, 6)], { goal: 1 })).toBe(1);
+    // A stamp below the minimum goal still needs the minimum.
+    expect(familyValue("goals", [stamped(16, 4, 2)], { goal: 1 })).toBe(0);
+    expect(familyValue("goals", [stamped(16, 5, 2)], { goal: 1 })).toBe(1);
   });
 });
 
@@ -330,17 +346,25 @@ describe("normalizeStreakState", () => {
     expect(
       normalizeStreakState({
         banked: 99,
+        pending: 2.7,
         grantedMonth: "soon",
         restoredDays: ["2026-09-17", "junk", "2026-09-17"],
-        claimedLevels: { streak: 2, nope: 1, timed: -3 },
+        claimedLevels: { streak: 2, nope: 1, timed: -3, owl: 4, speed: 1 },
         claimedMilestones: ["questions-100", "nope"],
       }),
     ).toEqual({
       banked: 6,
+      pending: 2,
       grantedMonth: "",
       restoredDays: ["2026-09-17"],
       claimedLevels: { streak: 2, questions: 1 },
     });
+  });
+
+  it("normalizes pending to a non-negative integer", () => {
+    expect(normalizeStreakState({ pending: -4 }).pending).toBe(0);
+    expect(normalizeStreakState({ pending: "x" }).pending).toBe(0);
+    expect(normalizeStreakState({}).pending).toBe(0);
   });
 
   it("migrates flat-era milestone ids to family levels, keeping the max", () => {
@@ -374,5 +398,143 @@ describe("todayProgress", () => {
       done: false,
     });
     expect(todayProgress([{ takenAt: "junk", total: 9 }], 10, NOW).answered).toBe(0);
+  });
+});
+
+describe("answeredCount", () => {
+  it("counts picked options and non-empty typed text once", () => {
+    expect(answeredCount({ total: 50, answers: {} })).toBe(0);
+    expect(answeredCount({ total: 50, answers: { a: 1, b: 0 } })).toBe(2);
+    expect(
+      answeredCount({ total: 50, answers: { a: 1 }, textAnswers: { a: "dup", b: " hi ", c: "   ", d: "" } }),
+    ).toBe(2);
+  });
+
+  it("falls back to a finite total without an answers field", () => {
+    expect(answeredCount({ total: 7 })).toBe(7);
+    expect(answeredCount({ total: Number.NaN })).toBe(0);
+  });
+});
+
+describe("honest rewards", () => {
+  const blank = (d: number): StreakDay => ({ takenAt: ISO(d), total: 50, answers: {} });
+  const answered = (d: number, n: number): StreakDay => ({
+    takenAt: ISO(d),
+    total: 50,
+    answers: Object.fromEntries(Array.from({ length: n }, (_, i) => [`q${i}`, 0])),
+  });
+
+  it("a blanks-only attempt makes no streak day and no goal progress", () => {
+    expect(computeStreak([blank(18)], NOW)).toEqual({ count: 0, todayDone: false });
+    expect(todayProgress([blank(18)], 10, NOW)).toEqual({ answered: 0, goal: 10, done: false });
+    expect(familyValue("questions", [{ ...blank(18), score: 0, reviewerId: "r" }], { goal: 10 })).toBe(0);
+  });
+
+  it("answered questions make the day, typed text counts, legacy falls back to total", () => {
+    expect(computeStreak([answered(18, 5)], NOW)).toEqual({ count: 1, todayDone: true });
+    const typed: StreakDay = {
+      takenAt: ISO(18),
+      total: 5,
+      answers: {},
+      textAnswers: { a: "x", b: "y", c: "z", d: "w", e: "v" },
+    };
+    expect(computeStreak([typed], NOW).todayDone).toBe(true);
+    expect(computeStreak([{ takenAt: ISO(18), total: 5 }], NOW).todayDone).toBe(true);
+  });
+});
+
+describe("daily goal minimum", () => {
+  it("clamps stored goals of 1-4 up to 5", () => {
+    expect(normalizeSettings({ dailyGoal: 1 }).dailyGoal).toBe(5);
+    expect(normalizeSettings({ dailyGoal: 4 }).dailyGoal).toBe(5);
+    expect(normalizeSettings({ dailyGoal: 5 }).dailyGoal).toBe(5);
+    expect(normalizeSettings({ dailyGoal: 12 }).dailyGoal).toBe(12);
+  });
+});
+
+describe("loopDelta", () => {
+  const answers = (n: number) => Object.fromEntries(Array.from({ length: n }, (_, i) => [`q${i}`, 0]));
+  const att = (d: number, n: number): BadgeAttempt => ({
+    takenAt: ISO(d),
+    total: n,
+    score: 0,
+    reviewerId: "rv1",
+    answers: answers(n),
+  });
+  const snap = (attempts: BadgeAttempt[], goal = 10): LoopSnapshot => ({
+    attempts,
+    state: DEFAULT_STREAK_STATE,
+    goal,
+    now: NOW,
+  });
+
+  it("reports goal met, streak day earned and levels reached by one attempt", () => {
+    const delta = loopDelta(snap([att(18, 4)]), snap([att(18, 4), att(18, 96)]));
+    expect(delta).toMatchObject({ goalMet: true, goalDone: true, streakCount: 1, streakDayJustEarned: true });
+    expect(delta.levelsReached).toEqual([
+      { family: "questions", label: "Riddler", level: 1 },
+      { family: "goals", label: "Goal Getter", level: 1 },
+    ]);
+  });
+
+  it("reports goal progress when the goal is not met", () => {
+    const delta = loopDelta(snap([]), snap([att(18, 4)]));
+    expect(delta).toMatchObject({ goalMet: false, goalDone: false, goalAnswered: 4, goalTarget: 10 });
+  });
+
+  it("is quiet when nothing new happened", () => {
+    const state = snap([att(18, 12)]);
+    expect(loopDelta(state, state)).toEqual({
+      goalMet: false,
+      goalDone: true,
+      goalAnswered: 12,
+      goalTarget: 10,
+      streakCount: 1,
+      streakDayJustEarned: false,
+      levelsReached: [],
+    });
+  });
+});
+
+describe("streakStatus", () => {
+  const act = (d: number, n = 10): StreakDay => ({ takenAt: ISO(d), total: n });
+  const state = DEFAULT_STREAK_STATE;
+
+  it("none: no streak and nothing to restore", () => {
+    expect(streakStatus([], state, NOW)).toEqual({ kind: "none", count: 0, restoredCount: 0, remaining: 5 });
+    expect(streakStatus([act(15)], state, NOW).kind).toBe("none");
+  });
+
+  it("safe: today is done", () => {
+    expect(streakStatus([act(17), act(18)], state, NOW)).toEqual({
+      kind: "safe",
+      count: 2,
+      restoredCount: 0,
+      remaining: 0,
+    });
+  });
+
+  it("pending: alive, today not done, with questions remaining", () => {
+    expect(streakStatus([act(17), act(18, 2)], state, NOW)).toEqual({
+      kind: "pending",
+      count: 1,
+      restoredCount: 0,
+      remaining: 3,
+    });
+  });
+
+  it("restorable: yesterday missed, day before active", () => {
+    expect(streakStatus([act(15), act(16)], state, NOW)).toEqual({
+      kind: "restorable",
+      count: 2,
+      restoredCount: 3,
+      remaining: 5,
+    });
+    expect(streakStatus([act(15), act(16), act(18)], state, NOW)).toMatchObject({
+      kind: "restorable",
+      count: 2,
+      restoredCount: 4,
+      remaining: 0,
+    });
   });
 });

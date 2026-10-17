@@ -52,6 +52,26 @@ export function creditFromMet(met: number[], total: number): number {
   return Math.round((met.length / total) * 100) / 100;
 }
 
+// An identification item asks for one name or term, so naming it is the
+// whole answer. Its key points often restate facts the question already gives
+// (dates, events), which the student has no reason to repeat. When the model
+// answer is a short term and the student names it, every key point is met.
+export const MAX_TERM_WORDS = 8;
+
+function normalizeTerm(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/^(the|a|an) /, "")
+    .trim();
+}
+
+export function namesModelTerm(modelAnswer: string, answer: string, modelSaysNamed: boolean): boolean {
+  const term = normalizeTerm(modelAnswer);
+  if (term === "" || term.split(" ").length > MAX_TERM_WORDS) return false;
+  return modelSaysNamed || ` ${normalizeTerm(answer)} `.includes(` ${term} `);
+}
+
 export function blankGrade(): ShortGrade {
   return { met: [], feedback: "No answer given.", credit: 0 };
 }

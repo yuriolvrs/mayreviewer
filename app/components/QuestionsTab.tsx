@@ -26,7 +26,14 @@ import {
 } from "@/app/lib/examFormats";
 import { useFormats } from "@/app/lib/useFormats";
 import {
+  ATTACHMENTS_CHANGED_EVENT,
+  getAttachments,
+  getFormatAttachments,
+  type AttachmentField,
+} from "@/app/lib/attachments";
+import {
   generateQuestions,
+  sourceNames as namedSources,
   type GenerationFailure,
   type GenerationProgress,
   type VerificationSummary,
@@ -489,6 +496,30 @@ export default function QuestionsTab({
   const format = resolveFromList(formats, reviewer.examFormatId);
   const typeKeys = formatTypeKeys(format);
   const typeFilters: ("all" | string)[] = ["all", ...typeKeys];
+  // Uploaded files live in IndexedDB. Generation sends them, so the summary
+  // line names their fields too. The format's own sample exam goes as a past
+  // exam, as it does in generateQuestions.
+  const [fileFields, setFileFields] = useState<AttachmentField[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => {
+      Promise.all([getAttachments(reviewer.id), getFormatAttachments(format.id)])
+        .then(([own, formatFiles]) => {
+          if (cancelled) return;
+          setFileFields([
+            ...own.map((a) => a.field),
+            ...(formatFiles.length > 0 ? (["pastexam"] as const) : []),
+          ]);
+        })
+        .catch(() => {});
+    };
+    refresh();
+    window.addEventListener(ATTACHMENTS_CHANGED_EVENT, refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(ATTACHMENTS_CHANGED_EVENT, refresh);
+    };
+  }, [reviewer.id, format.id]);
   const [sourceFilter, setSourceFilter] = useState<"all" | QuestionSource>(() => {
     const src = searchParams.get("source");
     return src === "all" || (QUESTION_SOURCES as readonly string[]).includes(src ?? "")
@@ -786,11 +817,7 @@ function startCreate() {
     }
   }
 
-  const sourceNames = [
-    reviewer.notes.trim() && "Notes",
-    reviewer.projectMaterial.trim() && "Project material",
-    reviewer.pastExamMaterial.trim() && "Past exam",
-  ].filter(Boolean) as string[];
+  const sourceNames = namedSources(reviewer, fileFields);
   const plannedTypes = typeKeys.filter((t) => (reviewer.questionCountByType[t] ?? 0) > 0);
 
   return (

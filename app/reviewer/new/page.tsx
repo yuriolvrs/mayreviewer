@@ -17,9 +17,7 @@ import { addAttachment } from "@/app/lib/attachments";
 import {
   MAX_ID_CHARS,
   OS_EXAM,
-  canonicalFormatId,
   defaultCounts,
-  getBuiltinFormats,
   newFormatId,
   resolveFromList,
   saveCustomFormat,
@@ -27,7 +25,7 @@ import {
   type FormatTypeDef,
 } from "@/app/lib/examFormats";
 import { useFormats } from "@/app/lib/useFormats";
-import { parseReviewerFile, type ParsedReviewerFile } from "@/app/lib/reviewerFile";
+import { importedFormat, parseReviewerFile, type ParsedReviewerFile } from "@/app/lib/reviewerFile";
 import ReviewerInfoFields from "@/app/components/ReviewerInfoFields";
 import TopicsField from "@/app/components/TopicsField";
 import { FormatPicker, QuestionCountSection } from "@/app/components/FormatPicker";
@@ -208,14 +206,10 @@ export default function NewReviewerPage() {
     if (!importPending) return;
     setImporting(true);
     try {
-      // A custom format embedded in the file joins the library (built-in ids
-      // never overwrite the shipped definitions), and the new reviewer takes
-      // the file's format when it carries a valid one.
-      const embedded = importPending.format;
-      const useFormatId =
-        embedded && !getBuiltinFormats().some((f) => f.id === canonicalFormatId(embedded.id))
-          ? (saveCustomFormat(embedded), embedded.id)
-          : OS_EXAM.id;
+      // A custom format embedded in the file joins the library, and the new
+      // reviewer takes the file's format when it carries a valid one.
+      const imported = importedFormat(importPending.format);
+      if (imported.custom) saveCustomFormat(imported.custom);
       const now = new Date().toISOString();
       const reviewer: Reviewer = {
         id: newId(),
@@ -229,7 +223,7 @@ export default function NewReviewerPage() {
         pastExamMaterial: importPending.pastExamMaterial,
         // Imported files predate formats — they belong to the built-in they
         // were generated under. (normalize() would default this anyway.)
-        examFormatId: useFormatId,
+        examFormatId: imported.id,
         questionCount: importPending.questionCount,
         questionCountByType:
           importPending.questionCountByType ?? splitCountEvenly(importPending.questionCount),

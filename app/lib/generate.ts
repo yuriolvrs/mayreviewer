@@ -1,5 +1,5 @@
 import { upload } from "@vercel/blob/client";
-import { getAttachments, getFormatAttachments } from "@/app/lib/attachments";
+import { getAttachments, getFormatAttachments, type AttachmentField } from "@/app/lib/attachments";
 import { resolveFormat } from "@/app/lib/examFormats";
 import { turnstileHeaders } from "@/app/lib/turnstileClient";
 import type { Question, Reviewer } from "@/app/types";
@@ -45,6 +45,22 @@ type StreamMessage =
       failures: GenerationFailure[];
       verified: VerificationSummary;
     };
+
+// The source fields a generation will read, by name: a field counts when it
+// has text or at least one uploaded file.
+export function sourceNames(
+  reviewer: Pick<Reviewer, "notes" | "projectMaterial" | "pastExamMaterial">,
+  fileFields: AttachmentField[],
+): string[] {
+  const fields: [AttachmentField, string, string][] = [
+    ["notes", reviewer.notes, "Notes"],
+    ["project", reviewer.projectMaterial, "Project material"],
+    ["pastexam", reviewer.pastExamMaterial, "Past exam"],
+  ];
+  return fields
+    .filter(([field, text]) => text.trim() !== "" || fileFields.includes(field))
+    .map(([, , name]) => name);
+}
 
 // Exported for tests: one truncated NDJSON line must not kill the run.
 export function parseStreamLine(line: string): StreamMessage | null {

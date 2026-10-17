@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeBlobName } from "@/app/lib/generate";
+import { sanitizeBlobName, sourceNames } from "@/app/lib/generate";
 
 describe("sanitizeBlobName", () => {
   it("strips directory components", () => {
@@ -14,5 +14,23 @@ describe("sanitizeBlobName", () => {
 
   it("falls back for empty names", () => {
     expect(sanitizeBlobName("")).toBe("file");
+  });
+});
+
+describe("sourceNames", () => {
+  const empty = { notes: "", projectMaterial: "", pastExamMaterial: "" };
+
+  it("names a field that has only uploaded files", () => {
+    expect(sourceNames(empty, ["notes"])).toEqual(["Notes"]);
+  });
+
+  it("names each field once, in field order, from text or files", () => {
+    expect(
+      sourceNames({ ...empty, pastExamMaterial: "Q1" }, ["pastexam", "project", "project"]),
+    ).toEqual(["Project material", "Past exam"]);
+  });
+
+  it("names nothing when there is no text and no file", () => {
+    expect(sourceNames({ ...empty, notes: "   " }, [])).toEqual([]);
   });
 });

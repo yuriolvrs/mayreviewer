@@ -41,11 +41,17 @@ export default function QuestionCountControl({
   // the fields be re-seeded — otherwise clearing one would immediately refill
   // it with the 0 we just reported.
   const [lastReported, setLastReported] = useState(value);
+  // The fields also re-seed when the format's types change. A custom format
+  // resolves to the OS exam until customs load after mount, so the first
+  // seed can be for the wrong types.
+  const typesKey = types.join("\n");
+  const [seededTypes, setSeededTypes] = useState(typesKey);
   // Adjusting state during render is the sanctioned pattern for syncing
   // props into state (React docs: "storing information from previous
   // renders") — an effect here would cost an extra render and trip the
   // set-state-in-effect rule. The guard keeps it a no-op most renders.
-  if (!types.every((t) => value[t] === lastReported[t])) {
+  if (typesKey !== seededTypes || !types.every((t) => value[t] === lastReported[t])) {
+    setSeededTypes(typesKey);
     setLastReported(value);
     setText(toText(value, types));
   }

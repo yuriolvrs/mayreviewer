@@ -190,6 +190,35 @@ describe("POST /api/grade", () => {
   });
 });
 
+describe("POST /api/grade identification answers", () => {
+  const terror = {
+    question: "What is the name of the period during 1793 and 1794 characterized by mass executions?",
+    modelAnswer: "The Reign of Terror",
+    keyPoints: ["Reign of Terror", "1793-1794", "Committee of Public Safety"],
+  };
+
+  it("gives full credit when the model says the answer names the term", async () => {
+    respond = () => ({
+      results: [{ index: 0, met: [], namesAnswer: true, feedback: "You named the period correctly." }],
+    });
+    const { body } = await grade([item("a", "Reign of Terorr", terror)]);
+    expect(body.grades.a).toMatchObject({ met: [0, 1, 2], credit: 1 });
+    expect(calls[0].prompt).toContain("namesAnswer");
+  });
+
+  it("gives full credit when the answer contains a short model answer", async () => {
+    respond = () => ({ results: [{ index: 0, met: [], feedback: "Missing the dates." }] });
+    const { body } = await grade([item("a", "The Reign of Terror.", terror)]);
+    expect(body.grades.a).toMatchObject({ met: [0, 1, 2], credit: 1 });
+  });
+
+  it("keeps key-point grading for long model answers", async () => {
+    respond = () => ({ results: [{ index: 0, met: [1], namesAnswer: true, feedback: "Partly." }] });
+    const { body } = await grade([item("a", "Frames are fixed size.")]);
+    expect(body.grades.a).toMatchObject({ met: [0], credit: 0.33 });
+  });
+});
+
 describe("parseGradeResponse", () => {
   it("accepts a well-formed response and keeps only known fields", () => {
     const parsed = parseGradeResponse({

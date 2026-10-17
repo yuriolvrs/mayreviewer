@@ -6,7 +6,12 @@ import {
   isQuestion,
 } from "@/app/lib/questions";
 import type { AttachmentField } from "@/app/lib/attachments";
-import { isValidFormatDef } from "@/app/lib/examFormats";
+import {
+  OS_EXAM,
+  canonicalFormatId,
+  getBuiltinFormats,
+  isValidFormatDef,
+} from "@/app/lib/examFormats";
 import type { ExamFormat } from "@/app/lib/examFormats";
 import type { Question } from "@/app/types";
 
@@ -207,4 +212,15 @@ export async function parseReviewerFile(
       ...(isValidFormatDef(obj.format) ? { format: obj.format } : {}),
     },
   };
+}
+
+// The format an imported reviewer belongs to. A built-in keeps its own
+// (canonical) id; built-in ids never overwrite the shipped definitions. A
+// custom format comes back for the caller to save. Only a file with no format
+// falls back to the OS exam, which is what files from before formats used.
+export function importedFormat(embedded: ExamFormat | undefined): { id: string; custom?: ExamFormat } {
+  if (!embedded) return { id: OS_EXAM.id };
+  const id = canonicalFormatId(embedded.id);
+  if (getBuiltinFormats().some((f) => f.id === id)) return { id };
+  return { id: embedded.id, custom: embedded };
 }

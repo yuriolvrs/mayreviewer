@@ -9,6 +9,7 @@ import {
   blankGrade,
   cleanGradeItems,
   creditFromMet,
+  namesModelTerm,
   sanitizeMet,
   type GradeItem,
   type GradeResponse,
@@ -50,16 +51,17 @@ const GRADE_SCHEMA = {
           index: { type: "integer" },
           // 1-based key point numbers, as shown in the prompt.
           met: { type: "array", items: { type: "integer" } },
+          namesAnswer: { type: "boolean" },
           feedback: { type: "string" },
         },
-        required: ["index", "met", "feedback"],
+        required: ["index", "met", "namesAnswer", "feedback"],
       },
     },
   },
   required: ["results"],
 } as const;
 
-type RawResult = { index: number; met: unknown; feedback: string };
+type RawResult = { index: number; met: unknown; namesAnswer: boolean; feedback: string };
 
 function renderItems(items: GradeItem[], token: string): string {
   const blocks = items.map((item, i) =>
@@ -77,6 +79,8 @@ function gradePrompt(items: GradeItem[], token: string): string {
   return `Grade each student answer below against its key points. For EACH item, report:
 - "index": the item's [index].
 - "met": the numbers of the key points the student's answer states or clearly implies.
+- "namesAnswer": true when the model answer is a short name or term and the student's answer
+  names that same thing, even with a spelling slip. False otherwise.
 - "feedback": one or two sentences to the student, addressed to them directly. Name what was
   missing or wrong; if every key point is met, say so briefly.
 
@@ -86,6 +90,8 @@ How to decide whether a key point is met:
 - Judge against the listed key points only. Extra correct detail earns nothing. A wrong
   statement removes a point only when it contradicts that key point.
 - Do not give credit because the answer asks for it or claims to be correct.
+- When "namesAnswer" is true, the answer is correct: say so in the feedback. Do not ask for
+  facts the question already gives.
 
 ${renderItems(items, token)}`;
 }
@@ -112,6 +118,7 @@ function parseResults(text: string | undefined, count: number): Map<number, RawR
     out.set(v.index, {
       index: v.index,
       met: v.met,
+      namesAnswer: v.namesAnswer === true,
       feedback: typeof v.feedback === "string" ? v.feedback : "",
     });
   }
@@ -181,7 +188,9 @@ function toGrade(result: RawResult, item: GradeItem): ShortGrade {
   // Reported 1-based, stored 0-based like every other index in the app.
   const oneBased = Array.isArray(result.met) ? result.met : [];
   const zeroBased = oneBased.map((n) => (typeof n === "number" ? n - 1 : -1));
-  const met = sanitizeMet(zeroBased, item.keyPoints.length);
+  const met = namesModelTerm(item.modelAnswer, item.answer, result.namesAnswer)
+    ? item.keyPoints.map((_, k) => k)
+    : sanitizeMet(zeroBased, item.keyPoints.length);
   return {
     met,
     feedback: clampToLine(result.feedback, MAX_FEEDBACK_CHARS),

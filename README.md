@@ -1,42 +1,31 @@
 # May Reviewer
 
-Turn your notes into a practice exam, in a question format you choose.
+Turn your notes into a practice exam, in the question format your professor actually uses.
+
+## Why I built it
+
+I was studying for my Intro to Operating Systems final and had no copy of the midterm to practice with. I had lecture slides and my own notes, and I knew the final would look like the midterm: scenario questions, timelines like "where is process B during cycle 4?", and C++ snippets with a blank to fill in.
+
+Flashcard and quiz apps don't really do that. They make generic recall questions, so I was writing practice questions by hand, and the diagram and code ones took forever.
+
+May Reviewer takes the material a student already has and writes questions in the shape of their exam. Every generated question can be reviewed and edited before you study from it, because AI gets things wrong and I didn't want anyone trusting it blindly. It started as a tool for one course and has grown into a general one, with presets for other subjects and custom formats you can infer from a past exam.
 
 ## What it does
 
-- **Reviewers** — one study unit each: notes, project material, past exams, generated questions.
-- **Formats** — built-in exam formats (Operating Systems Exam, Math, Language, Science, History) plus your own custom formats with an inference helper that drafts types from a past exam.
-- **Quiz** — immediate or end-only feedback, scope by type, retakes with reshuffled options.
-- **History** — every attempt across all reviewers, reopenable.
-- **Import/Export** — reviewers travel as `.json`, or as `.zip` with uploaded files bundled.
+- **Reviewers**: one study unit each, built from notes, slides, project material, or past exams.
+- **Formats**: built-in exam formats, plus presets and custom formats.
+- **Quizzes**: immediate or end-of-quiz feedback, retakes, and a history of every attempt.
+- **Import and export**: reviewers can move between browsers as `.json` or `.zip`.
 
-Everything is stored in your browser (`localStorage` + IndexedDB). No accounts, no server-side data.
+There is no account wall. The core loop works signed out and offline, and your data stays in the browser. Signing in is optional and syncs across devices.
 
-## Run it
+## Running it locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-Create `.env.local` with `GEMINI_API_KEY` (required) and `MISTRAL_API_KEY` (optional fallback for generation).
+Create a `.env.local` with `GEMINI_API_KEY` (required) and `MISTRAL_API_KEY` (optional fallback for generation), then open [http://localhost:3000](http://localhost:3000).
 
-Open [http://localhost:3000](http://localhost:3000).
-
-## Scripts
-
-| Command          | What it does                        |
-| ---------------- | ----------------------------------- |
-| `npm run dev`    | Start the dev server                |
-| `npm run build`  | Production build                    |
-| `npm run lint`   | Lint `app`, `e2e`, and `tests`      |
-| `npm run test`   | Unit tests (vitest)                 |
-| `npm run test:e2e` | End-to-end tests (playwright)     |
-
-`npx tsc --noEmit` typechecks. Coverage: `npx vitest run --coverage`.
-
-## Limits (also listed in About)
-
-- Uploads: PDF/JPG/PNG/WebP as files; DOCX/TXT/CPP read as text. Up to 10 files per request, 15 MB each, 40 MB total. No HEIC.
-- Generation: 8 runs / 10 min. Format inference: 8 / 10 min (separate bucket). Upload tokens: 30 / 10 min.
-- Imports: 25 MB file cap, 40 MB expanded zip cap.
+Other useful commands: `npm run build`, `npm run test` (Vitest), and `npm run test:e2e` (Playwright).

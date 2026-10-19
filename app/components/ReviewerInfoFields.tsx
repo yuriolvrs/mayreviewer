@@ -34,7 +34,7 @@ export default function ReviewerInfoFields({
             type="text"
             value={name}
             onChange={(e) => onNameChange(e.target.value)}
-            placeholder="e.g. CPU Scheduling"
+            placeholder="e.g. Unit 2 review"
             className={`h-11 rounded-lg border px-3 text-text-primary outline-none ${
               nameError ? "border-error focus:border-error" : "border-border focus:border-accent"
             }`}
@@ -49,7 +49,7 @@ export default function ReviewerInfoFields({
             type="text"
             value={subject}
             onChange={(e) => onSubjectChange(e.target.value)}
-            placeholder="e.g. Intro to Operating Systems"
+            placeholder="e.g. Algebra 1"
             className="h-11 rounded-lg border border-border px-3 text-text-primary outline-none focus:border-accent"
           />
         </label>

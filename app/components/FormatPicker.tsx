@@ -81,6 +81,7 @@ export function FormatPicker({
 export function QuestionCountSection({
   learn,
   learnPending,
+  formatPending = false,
   total,
   format,
   value,
@@ -89,6 +90,8 @@ export function QuestionCountSection({
 }: {
   learn: boolean;
   learnPending: boolean;
+  // New reviewer only: no format picked yet.
+  formatPending?: boolean;
   total: number;
   format: ExamFormat;
   value: Record<string, number>;
@@ -111,6 +114,8 @@ export function QuestionCountSection({
               <span className="ml-2 font-normal text-text-secondary">Edit counts in the list above.</span>
             </p>
           )
+        ) : formatPending ? (
+          <p className="text-[0.875rem] text-text-secondary">Counts appear after you pick a format.</p>
         ) : (
           <QuestionCountControl format={format} value={value} onChange={onChange} />
         )}

@@ -48,7 +48,7 @@ export default function TopicsField({ topicList }: { topicList: ReturnType<typeo
                 onKeyDown={handleKeyDown}
                 onFocus={() => setFocusedTopic(row.id)}
                 onBlur={() => setFocusedTopic(null)}
-                placeholder="e.g. Paging"
+                placeholder="e.g. Quadratic equations"
                 className={`h-11 w-full truncate rounded-lg border border-border pl-3 pr-8 outline-none focus:border-accent ${
                   showOverlay ? "text-transparent" : "text-text-primary"
                 }`}

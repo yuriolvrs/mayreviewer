@@ -44,6 +44,7 @@ type StreamMessage =
       questions: Question[];
       failures: GenerationFailure[];
       verified: VerificationSummary;
+      notices?: string[];
     };
 
 // The source fields a generation will read, by name: a field counts when it
@@ -72,6 +73,14 @@ export function parseStreamLine(line: string): StreamMessage | null {
   }
 }
 
+export type GenerateResult = {
+  questions: Question[];
+  failures: GenerationFailure[];
+  verified: VerificationSummary;
+  // Plain notes for the reviewer, e.g. a type that was skipped.
+  notices: string[];
+};
+
 export async function generateQuestions(
   reviewer: Reviewer,
   count: number,
@@ -84,7 +93,7 @@ export async function generateQuestions(
   // from the run that produced the pool being replaced.
   avoid: AvoidedQuestion[],
   signal?: AbortSignal,
-): Promise<{ questions: Question[]; failures: GenerationFailure[]; verified: VerificationSummary }> {
+): Promise<GenerateResult> {
   // Uploaded straight to Blob storage from the browser — Vercel Functions cap
   // request bodies at 4.5MB, far below what a PDF set can reach, so the
   // generate request carries a blob URL per file instead of its bytes.
@@ -165,8 +174,7 @@ export async function generateQuestions(
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  let result: { questions: Question[]; failures: GenerationFailure[]; verified: VerificationSummary } | null =
-    null;
+  let result: GenerateResult | null = null;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -186,7 +194,12 @@ export async function generateQuestions(
           stage: message.stage,
         });
       } else if (message.type === "done") {
-        result = { questions: message.questions, failures: message.failures, verified: message.verified };
+        result = {
+          questions: message.questions,
+          failures: message.failures,
+          verified: message.verified,
+          notices: message.notices ?? [],
+        };
       }
     }
   }

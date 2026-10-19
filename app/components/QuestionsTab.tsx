@@ -562,6 +562,7 @@ export default function QuestionsTab({
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [failures, setFailures] = useState<GenerationFailure[]>([]);
   const [verified, setVerified] = useState<VerificationSummary | null>(null);
+  const [notices, setNotices] = useState<string[]>([]);
   const [addedCount, setAddedCount] = useState<number | null>(null);
   const [cancelled, setCancelled] = useState(false);
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
@@ -730,6 +731,7 @@ function startCreate() {
     setGenerateError(null);
     setFailures([]);
     setVerified(null);
+    setNotices([]);
     setAddedCount(null);
     setCancelled(false);
     try {
@@ -767,6 +769,7 @@ function startCreate() {
       setAddedCount(result.questions.length);
       setFailures(result.failures);
       setVerified(result.verified);
+      setNotices(result.notices);
       setGenState("success");
     } catch (err) {
       if (cancelledRef.current) return;
@@ -929,6 +932,13 @@ function startCreate() {
           {verified.dropped > 0 && `dropped ${verified.dropped} unanswerable question${verified.dropped === 1 ? "" : "s"}`}.
         </p>
       )}
+
+      {!generating &&
+        notices.map((n) => (
+          <p key={n} className="text-[0.875rem] text-text-secondary">
+            {n}
+          </p>
+        ))}
 
       {/* Type chips, Starred, Source, and Sort sit behind the Filters button.
           It opens by default only when a filter is active. */}

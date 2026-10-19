@@ -16,7 +16,6 @@ import {
 import { addAttachment } from "@/app/lib/attachments";
 import {
   MAX_ID_CHARS,
-  OS_EXAM,
   defaultCounts,
   newFormatId,
   resolveFromList,
@@ -28,7 +27,8 @@ import { useFormats } from "@/app/lib/useFormats";
 import { importedFormat, parseReviewerFile, type ParsedReviewerFile } from "@/app/lib/reviewerFile";
 import ReviewerInfoFields from "@/app/components/ReviewerInfoFields";
 import TopicsField from "@/app/components/TopicsField";
-import { FormatPicker, QuestionCountSection } from "@/app/components/FormatPicker";
+import FormatChoice from "@/app/components/FormatChoice";
+import { QuestionCountSection } from "@/app/components/FormatPicker";
 import GeneratedFormatPanel from "@/app/components/GeneratedFormatPanel";
 import SourceSections from "@/app/components/SourceSections";
 import type { Reviewer } from "@/app/types";
@@ -44,7 +44,7 @@ export default function NewReviewerPage() {
   );
   // Customs arrive after mount (see useFormats): the first render is
   // built-ins-only on both server and client, so hydration always agrees.
-  const [examFormatId, setExamFormatId] = useState<string>(OS_EXAM.id);
+  const [examFormatId, setExamFormatId] = useState<string>("");
   const formats = useFormats();
   // "Learn from course material": a draft format built by inference. It is
   // not stored until Create or "Save to Formats", and keeps one id so saving
@@ -127,8 +127,11 @@ export default function NewReviewerPage() {
   // Derived, so the message sits next to the total and clears as it is fixed.
   const total = sumCounts(countByType);
   const learnPending = learn && genTypes.length === 0;
+  // No class picked yet: nothing to count.
+  const formatPending = !learn && !examFormatId;
   const countError =
     !learnPending &&
+    !formatPending &&
     (!Number.isInteger(total) || total < MIN_QUESTION_COUNT || total > MAX_QUESTION_COUNT)
       ? `Questions to generate must be a whole number between ${MIN_QUESTION_COUNT} and ${MAX_QUESTION_COUNT}.`
       : "";
@@ -139,6 +142,10 @@ export default function NewReviewerPage() {
     const trimmed = name.trim();
     if (!trimmed) {
       setNameError(true);
+      return;
+    }
+    if (!learn && !examFormatId) {
+      setError("Choose what class this is for.");
       return;
     }
     if (learn && genTypes.length === 0) {
@@ -377,10 +384,10 @@ export default function NewReviewerPage() {
           onPastExamChange={setPastExamMaterial}
         />
 
-        <FormatPicker
+        <FormatChoice
           learn={learn}
           formats={formats}
-          format={resolveFromList(formats, examFormatId)}
+          examFormatId={examFormatId}
           onSelectSaved={selectSavedFormat}
           onSelectLearn={selectLearn}
           learnPanel={
@@ -412,6 +419,7 @@ export default function NewReviewerPage() {
         <QuestionCountSection
           learn={learn}
           learnPending={learnPending}
+          formatPending={formatPending}
           total={total}
           format={format}
           value={countByType}

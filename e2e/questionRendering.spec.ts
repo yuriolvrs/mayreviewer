@@ -201,11 +201,31 @@ test.describe("Delete warning", () => {
 });
 
 test.describe("Exam formats", () => {
-  test("the new-reviewer form offers the built-in format, preselected", async ({ page }) => {
+  test("the new-reviewer form starts with no format chosen and requires one", async ({ page }) => {
     await page.goto("/reviewer/new");
-    await expect(page.getByRole("radio", { name: "Use a saved format" })).toBeChecked();
-    await expect(page.getByRole("combobox", { name: /Exam format: Operating Systems Exam/ })).toBeVisible();
-    await expect(page.getByText("Modified True/False").first()).toBeVisible();
+    const group = page.getByRole("radiogroup", { name: "Exam format" });
+    await expect(group.getByRole("radio", { name: "Math 101" })).not.toBeChecked();
+    await expect(group.getByRole("radio", { name: "Operating Systems Exam" })).not.toBeChecked();
+    await expect(group.getByRole("radio", { name: "Learn from my material" })).not.toBeChecked();
+    await expect(page.getByText("Counts appear after you pick a format.")).toBeVisible();
+
+    await page.getByPlaceholder("e.g. Unit 2 review").fill("No format yet");
+    await page.getByRole("button", { name: "Create Reviewer" }).click();
+    await expect(page.getByText("Choose what class this is for.")).toBeVisible();
+    await expect(page).toHaveURL(/\/reviewer\/new$/);
+  });
+
+  test("picking the Math 101 card checks it and shows its types", async ({ page }) => {
+    await page.goto("/reviewer/new");
+    await page.getByText("Math 101", { exact: true }).click();
+    await expect(page.getByRole("radio", { name: "Math 101" })).toBeChecked();
+    await expect(page.getByText("Concept recall").first()).toBeVisible();
+    await expect(page.getByText("Code", { exact: true })).toHaveCount(0);
+  });
+
+  test("deep link to a built-in checks its card", async ({ page }) => {
+    await page.goto("/reviewer/new?format=math-101");
+    await expect(page.getByRole("radio", { name: "Math 101" })).toBeChecked();
   });
 
   test("learn mode shows the panel inline and keeps Create visible", async ({ page }) => {
@@ -245,6 +265,7 @@ test.describe("Exam formats", () => {
     await expect(page.getByText("E2E Format")).toBeVisible();
 
     await page.goto("/reviewer/new");
+    await page.getByRole("radio", { name: "Another saved format" }).check();
     await page.getByRole("combobox", { name: /Exam format:/ }).click();
     await expect(page.getByRole("option", { name: /E2E Format/ })).toBeVisible();
   });
@@ -349,6 +370,7 @@ test.describe("Custom formats", () => {
 
   test("deep link preselects the custom format in the picker", async ({ page }) => {
     await page.goto(`/reviewer/new?format=${CUSTOM_FORMAT_ID}`);
+    await expect(page.getByRole("radio", { name: "Another saved format" })).toBeChecked();
     await expect(page.getByRole("combobox", { name: /Exam format: E2E Custom/ })).toBeVisible();
   });
 });

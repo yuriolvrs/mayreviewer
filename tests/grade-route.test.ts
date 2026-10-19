@@ -212,6 +212,12 @@ describe("POST /api/grade identification answers", () => {
     expect(body.grades.a).toMatchObject({ met: [0, 1, 2], credit: 1 });
   });
 
+  it("does not match a term the answer denies", async () => {
+    respond = () => ({ results: [{ index: 0, met: [], feedback: "That is not right." }] });
+    const { body } = await grade([item("a", "It was not the Reign of Terror.", terror)]);
+    expect(body.grades.a).toMatchObject({ met: [], credit: 0 });
+  });
+
   it("keeps key-point grading for long model answers", async () => {
     respond = () => ({ results: [{ index: 0, met: [1], namesAnswer: true, feedback: "Partly." }] });
     const { body } = await grade([item("a", "Frames are fixed size.")]);

@@ -65,20 +65,33 @@ export default function QuizSetup({
   history,
   feedbackMode,
   onFeedbackModeChange,
+  previous,
   onStart,
 }: {
   reviewer: Reviewer;
   history: QuizAttempt[];
   feedbackMode: FeedbackMode;
   onFeedbackModeChange: (mode: FeedbackMode) => void;
+  // The quiz just taken, when the reader came back via "Change settings":
+  // scope, count and timer start from it.
+  previous?: { questions: Question[]; timeLimitSec: number | null };
   onStart: (questions: Question[], opts: { timeLimitSec: number | null; parSec: number }) => void;
 }) {
   // Empty means "all" — the chip row shows that as the All types chip.
-  const [scopeTypes, setScopeTypes] = useState<string[]>([]);
+  const [scopeTypes, setScopeTypes] = useState<string[]>(() => {
+    if (!previous) return [];
+    const used = new Set(previous.questions.map((q) => q.type));
+    const all = new Set(reviewer.questions.map((q) => q.type));
+    return used.size === all.size ? [] : [...used].filter((t) => all.has(t));
+  });
   const [missedOnly, setMissedOnly] = useState(false);
-  const [countInput, setCountInput] = useState(String(reviewer.questions.length));
-  const [timed, setTimed] = useState(false);
-  const [minutesInput, setMinutesInput] = useState(String(DEFAULT_TIMER_MINUTES));
+  const [countInput, setCountInput] = useState(
+    String(previous ? previous.questions.length : reviewer.questions.length),
+  );
+  const [timed, setTimed] = useState(previous?.timeLimitSec != null);
+  const [minutesInput, setMinutesInput] = useState(
+    String(previous?.timeLimitSec != null ? Math.round(previous.timeLimitSec / 60) : DEFAULT_TIMER_MINUTES),
+  );
 
   function poolFor(types: string[]): Question[] {
     return types.length === 0
@@ -136,6 +149,8 @@ export default function QuizSetup({
   // already inside that range; otherwise tapping it would land on a different
   // value than its label.
   const suggestedMinutes = Math.min(Math.max(minutes, MIN_TIMER_MINUTES), MAX_TIMER_MINUTES);
+
+  const hasShortAnswers = reviewer.questions.some(isShortAnswer);
 
   // Clamped the same way as the count above: garbage in, sane number out.
   const parsedMinutes = parseInt(minutesInput, 10);
@@ -248,7 +263,9 @@ export default function QuizSetup({
                   {option.label}
                 </span>
                 <span className="mt-0.5 block text-[0.875rem] leading-snug text-text-secondary">
-                  {option.hint}
+                  {option.value === "immediate" && hasShortAnswers
+                    ? `${option.hint} Typed answers are graded by AI when you submit.`
+                    : option.hint}
                 </span>
               </span>
             </label>

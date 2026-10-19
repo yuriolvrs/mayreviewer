@@ -65,10 +65,10 @@ const LIMITS = [
     body: (
       <>
         Accepts <span className="font-mono">.pdf</span>, <span className="font-mono">.jpg</span>,{" "}
-        <span className="font-mono">.png</span>, <span className="font-mono">.webp</span>,{" "}
+        <span className="font-mono">.png</span>, <span className="font-mono">.webp</span>, <span className="font-mono">.heic</span>,{" "}
         <span className="font-mono">.docx</span>, <span className="font-mono">.txt</span>, and{" "}
         <span className="font-mono">.cpp</span>. Up to 10 files per field, 15 MB each, 40 MB in total.
-        HEIC photos are not supported. Convert them to JPEG first.
+        HEIC photos are converted to JPEG when you add them.
       </>
     ),
   },

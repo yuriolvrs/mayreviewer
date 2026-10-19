@@ -99,7 +99,7 @@ const FEEDBACK_MODES: { value: FeedbackMode; label: string; hint: string }[] = [
   {
     value: "immediate",
     label: "Show correct/incorrect immediately",
-    hint: "Feedback appears as you answer.",
+    hint: "Feedback appears as you answer. Typed answers are graded by AI when you submit.",
   },
   {
     value: "end-only",

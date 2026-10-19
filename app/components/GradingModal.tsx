@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import TurnstileSlot from "@/app/components/TurnstileSlot";
 
 // Short answers are graded in one call when the quiz is submitted. The call
 // takes a few seconds, and leaving mid-way would lose the attempt, so it blocks
@@ -77,6 +78,9 @@ export default function GradingModal({
               <p id="grading-body" role="status" className="mt-1 text-[0.9375rem] text-text-secondary">
                 Checking each short answer against its key points. This takes a few seconds.
               </p>
+              <div className="mt-3">
+                <TurnstileSlot />
+              </div>
             </div>
           </div>
         ) : (

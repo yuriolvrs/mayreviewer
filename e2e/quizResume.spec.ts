@@ -56,6 +56,23 @@ test.describe("Quiz resume after refresh", () => {
     await expect(page.getByText(/1\s*\/\s*8/)).toBeVisible();
   });
 
+  test("Change settings on results returns to setup with the last settings", async ({ page }) => {
+    await page.goto(`/reviewer/${REVIEWER_ID}/quiz`);
+    await page.getByRole("button", { name: "10 min", exact: true }).click();
+    await page.getByRole("button", { name: "Start quiz" }).click();
+    await page.getByRole("button", { name: "Submit quiz" }).click();
+    await page.getByRole("button", { name: "Submit anyway" }).click();
+
+    await expect(page.getByRole("button", { name: "Retake · same settings" })).toBeVisible();
+    await page.getByRole("button", { name: "Change settings" }).click();
+
+    await expect(page.getByRole("button", { name: "Start quiz" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "10 min", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
   test("a timer that expired while away auto-submits on reload", async ({ page }) => {
     await page.goto(`/reviewer/${REVIEWER_ID}/quiz`);
     await page.getByRole("button", { name: "5 min", exact: true }).click();

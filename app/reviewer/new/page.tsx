@@ -13,7 +13,7 @@ import {
   splitCountEvenly,
   sumCounts,
 } from "@/app/lib/questions";
-import { addAttachment } from "@/app/lib/attachments";
+import { addAttachment, addFormatAttachment, getFormatAttachments } from "@/app/lib/attachments";
 import {
   MAX_ID_CHARS,
   defaultCounts,
@@ -241,6 +241,20 @@ export default function NewReviewerPage() {
       };
       saveReviewer(reviewer);
 
+      // A custom format's own files come back only when this browser has none
+      // for it yet, so re-importing the same file never duplicates them.
+      if (imported.custom && importPending.formatAttachments.length > 0) {
+        if ((await getFormatAttachments(imported.id)).length === 0) {
+          for (const attachment of importPending.formatAttachments) {
+            const bytes = attachment.data.slice();
+            const file = new File([bytes.buffer as ArrayBuffer], attachment.name, {
+              type: attachment.mimeType,
+            });
+            await addFormatAttachment(imported.id, file);
+          }
+        }
+      }
+
       for (const attachment of importPending.attachments) {
         // .slice() copies into a fresh, exactly-sized ArrayBuffer — safer than
         // trusting the zip entry's own buffer to have no extra offset/padding.
@@ -358,7 +372,9 @@ export default function NewReviewerPage() {
         </p>
       )}
 
-      <form onSubmit={handleCreate} className="mt-4 flex flex-col">
+      {/* Hidden while an import preview is open, so only its actions show and
+          no validation errors appear for a form the user isn't filling. */}
+      <form onSubmit={handleCreate} className={`mt-4 flex-col ${importPending ? "hidden" : "flex"}`}>
         <ReviewerInfoFields
           name={name}
           subject={subject}

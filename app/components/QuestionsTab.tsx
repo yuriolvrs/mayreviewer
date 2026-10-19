@@ -112,6 +112,13 @@ function autoSizeQuestion(el: HTMLTextAreaElement | null) {
   el.style.height = `${Math.min(Math.max(el.scrollHeight, MIN_QUESTION_PX), MAX_QUESTION_PX)}px`;
 }
 
+// Grows an option textarea to fit its wrapped text.
+function autoSizeOption(el: HTMLTextAreaElement | null) {
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight}px`;
+}
+
 function CaretIcon({ className = "" }: { className?: string }) {
   return (
     <svg
@@ -219,6 +226,17 @@ function QuestionEditor({
     return undefined;
   }
 
+  // The sticky Save bar can't rise above the editor's own top. An editor that
+  // opens low on the screen would leave the bar over the phone's bottom nav,
+  // so bring its top up into view first.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const top = rootRef.current?.getBoundingClientRect().top;
+    if (top !== undefined && top > window.innerHeight / 2) {
+      window.scrollBy({ top: top - 96 });
+    }
+  }, []);
+
   function removeOption(index: number) {
     const options = draft.options.filter((_, j) => j !== index);
     // Keep the correct answer pointing at the same option it did before.
@@ -229,7 +247,7 @@ function QuestionEditor({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div ref={rootRef} className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-mono text-[0.8125rem] tracking-wide">
@@ -262,22 +280,6 @@ function QuestionEditor({
           </span>
         </div>
 
-        <div className="flex shrink-0 items-center gap-3 text-[0.875rem]">
-          <button
-            onClick={onCancel}
-            className="font-medium text-text-secondary hover:text-text-primary"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onSave}
-            disabled={!canSave}
-            title={saveHint()}
-            className="rounded-lg bg-accent px-3 py-1.5 font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Save
-          </button>
-        </div>
       </div>
 
       {draft.stimulus !== undefined && (
@@ -374,7 +376,7 @@ function QuestionEditor({
         {draft.options.map((option, i) => (
           <div
             key={i}
-            className={`flex items-center gap-3 rounded-lg px-2 py-1.5 ${
+            className={`flex items-center gap-2 rounded-lg px-1 py-1.5 sm:gap-3 sm:px-2 ${
               isCorrect(i) ? "bg-success-subtle" : ""
             }`}
           >
@@ -389,8 +391,10 @@ function QuestionEditor({
               className="accent-success"
               aria-label={`Mark option ${optionLetter(i)} correct`}
             />
-            <input
-              type="text"
+            <textarea
+              ref={autoSizeOption}
+              onInput={(e) => autoSizeOption(e.currentTarget)}
+              rows={1}
               value={option}
               onChange={(e) =>
                 setDraft({
@@ -398,12 +402,16 @@ function QuestionEditor({
                   options: draft.options.map((o, j) => (j === i ? e.target.value : o)),
                 })
               }
+              // Options are single paragraphs: Enter must not add a line break.
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.preventDefault();
+              }}
               placeholder={`Option ${optionLetter(i)}`}
               aria-label={`Option ${optionLetter(i)}`}
-              className="h-10 flex-1 rounded-lg border border-border bg-surface px-3 text-[0.9375rem] text-text-primary outline-none focus:border-accent"
+              className="min-w-0 flex-1 resize-none rounded-lg border border-border bg-surface px-3 py-2 text-[0.9375rem] leading-snug text-text-primary outline-none focus:border-accent"
             />
             {isCorrect(i) && (
-              <span className="shrink-0 text-success">
+              <span className="hidden shrink-0 text-success sm:block">
                 <CheckIcon />
               </span>
             )}
@@ -466,6 +474,25 @@ function QuestionEditor({
           />
         </label>
       )}
+      {/* Save sits at the end of the form and stays in view while editing.
+          Left-aligned, away from the Edit/Delete cluster at the row's top right,
+          so a double-click on Save can't land on Delete. */}
+      <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 md:bottom-0 -mx-1 flex items-center gap-3 border-t border-border bg-bg px-1 py-3 text-[0.875rem]">
+        <button
+          onClick={onSave}
+          disabled={!canSave}
+          title={saveHint()}
+          className="rounded-lg bg-accent px-4 py-2 font-medium text-on-accent enabled:hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Save
+        </button>
+        <button
+          onClick={onCancel}
+          className="px-2 py-2 font-medium text-text-secondary hover:text-text-primary"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }

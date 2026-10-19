@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   HEIC_GUIDANCE,
+  ACCEPTED_UPLOAD_EXTENSIONS,
+  heicToJpegName,
   isHeicFile,
   sniffAttachmentKind,
 } from "@/app/lib/attachmentLimits";
@@ -44,5 +46,26 @@ describe("isHeicFile", () => {
     expect(isHeicFile("photo.jpg", "image/heic")).toBe(true);
     expect(isHeicFile("photo.jpg", "image/jpeg")).toBe(false);
     expect(isHeicFile("notes.pdf", "application/pdf")).toBe(false);
+  });
+});
+
+describe("heicToJpegName", () => {
+  it("swaps the HEIC/HEIF extension for .jpg and keeps the rest", () => {
+    expect(heicToJpegName("IMG_0001.HEIC")).toBe("IMG_0001.jpg");
+    expect(heicToJpegName("my.photo.heif")).toBe("my.photo.jpg");
+  });
+
+  it("appends .jpg when the name has no HEIC extension", () => {
+    expect(heicToJpegName("photo")).toBe("photo.jpg");
+    expect(heicToJpegName("photo.jpg")).toBe("photo.jpg.jpg");
+  });
+});
+
+describe("picker accept list", () => {
+  it("lets pickers offer HEIC and HEIF photos", () => {
+    expect(ACCEPTED_UPLOAD_EXTENSIONS).toContain(".heic");
+    expect(ACCEPTED_UPLOAD_EXTENSIONS).toContain(".heif");
+    expect(ACCEPTED_UPLOAD_EXTENSIONS).toContain("image/heic");
+    expect(ACCEPTED_UPLOAD_EXTENSIONS).toContain("image/heif");
   });
 });

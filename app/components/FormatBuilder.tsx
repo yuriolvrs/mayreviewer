@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState } from "react";
 import UploadIcon from "@/app/components/UploadIcon";
+import { convertHeicToJpeg } from "@/app/lib/convertHeic";
 import { extractTextFromFile } from "@/app/lib/extractText";
 import {
   ACCEPTED_UPLOAD_EXTENSIONS,
-  HEIC_GUIDANCE,
   isHeicFile,
 } from "@/app/lib/attachmentLimits";
 import {
@@ -134,12 +134,6 @@ function typeDetail(t: TypeDraft): string {
   return parts.join(" · ");
 }
 
-function subscribeCoarse(cb: () => void) {
-  const mq = window.matchMedia("(pointer: coarse)");
-  mq.addEventListener("change", cb);
-  return () => mq.removeEventListener("change", cb);
-}
-
 export default function FormatBuilder({
   initial,
   formatId,
@@ -196,11 +190,6 @@ export default function FormatBuilder({
     initial.pastExam?.text ? "paste" : "upload",
   );
   const [dragOver, setDragOver] = useState(false);
-  const coarsePointer = useSyncExternalStore(
-    subscribeCoarse,
-    () => window.matchMedia("(pointer: coarse)").matches,
-    () => false,
-  );
 
   const [initialSig] = useState(() =>
     signature(
@@ -244,9 +233,15 @@ export default function FormatBuilder({
   }
 
   async function addPastFiles(incoming: File[]) {
-    const heic = incoming.filter((f) => isHeicFile(f.name, f.type));
-    const rest = incoming.filter((f) => !isHeicFile(f.name, f.type));
-    setPastFileError(heic.length > 0 ? HEIC_GUIDANCE : "");
+    // iPhone photos default to HEIC, which the AI cannot read. Convert to JPEG here.
+    const converted = await Promise.allSettled(
+      incoming.map((f) => (isHeicFile(f.name, f.type) ? convertHeicToJpeg(f) : Promise.resolve(f))),
+    );
+    const rest = converted.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+    const failed = converted.flatMap((r) =>
+      r.status === "rejected" ? [r.reason instanceof Error ? r.reason.message : "Couldn't convert a photo."] : [],
+    );
+    setPastFileError(failed.join(" "));
     const lower = (name: string) => name.toLowerCase();
     const native = rest.filter(
       (f) =>
@@ -275,7 +270,7 @@ export default function FormatBuilder({
         const text = await extractTextFromFile(file);
         setExtracted((prev) => [...prev, { id: newId(), name: file.name, text }]);
       } catch {
-        // A HEIC rejection above stays put — one unreadable text file must
+        // A HEIC conversion error above stays put — one unreadable text file must
         // not erase the more actionable message.
         setPastFileError((prev) => prev || `Couldn't read "${file.name}" as text.`);
       }
@@ -563,9 +558,8 @@ export default function FormatBuilder({
             >
               <UploadIcon size={24} />
               <p>
-                {coarsePointer
-                  ? "Drop files here or tap to choose. PDF or image pages; DOCX/TXT are read as text."
-                  : "Drop PDF or image pages here, or click to browse. DOCX/TXT are read as text."}
+                Tap or click to choose files, or drop them here. PDF or image pages (JPG, PNG, WebP,
+                HEIC); DOCX/TXT are read as text.
               </p>
               {/* Visually hidden but focusable: keyboard users get a native
                   file input, not a div pretending to be one. */}
@@ -589,7 +583,7 @@ export default function FormatBuilder({
               <ul className="divide-y divide-border">
                 {storedFiles.map((a) => (
                   <li key={a.id} className="flex items-center justify-between gap-3 py-1 text-[0.875rem]">
-                    <span className="break-words text-text-primary">{a.name}</span>
+                    <span className="min-w-0 truncate text-text-primary" title={a.name}>{a.name}</span>
                     <button
                       type="button"
                       onClick={() => void removeStoredFile(a.id)}
@@ -602,7 +596,7 @@ export default function FormatBuilder({
                 ))}
                 {extracted.map((f) => (
                   <li key={f.id} className="flex items-center justify-between gap-3 py-1 text-[0.875rem]">
-                    <span className="break-words text-text-primary">
+                    <span className="min-w-0 truncate text-text-primary" title={f.name}>
                       {f.name} <span className="text-text-tertiary">(text extracted)</span>
                     </span>
                     <button

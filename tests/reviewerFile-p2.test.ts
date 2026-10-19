@@ -61,3 +61,52 @@ describe("importedFormat", () => {
     expect(importedFormat(undefined)).toEqual({ id: OS_EXAM.id });
   });
 });
+
+describe("parseReviewerFile format attachments", () => {
+  function zipFile(data: unknown, files: Record<string, Uint8Array>) {
+    const zipped = zipSync({ "reviewer.json": strToU8(JSON.stringify(data)), ...files });
+    return new File([zipped.buffer as ArrayBuffer], "reviewer.zip", { type: "application/zip" });
+  }
+
+  it("parses format file entries and keeps them apart from reviewer files", async () => {
+    const data = reviewerJson({
+      attachments: [],
+      formatAttachments: [
+        { id: "f1", name: "past.pdf", mimeType: "application/pdf", path: "files/f1__past.pdf" },
+      ],
+    });
+    const result = await parseReviewerFile(zipFile(data, { "files/f1__past.pdf": strToU8("%PDF") }));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.attachments).toHaveLength(0);
+      expect(result.data.formatAttachments).toHaveLength(1);
+      expect(result.data.formatAttachments[0].name).toBe("past.pdf");
+      expect(result.data.skippedAttachments).toBe(0);
+    }
+  });
+
+  it("counts invalid or missing format entries as skipped", async () => {
+    const data = reviewerJson({
+      formatAttachments: [
+        { id: "f1", name: "gone.pdf", mimeType: "application/pdf", path: "files/f1__gone.pdf" },
+        { id: "f2", name: "bad.pdf", mimeType: "application/pdf", path: "../evil" },
+        { id: "f3" },
+      ],
+    });
+    const result = await parseReviewerFile(zipFile(data, {}));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.formatAttachments).toHaveLength(0);
+      expect(result.data.skippedAttachments).toBe(3);
+    }
+  });
+
+  it("imports older files without the new entries", async () => {
+    const result = await parseReviewerFile(zipFile(reviewerJson({ attachments: [] }), {}));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.formatAttachments).toEqual([]);
+      expect(result.data.skippedAttachments).toBe(0);
+    }
+  });
+});

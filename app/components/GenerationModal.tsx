@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import TurnstileSlot from "@/app/components/TurnstileSlot";
 import type { GenerationProgress } from "@/app/lib/generate";
 import {
   FILL_LABEL,
@@ -184,6 +185,7 @@ export default function GenerationModal({
 
         {loading && (
           <>
+            <TurnstileSlot />
             <div
               role="progressbar"
               aria-label="Overall progress"

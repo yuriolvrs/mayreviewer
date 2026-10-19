@@ -423,6 +423,7 @@ export default function QuizResults({
   durationSec,
   timedOut,
   onRetake,
+  onChangeSettings,
   onBack,
 }: {
   reviewerId: string;
@@ -453,6 +454,8 @@ export default function QuizResults({
   durationSec?: number;
   timedOut?: boolean;
   onRetake: () => void;
+  // Back to quiz setup with this attempt's settings preselected.
+  onChangeSettings?: () => void;
   onBack?: () => void;
 }) {
   const [missedType, setMissedType] = useState<"all" | string>("all");
@@ -576,13 +579,21 @@ export default function QuizResults({
         })}
       </div>
 
-      <div className="mt-6 flex justify-center">
+      <div className="mt-6 flex flex-wrap justify-center gap-3">
         <button
           onClick={onRetake}
           className="rounded-lg bg-accent px-4 py-2.5 text-[0.9375rem] font-medium text-on-accent hover:bg-accent-hover"
         >
-          Retake quiz
+          Retake · same settings
         </button>
+        {onChangeSettings && (
+          <button
+            onClick={onChangeSettings}
+            className="rounded-lg border border-border-strong px-4 py-2.5 text-[0.9375rem] font-medium text-text-secondary hover:text-text-primary"
+          >
+            Change settings
+          </button>
+        )}
       </div>
 
       <CollapsibleSection title="Incorrect" count={missed.length} defaultOpen>

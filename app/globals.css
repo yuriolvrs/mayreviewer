@@ -227,4 +227,10 @@ html:not([data-entry="app"]):has(.landing) nav[aria-label="Primary"] > a {
   bottom: calc(5rem + env(safe-area-inset-bottom));
   transform: translateX(-50%);
   z-index: 60;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.2);
+  text-align: center;
+  font-size: 0.9375rem;
 }

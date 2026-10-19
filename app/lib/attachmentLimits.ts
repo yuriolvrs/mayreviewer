@@ -62,9 +62,15 @@ export function sniffAttachmentKind(data: Uint8Array): SniffedKind {
   return "unknown";
 }
 
-// Extensions the picker accepts. HEIC is deliberately absent (see above) —
-// caught on add with a guidance message instead of a silent drop.
-export const ACCEPTED_UPLOAD_EXTENSIONS = ".pdf,.jpg,.jpeg,.png,.webp,.docx,.txt,.cpp";
+// Extensions the picker accepts. HEIC/HEIF are included (with their MIME types,
+// so Android pickers enable them); the browser converts them to JPEG on add.
+export const ACCEPTED_UPLOAD_EXTENSIONS =
+  ".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/heic,image/heif,.docx,.txt,.cpp";
+
+// "IMG_1.HEIC" -> "IMG_1.jpg".
+export function heicToJpegName(name: string): string {
+  return /\.(heic|heif)$/i.test(name) ? name.replace(/\.(heic|heif)$/i, ".jpg") : `${name}.jpg`;
+}
 
 export function isHeicFile(name: string, mimeType: string): boolean {
   const lower = name.toLowerCase();
@@ -76,5 +82,9 @@ export function isHeicFile(name: string, mimeType: string): boolean {
   );
 }
 
+// Server-side message only. The browser converts HEIC before upload.
 export const HEIC_GUIDANCE =
   "HEIC photos aren't supported. Switch your camera to JPEG or convert the photo first, then upload it again.";
+
+export const HEIC_CONVERT_ERROR =
+  "We couldn't convert this photo. Take a screenshot of it or save it as JPEG, then try again.";

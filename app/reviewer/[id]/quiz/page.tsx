@@ -410,6 +410,17 @@ function QuizPageInner() {
             setStage("taking");
             window.scrollTo({ top: 0 });
           }}
+          onChangeSettings={
+            reviewedAt
+              ? undefined
+              : () => {
+                  setSubmitted(null);
+                  setDelta(null);
+                  setResultTiming(null);
+                  setStage("setup");
+                  window.scrollTo({ top: 0 });
+                }
+          }
           onBack={
             reviewedAt
               ? attemptId
@@ -452,6 +463,9 @@ function QuizPageInner() {
             history={history}
             feedbackMode={feedbackMode}
             onFeedbackModeChange={setFeedbackMode}
+            previous={
+              quizQuestions.length > 0 ? { questions: quizQuestions, timeLimitSec } : undefined
+            }
             onStart={(questions, opts) => {
               const served = getSettings().shuffle ? questions.map(shuffleOptions) : questions;
               const now = Date.now();

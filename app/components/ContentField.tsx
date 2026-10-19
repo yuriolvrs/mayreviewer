@@ -6,9 +6,9 @@ import { newId } from "@/app/lib/ids";
 import { extractTextFromFile } from "@/app/lib/extractText";
 import {
   ACCEPTED_UPLOAD_EXTENSIONS,
-  HEIC_GUIDANCE,
   isHeicFile,
 } from "@/app/lib/attachmentLimits";
+import { convertHeicToJpeg } from "@/app/lib/convertHeic";
 import {
   addAttachment,
   getAttachments,
@@ -133,7 +133,7 @@ function FileRow({
             target="_blank"
             rel="noopener noreferrer"
             title={name}
-            className="block break-words text-[0.9375rem] text-text-primary hover:text-accent hover:underline"
+            className="block truncate text-[0.9375rem] text-text-primary hover:text-accent hover:underline"
           >
             {name}
           </a>
@@ -264,11 +264,15 @@ export default function ContentField({
   }
 
   async function addFiles(incoming: File[]) {
-    const heic = incoming.filter((f) => isHeicFile(f.name, f.type));
-    const rest = incoming.filter((f) => !isHeicFile(f.name, f.type));
-    // HEIC is rejected with guidance rather than silently dropped — iPhone
-    // photos default to it and the picker can't filter it reliably.
-    setFileError(heic.length > 0 ? HEIC_GUIDANCE : "");
+    // iPhone photos default to HEIC, which the AI cannot read. Convert to JPEG here.
+    const converted = await Promise.allSettled(
+      incoming.map((f) => (isHeicFile(f.name, f.type) ? convertHeicToJpeg(f) : Promise.resolve(f))),
+    );
+    const rest = converted.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+    const failed = converted.flatMap((r) =>
+      r.status === "rejected" ? [r.reason instanceof Error ? r.reason.message : "Couldn't convert a photo."] : [],
+    );
+    setFileError(failed.join(" "));
     const stored = rest.filter(isStoredFile);
     const others = rest.filter((f) => !isStoredFile(f));
 
@@ -396,8 +400,8 @@ export default function ContentField({
             {fileCount === 0 && <UploadIcon />}
             <p>
               {fileCount > 0
-                ? "Add more files, or drop them here"
-                : "Drop PDF, image, DOCX, TXT, or CPP files here, or click to browse."}
+                ? "Tap or click to add more files, or drop them here."
+                : "Tap or click to choose files, or drop them here. PDF, image (JPG, PNG, WebP, HEIC), DOCX, TXT, or CPP."}
             </p>
             {fileError && (
               <p className="mx-auto mt-2 max-w-md text-[0.875rem] text-error">{fileError}</p>

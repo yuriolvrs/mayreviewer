@@ -39,7 +39,18 @@ function isAttachmentManifestEntry(value: unknown): value is AttachmentManifestE
   );
 }
 
+// A custom format's own past-exam file. Listed apart from `attachments` so
+// older readers ignore it and the two kinds never mix on import.
+export type FormatAttachmentManifestEntry = Omit<AttachmentManifestEntry, "field">;
+
+function isFormatAttachmentManifestEntry(value: unknown): value is FormatAttachmentManifestEntry {
+  return isAttachmentManifestEntry(
+    typeof value === "object" && value !== null ? { field: "pastexam", ...value } : value,
+  );
+}
+
 export type ParsedAttachment = AttachmentManifestEntry & { data: Uint8Array };
+export type ParsedFormatAttachment = FormatAttachmentManifestEntry & { data: Uint8Array };
 
 // Zip-bomb guards: the whole archive is user bytes inflated in memory.
 export const MAX_IMPORT_FILE_BYTES = 25 * 1024 * 1024;
@@ -71,6 +82,8 @@ export type ParsedReviewerFile = {
   questionCountByType?: Record<string, number>;
   questions: Question[];
   attachments: ParsedAttachment[];
+  // The custom format's own past-exam files; empty for older exports.
+  formatAttachments: ParsedFormatAttachment[];
   // Manifest entries whose files are missing from the archive. Surfaced so
   // the import screen can warn instead of silently dropping them.
   skippedAttachments: number;
@@ -175,7 +188,9 @@ export async function parseReviewerFile(
       ? (Object.fromEntries(entries) as Record<string, number>)
       : undefined;
 
-  let attachments: ParsedAttachment[] = [];  let skippedAttachments = 0;
+  let attachments: ParsedAttachment[] = [];
+  let formatAttachments: ParsedFormatAttachment[] = [];
+  let skippedAttachments = 0;
   if (zipEntries) {
     const manifestRaw = obj.attachments;
     const manifest = Array.isArray(manifestRaw) ? manifestRaw.filter(isAttachmentManifestEntry) : [];
@@ -185,6 +200,16 @@ export async function parseReviewerFile(
       .filter((m) => entries[m.path])
       .map((m) => ({ ...m, data: entries[m.path] }));
     skippedAttachments += manifest.length - attachments.length;
+
+    const formatRaw = obj.formatAttachments;
+    const formatManifest = Array.isArray(formatRaw)
+      ? formatRaw.filter(isFormatAttachmentManifestEntry)
+      : [];
+    formatAttachments = formatManifest
+      .filter((m) => entries[m.path])
+      .map((m) => ({ ...m, data: entries[m.path] }));
+    skippedAttachments +=
+      (Array.isArray(formatRaw) ? formatRaw.length : 0) - formatAttachments.length;
   }
 
   return {
@@ -208,6 +233,7 @@ export async function parseReviewerFile(
       questionCountByType,
       questions,
       attachments,
+      formatAttachments,
       skippedAttachments,
       ...(isValidFormatDef(obj.format) ? { format: obj.format } : {}),
     },

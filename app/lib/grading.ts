@@ -66,10 +66,14 @@ function normalizeTerm(text: string): string {
     .trim();
 }
 
+// An answer that denies the term ("not the Reign of Terror") does not name it.
+const NEGATION = /\b(not|no|never|isn't|wasn't|aren't|weren't)\b/i;
+
 export function namesModelTerm(modelAnswer: string, answer: string, modelSaysNamed: boolean): boolean {
   const term = normalizeTerm(modelAnswer);
   if (term === "" || term.split(" ").length > MAX_TERM_WORDS) return false;
-  return modelSaysNamed || ` ${normalizeTerm(answer)} `.includes(` ${term} `);
+  if (modelSaysNamed) return true;
+  return !NEGATION.test(answer) && ` ${normalizeTerm(answer)} `.includes(` ${term} `);
 }
 
 export function blankGrade(): ShortGrade {

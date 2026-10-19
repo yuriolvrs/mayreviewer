@@ -4,8 +4,8 @@ import { useRef, useState } from "react";
 import UploadIcon from "@/app/components/UploadIcon";
 import { zipSync, strToU8 } from "fflate";
 import { updateReviewer } from "@/app/lib/storage";
-import { getAttachments, addAttachment } from "@/app/lib/attachments";
-import { parseReviewerFile, sanitizeFilename, type AttachmentManifestEntry, type ParsedAttachment } from "@/app/lib/reviewerFile";
+import { getAttachments, addAttachment, getFormatAttachments } from "@/app/lib/attachments";
+import { parseReviewerFile, sanitizeFilename, type AttachmentManifestEntry, type FormatAttachmentManifestEntry, type ParsedAttachment } from "@/app/lib/reviewerFile";
 import {
   canonicalFormatId,
   getBuiltinFormats,
@@ -27,6 +27,8 @@ type ExportedReviewer = {
   questions: Question[];
   createdAt: string;
   attachments?: AttachmentManifestEntry[];
+  // Past-exam files of a custom format, so it arrives with its own files.
+  formatAttachments?: FormatAttachmentManifestEntry[];
   // The reviewer's format, so custom types survive the round trip instead of
   // arriving as unknown keys. PDF attachments stay local-only, as before.
   format: ExamFormat;
@@ -70,6 +72,7 @@ export default function ImportExportTab({
   const [dragOver, setDragOver] = useState(false);
   const [pending, setPending] = useState<PendingImport | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [exported, setExported] = useState("");
 
   function download(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob);
@@ -96,16 +99,32 @@ export default function ImportExportTab({
       createdAt: reviewer.createdAt,
       format: resolveFormat(reviewer.examFormatId),
     };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });    download(blob, `${sanitizeFilename(reviewer.reviewerName)}.json`);
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const filename = `${sanitizeFilename(reviewer.reviewerName)}.json`;
+    download(blob, filename);
+    setExported(`Exported ${filename}.`);
   }
 
   async function handleExportWithMaterials() {
     setExporting(true);
+    setExported("");
     try {
       const attachments = await getAttachments(reviewer.id);
       const manifest: AttachmentManifestEntry[] = attachments.map((a) => ({
         id: a.id,
         field: a.field,
+        name: a.name,
+        mimeType: a.mimeType,
+        path: `files/${a.id}__${zipSafeName(a.name)}`,
+      }));
+
+      // Only a custom format owns files; a built-in has none to bundle.
+      const isBuiltin = getBuiltinFormats().some(
+        (f) => f.id === canonicalFormatId(reviewer.examFormatId),
+      );
+      const formatFiles = isBuiltin ? [] : await getFormatAttachments(reviewer.examFormatId);
+      const formatManifest: FormatAttachmentManifestEntry[] = formatFiles.map((a) => ({
+        id: a.id,
         name: a.name,
         mimeType: a.mimeType,
         path: `files/${a.id}__${zipSafeName(a.name)}`,
@@ -124,6 +143,7 @@ export default function ImportExportTab({
         createdAt: reviewer.createdAt,
         format: resolveFormat(reviewer.examFormatId),
         attachments: manifest,
+        ...(formatManifest.length > 0 ? { formatAttachments: formatManifest } : {}),
       };
 
       const files: Record<string, Uint8Array> = {
@@ -132,12 +152,17 @@ export default function ImportExportTab({
       attachments.forEach((a, i) => {
         files[manifest[i].path] = new Uint8Array(a.data);
       });
+      formatFiles.forEach((a, i) => {
+        files[formatManifest[i].path] = new Uint8Array(a.data);
+      });
 
       const zipped = zipSync(files);
       // fflate's output buffer is always a plain ArrayBuffer in the browser;
       // its type is widened to ArrayBufferLike, which BlobPart doesn't accept.
       const blob = new Blob([zipped.buffer as ArrayBuffer], { type: "application/zip" });
-      download(blob, `${sanitizeFilename(reviewer.reviewerName)}.zip`);
+      const filename = `${sanitizeFilename(reviewer.reviewerName)}.zip`;
+      download(blob, filename);
+      setExported(`Exported ${filename}.`);
     } finally {
       setExporting(false);
     }
@@ -250,7 +275,8 @@ export default function ImportExportTab({
           <p className="text-[0.9375rem] font-medium text-text-primary">Export</p>
           <p className="mt-1 text-[0.875rem] text-text-secondary">
             Download this reviewer as a <span className="font-mono">.json</span> or{" "}
-            <span className="font-mono">.zip</span> file.
+            <span className="font-mono">.zip</span> file. Quiz history and progress stay in this
+            browser. Log in to sync them to other browsers.
           </p>
         </div>
         <div>
@@ -269,9 +295,15 @@ export default function ImportExportTab({
               {exporting ? "Zipping…" : "Export with uploaded files (.zip)"}
             </button>
           </div>
+          {exported && (
+            <p role="status" className="mt-2 text-[0.9375rem] text-success">
+              {exported}
+            </p>
+          )}
           <p className="mt-2 text-[0.875rem] text-text-tertiary">
             The JSON export includes info, text notes, project material, and questions, but not
-            the uploaded files. The zip export includes the JSON export and bundles those files together.
+            the uploaded files. The zip export includes the JSON export and bundles those files together,
+            plus the past-exam files of a custom format.
           </p>
         </div>
       </div>
@@ -409,8 +441,8 @@ export default function ImportExportTab({
             >
               <UploadIcon />
               <p>
-                Drop a <span className="font-mono">.json</span> or{" "}
-                <span className="font-mono">.zip</span> file here, or click to browse.
+                Tap or click to choose a <span className="font-mono">.json</span> or{" "}
+                <span className="font-mono">.zip</span> file, or drop it here.
               </p>
             </div>
           )}

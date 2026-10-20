@@ -1030,8 +1030,12 @@ ${renderVerifyBlock(questions, indices, fenceToken)}`;
   }
 }
 
-// Indices of items whose own text contradicts their key. A set member takes
-// its whole set with it, so blank numbering is never left with a gap.
+// A set member that asks about a numbered blank in its stimulus.
+const BLANK_QUESTION = /^\s*blank\s*\(?\d+\)?/i;
+
+// Indices of items whose own text contradicts their key. A blank question takes
+// its whole set with it, so blank numbering is never left with a gap. A table
+// set (Timeline) has no blanks, so only the bad member goes.
 function keyConflictIndices(questions: Question[]): Set<number> {
   const bad = new Set<number>();
   const badGroups = new Set<string>();
@@ -1039,7 +1043,7 @@ function keyConflictIndices(questions: Question[]): Set<number> {
     // A schedule item whose computed answer matches no option can't be fixed.
     if (!keyConflict(q) && scheduleCheck(q)?.computedIndex !== null) return;
     bad.add(i);
-    if (q.groupId) badGroups.add(q.groupId);
+    if (q.groupId && BLANK_QUESTION.test(q.question)) badGroups.add(q.groupId);
   });
   if (badGroups.size > 0) {
     questions.forEach((q, i) => {
@@ -1082,7 +1086,7 @@ function dropKeyConflicts(questions: Question[]): {
 // verdicts only apply to standalone questions: removing one question from a
 // Timeline/Code set would shift every blank number after it out of sync with
 // the stimulus markers it still displays. The key-conflict check is stricter:
-// it drops the whole set, so numbering stays intact.
+// it drops the whole blank-numbered set, so numbering stays intact.
 async function verifyQuestions(
   ai: GoogleGenAI,
   questions: Question[],

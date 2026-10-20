@@ -240,17 +240,22 @@ describe("answer check simulates CPU-scheduling sets", () => {
     expect(done!.verified.corrected).toBe(0);
   });
 
-  it("drops the whole set when the computed answer matches no option", async () => {
+  it("drops only the member whose computed answer matches no option", async () => {
+    let generations = 0;
     respond = (call) =>
       isGeneration(call)
-        ? setBody([
-            member(RUNNING, ["P1", "P3", "None", "P4"], 0),
-            member("At what time does P1 complete?", ["5", "6", "8", "10"], 0),
-          ])
+        ? ++generations > 1
+          ? { questions: [], sets: [] } // The backfill round adds nothing.
+          : setBody([
+              member(RUNNING, ["P1", "P3", "None", "P4"], 0),
+              member("At what time does P1 complete?", ["5", "6", "8", "10"], 0),
+            ])
         : { results: [] };
 
     const done = await run(request);
-    expect(done!.questions.filter((q) => q.groupId)).toHaveLength(0);
+    const kept = done!.questions.filter((q) => q.groupId).map((q) => q.question);
+    expect(kept).toEqual(["At what time does P1 complete?"]);
+    expect(done!.verified.dropped).toBe(1);
   });
 });
 

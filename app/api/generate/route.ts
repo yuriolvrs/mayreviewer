@@ -987,8 +987,14 @@ trust the "Marked correct" label, actually recompute or re-derive it — then re
 for that question's [index]:
 - "correct" — the marked option is genuinely right.
 - "wrong" — a different option is actually right. Include "correctIndex" (0-3) for it.
-- "drop" — none of the options is right, or the question can't be answered from the
-  information given.${
+- "drop" — none of the options is right, the question can't be answered from the
+  information given, or the question's own wording is false.
+
+First check the question's own wording, not just the answer. List every factual claim the
+question text makes about its answer (dates, roles, what kind of body or group it was, what it
+believed). If any claim is false for the marked answer — e.g. it calls an executive body a
+legislature, or calls a moderate group radical — report "drop", even though the answer is
+the one the writer meant.${
     indices.some((i) => isShortAnswer(questions[i]))
       ? `
 

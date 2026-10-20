@@ -72,7 +72,7 @@ function normalizeTerm(text: string): string {
 const NEGATION = /\b(not|no|never|isn't|wasn't|aren't|weren't)\b/i;
 
 const TERM_STEM =
-  /^\s*(identify|name)\b|\bwhat (is|was|are|were) (the |this |that )?(specific )?name\b|\bwhat (is|was) (this|it|that) called\b|\bwhat do (you|we) call\b|\bwhat term\b/i;
+  /^\s*(identify|name)\b|\bwhat (is|was|are|were) (the |this |that )?([a-z]+ )?name\b|\bwhat (is|was) (this|it|that) called\b|\bcalled\?\s*$|\bwhat do (you|we) call\b|\bwhat term\b/i;
 
 // True for question stems that ask for a name or term.
 export function asksForTerm(question: string): boolean {

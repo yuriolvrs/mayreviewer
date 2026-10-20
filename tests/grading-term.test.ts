@@ -22,6 +22,8 @@ describe("asksForTerm", () => {
     expect(asksForTerm("What is it called?")).toBe(true);
     expect(asksForTerm("What do we call a blocked process?")).toBe(true);
     expect(asksForTerm("What term describes this?")).toBe(true);
+    expect(asksForTerm("What was the official name of the event in November 1799?")).toBe(true);
+    expect(asksForTerm("What were the lists of grievances prepared by regions called?")).toBe(true);
   });
 
   it("is false for other stems", () => {
@@ -68,6 +70,14 @@ describe("dropStemKeyPoints", () => {
     ]);
     expect(kept[0]).toBe("Women's March on Versailles");
     expect(kept).not.toContain("Protest regarding food shortages");
+  });
+
+  it("drops a key point that only repeats the stem's year", () => {
+    const kept = dropStemKeyPoints(
+      "What was the official name of the event in November 1799 that replaced the Directory with the Consulate?",
+      ["Coup of 18 Brumaire", "Occurred in 1799", "Established the Consulate with Napoleon as First Consul"],
+    );
+    expect(kept).toEqual(["Coup of 18 Brumaire", "Established the Consulate with Napoleon as First Consul"]);
   });
 
   it("leaves non-term questions unchanged", () => {

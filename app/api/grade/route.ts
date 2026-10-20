@@ -229,12 +229,17 @@ function toGrade(result: RawResult, item: GradeItem): ShortGrade {
   // Reported 1-based, stored 0-based like every other index in the app.
   const oneBased = Array.isArray(result.met) ? result.met : [];
   const zeroBased = oneBased.map((n) => (typeof n === "number" ? n - 1 : -1));
-  const met = namesModelTerm(item, item.answer, result.namesAnswer)
-    ? item.keyPoints.map((_, k) => k)
-    : sanitizeMet(zeroBased, item.keyPoints.length);
+  const modelMet = sanitizeMet(zeroBased, item.keyPoints.length);
+  const termCredit = namesModelTerm(item, item.answer, result.namesAnswer);
+  const met = termCredit ? item.keyPoints.map((_, k) => k) : modelMet;
+  // Full credit for the name overrides a partial model verdict, so its
+  // feedback ("you did not mention …") would contradict the score.
+  const overridden = termCredit && modelMet.length < item.keyPoints.length;
   return {
     met,
-    feedback: clampToLine(result.feedback, MAX_FEEDBACK_CHARS),
+    feedback: overridden
+      ? clampToLine(`Correct: you named ${item.modelAnswer}.`, MAX_FEEDBACK_CHARS)
+      : clampToLine(result.feedback, MAX_FEEDBACK_CHARS),
     credit: creditFromMet(met, item.keyPoints.length),
   };
 }

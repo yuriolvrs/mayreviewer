@@ -280,6 +280,14 @@ describe("POST /api/grade identification answers", () => {
     respond = () => ({ results: [{ index: 0, met: [], feedback: "Missing the dates." }] });
     const { body } = await grade([item("a", "The Reign of Terror.", terror)]);
     expect(body.grades.a).toMatchObject({ met: [0, 1, 2], credit: 1 });
+    // The model's "Missing the dates." would contradict full credit.
+    expect(body.grades.a.feedback).toBe("Correct: you named The Reign of Terror.");
+  });
+
+  it("keeps the model's feedback when it already met every key point", async () => {
+    respond = () => ({ results: [{ index: 0, met: [1, 2, 3], feedback: "All three points." }] });
+    const { body } = await grade([item("a", "The Reign of Terror.", terror)]);
+    expect(body.grades.a.feedback).toBe("All three points.");
   });
 
   it("does not match a term the answer denies", async () => {

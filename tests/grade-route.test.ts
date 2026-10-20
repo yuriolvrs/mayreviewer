@@ -6,6 +6,9 @@ type Call = { prompt: string; system: string };
 const calls: Call[] = [];
 let respond: (call: Call) => unknown = () => ({ results: [] });
 let failModel = false;
+let hangGemini = false;
+let hangMistral = false;
+let mistralCalls = 0;
 
 vi.mock("@google/genai", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@google/genai")>();
@@ -17,12 +20,28 @@ vi.mock("@google/genai", async (importOriginal) => {
           system: args.config.systemInstruction,
         };
         calls.push(call);
+        if (hangGemini) return new Promise(() => {});
         if (failModel) throw new Error("model exploded");
         return { text: JSON.stringify(respond(call)) };
       },
     };
   }
   return { ...actual, GoogleGenAI };
+});
+
+vi.mock("@mistralai/mistralai", () => {
+  class Mistral {
+    chat = {
+      complete: async () => {
+        mistralCalls++;
+        if (hangMistral) return new Promise(() => {});
+        return {
+          choices: [{ message: { content: JSON.stringify({ results: [{ index: 0, met: [1], feedback: "Via Mistral." }] }) } }],
+        };
+      },
+    };
+  }
+  return { Mistral };
 });
 
 vi.mock("@vercel/blob", () => ({ del: async () => undefined }));
@@ -53,11 +72,14 @@ type GradeBody = {
   failed: string[];
 };
 
+// A fresh client per call keeps the per-IP rate limit out of the way.
+let nextClient = 0;
+
 async function grade(items: unknown) {
   const res = await POST(
     new Request("http://localhost/api/grade", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-forwarded-for": `10.0.0.${nextClient++}` },
       body: JSON.stringify({ items }),
     }),
   );
@@ -67,6 +89,9 @@ async function grade(items: unknown) {
 beforeEach(() => {
   calls.length = 0;
   failModel = false;
+  hangGemini = false;
+  hangMistral = false;
+  mistralCalls = 0;
   respond = () => ({ results: [] });
   process.env.GEMINI_API_KEY = "test-key";
   delete process.env.MISTRAL_API_KEY;
@@ -187,6 +212,51 @@ describe("POST /api/grade", () => {
     expect(Object.keys(body.grades)).toEqual(["a"]);
     expect(calls[0].prompt).toContain("first");
     expect(calls[0].prompt).not.toContain("second copy");
+  });
+});
+
+describe("POST /api/grade deadline", () => {
+  // The platform kills the request at 60 s; the route must answer before that.
+  async function gradeWithin(ms: number, items: unknown) {
+    vi.useFakeTimers();
+    try {
+      let settled = false;
+      const pending = grade(items).then((r) => {
+        settled = true;
+        return r;
+      });
+      await vi.advanceTimersByTimeAsync(ms);
+      expect(settled).toBe(true);
+      return await pending;
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+
+  it("falls back to Mistral when Gemini hangs", async () => {
+    hangGemini = true;
+    process.env.MISTRAL_API_KEY = "m-key";
+    const { res, body } = await gradeWithin(50_000, [item("a", "answer")]);
+
+    expect(res.status).toBe(200);
+    expect(mistralCalls).toBe(1);
+    expect(body.grades.a.feedback).toBe("Via Mistral.");
+  });
+
+  it("returns 502 before the platform limit when both providers hang", async () => {
+    hangGemini = true;
+    hangMistral = true;
+    process.env.MISTRAL_API_KEY = "m-key";
+    const { res, body } = await gradeWithin(50_000, [item("a", "answer")]);
+
+    expect(res.status).toBe(502);
+    expect(body.error).toMatch(/unavailable/i);
+  });
+
+  it("returns 502 before the platform limit when Gemini hangs and there is no fallback", async () => {
+    hangGemini = true;
+    const { res } = await gradeWithin(50_000, [item("a", "answer")]);
+    expect(res.status).toBe(502);
   });
 });
 

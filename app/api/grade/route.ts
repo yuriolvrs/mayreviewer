@@ -26,6 +26,13 @@ const MODEL = "gemini-3.1-flash-lite";
 // Optional fallback, as in /api/generate: only when Gemini itself fails.
 const MISTRAL_MODEL = "mistral-small-latest";
 
+// Vercel kills the request at maxDuration with a bare 504. The route answers
+// by ROUTE_BUDGET_MS instead: Gemini gets the first GEMINI_BUDGET_MS, Mistral
+// the rest minus a margin for building the response.
+const ROUTE_BUDGET_MS = 50_000;
+const GEMINI_BUDGET_MS = 35_000;
+const SAFETY_MARGIN_MS = 2_000;
+
 // One grade call per submitted quiz, so the per-IP window can be tighter than
 // generation's. The daily cap is the kill switch across every caller.
 const RATE_LIMIT = 20;
@@ -125,34 +132,61 @@ function parseResults(text: string | undefined, count: number): Map<number, RawR
   return out;
 }
 
-async function callGemini(ai: GoogleGenAI, prompt: string): Promise<string | undefined> {
-  const response = await withRetry(() =>
-    ai.models.generateContent({
-      model: MODEL,
-      contents: createUserContent([prompt]),
-      config: {
-        systemInstruction: GRADER_INSTRUCTION,
-        responseMimeType: "application/json",
-        responseSchema: GRADE_SCHEMA,
-      },
-    }),
-  );
-  return response.text;
+// Rejects if `work` has not settled by `deadlineAt`. The work itself keeps
+// running; callers pass an abort signal where the SDK supports one.
+function raceDeadline<T>(work: Promise<T>, deadlineAt: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("Grading call timed out.")), Math.max(0, deadlineAt - Date.now()));
+  });
+  return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
 }
 
-async function callMistral(mistral: Mistral, prompt: string): Promise<string | undefined> {
-  const response = await withRetry(() =>
-    mistral.chat.complete({
-      model: MISTRAL_MODEL,
-      messages: [
-        { role: "system", content: GRADER_INSTRUCTION },
-        { role: "user", content: prompt },
-      ],
-      responseFormat: {
-        type: "json_schema",
-        jsonSchema: { name: "answer_grades", schemaDefinition: GRADE_SCHEMA },
-      },
-    }),
+async function callGemini(ai: GoogleGenAI, prompt: string, deadlineAt: number): Promise<string | undefined> {
+  const controller = new AbortController();
+  const abortTimer = setTimeout(() => controller.abort(), Math.max(0, deadlineAt - Date.now()));
+  try {
+    const response = await raceDeadline(
+      withRetry(
+        () =>
+          ai.models.generateContent({
+            model: MODEL,
+            contents: createUserContent([prompt]),
+            config: {
+              systemInstruction: GRADER_INSTRUCTION,
+              responseMimeType: "application/json",
+              responseSchema: GRADE_SCHEMA,
+              abortSignal: controller.signal,
+            },
+          }),
+        deadlineAt,
+      ),
+      deadlineAt,
+    );
+    return response.text;
+  } finally {
+    clearTimeout(abortTimer);
+  }
+}
+
+async function callMistral(mistral: Mistral, prompt: string, deadlineAt: number): Promise<string | undefined> {
+  const response = await raceDeadline(
+    withRetry(
+      () =>
+        mistral.chat.complete({
+          model: MISTRAL_MODEL,
+          messages: [
+            { role: "system", content: GRADER_INSTRUCTION },
+            { role: "user", content: prompt },
+          ],
+          responseFormat: {
+            type: "json_schema",
+            jsonSchema: { name: "answer_grades", schemaDefinition: GRADE_SCHEMA },
+          },
+        }),
+      deadlineAt,
+    ),
+    deadlineAt,
   );
   const message = response.choices?.[0]?.message?.content;
   if (typeof message === "string") return message;
@@ -167,18 +201,25 @@ async function gradeChunk(
   ai: GoogleGenAI,
   mistral: Mistral | undefined,
   items: GradeItem[],
+  routeDeadlineAt: number,
 ): Promise<Map<number, RawResult>> {
   const prompt = gradePrompt(items, newFenceToken());
 
+  // Leave room for Mistral even when Gemini hangs: its budget ends first.
+  // With no Mistral key, Gemini gets the whole route budget.
+  const routeEndAt = routeDeadlineAt - SAFETY_MARGIN_MS;
+  const geminiDeadlineAt = mistral ? Math.min(Date.now() + GEMINI_BUDGET_MS, routeEndAt) : routeEndAt;
   try {
-    const results = parseResults(await callGemini(ai, prompt), items.length);
+    const results = parseResults(await callGemini(ai, prompt, geminiDeadlineAt), items.length);
     if (results.size > 0) return results;
   } catch {
     // Fall through to the fallback below.
   }
   if (!mistral) return new Map();
+  const mistralDeadlineAt = routeEndAt;
+  if (Date.now() >= mistralDeadlineAt) return new Map();
   try {
-    return parseResults(await callMistral(mistral, prompt), items.length);
+    return parseResults(await callMistral(mistral, prompt, mistralDeadlineAt), items.length);
   } catch {
     return new Map();
   }
@@ -199,6 +240,7 @@ function toGrade(result: RawResult, item: GradeItem): ShortGrade {
 }
 
 export async function POST(request: Request) {
+  const routeDeadlineAt = Date.now() + ROUTE_BUDGET_MS;
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return Response.json({ error: "Server is missing GEMINI_API_KEY." }, { status: 500 });
@@ -272,7 +314,7 @@ export async function POST(request: Request) {
     const chunks: GradeItem[][] = [];
     for (let i = 0; i < toSend.length; i += CHUNK_SIZE) chunks.push(toSend.slice(i, i + CHUNK_SIZE));
 
-    const settled = await Promise.all(chunks.map((chunk) => gradeChunk(ai, mistral, chunk)));
+    const settled = await Promise.all(chunks.map((chunk) => gradeChunk(ai, mistral, chunk, routeDeadlineAt)));
     settled.forEach((results, c) => {
       chunks[c].forEach((item, i) => {
         const result = results.get(i);

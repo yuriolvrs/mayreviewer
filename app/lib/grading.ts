@@ -116,13 +116,55 @@ function contentWords(text: string): string[] {
     .map(stemWord);
 }
 
+// Runs of capitalized words ("Napoleon Bonaparte"). The point's first word is
+// capitalized by position only, so it counts only when it starts a longer run.
+function properNamePhrases(point: string): string[][] {
+  const words = point.split(/[^\p{L}\p{N}']+/u).filter((w) => w !== "");
+  const phrases: string[][] = [];
+  let run: string[] = [];
+  let runStart = 0;
+  const flush = () => {
+    if (run.length > 0 && (runStart > 0 || run.length >= 2)) phrases.push(run);
+    run = [];
+  };
+  words.forEach((w, i) => {
+    if (/^\p{Lu}/u.test(w) && !/^\d/.test(w)) {
+      if (run.length === 0) runStart = i;
+      run.push(w);
+    } else {
+      flush();
+    }
+  });
+  flush();
+  return phrases;
+}
+
+// "restated": every name and number is already in the stem. "new": it names
+// something the stem does not. "unclear": no proper name to judge by.
+function stemNameVerdict(
+  point: string,
+  stemTokens: Set<string>,
+  stemNumbers: Set<string>,
+): "restated" | "new" | "unclear" {
+  const phrases = properNamePhrases(point);
+  if (phrases.length === 0) return "unclear";
+  const inStem = phrases.every((phrase) => phrase.some((w) => stemTokens.has(w.toLowerCase())));
+  if (!inStem) return "new";
+  return (point.match(/\d+/g) ?? []).every((n) => stemNumbers.has(n)) ? "restated" : "unclear";
+}
+
 // For a name/term question, drops later key points that mostly repeat the
 // question itself. The first key point (the term) always stays.
 export function dropStemKeyPoints(question: string, keyPoints: string[]): string[] {
   if (!asksForTerm(question)) return keyPoints;
   const stem = new Set(contentWords(question));
+  const stemTokens = new Set(question.toLowerCase().split(/[^\p{L}\p{N}']+/u));
+  const stemNumbers = new Set(question.match(/\d+/g) ?? []);
   return keyPoints.filter((point, i) => {
     if (i === 0) return true;
+    const verdict = stemNameVerdict(point, stemTokens, stemNumbers);
+    if (verdict === "restated") return false;
+    if (verdict === "new") return true;
     const words = contentWords(point);
     if (words.length === 0) return true;
     return words.filter((w) => stem.has(w)).length * 2 < words.length;

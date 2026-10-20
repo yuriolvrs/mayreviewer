@@ -52,10 +52,12 @@ const FILE_POLL_INTERVAL_MS = 1_000;
 // limiting or a dropped connection) even for a single small request — worth
 // retrying before giving up on that source. Rate-limit errors get a longer
 // backoff since they need real time to clear, not just a network retry.
-export async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+// With `deadlineAt` (epoch ms), no retry starts if its backoff would run past it.
+export async function withRetry<T>(fn: () => Promise<T>, deadlineAt?: number): Promise<T> {
   const attempts = [0, 1500, 6000];
   let lastErr: unknown;
   for (let i = 0; i < attempts.length; i++) {
+    if (deadlineAt !== undefined && i > 0 && Date.now() + attempts[i] >= deadlineAt) break;
     if (attempts[i] > 0) await new Promise((resolve) => setTimeout(resolve, attempts[i]));
     try {
       return await fn();

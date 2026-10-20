@@ -190,3 +190,67 @@ describe("answer check rejects keys the explanation contradicts", () => {
     expect(done!.questions.filter((q) => q.question.startsWith("Blank "))).toHaveLength(0);
   });
 });
+
+describe("answer check simulates CPU-scheduling sets", () => {
+  const stimulus = ["FCFS", "", "Process | AT | BT", "P1 | 0 | 5", "P2 | 1 | 3", "P3 | 2 | 2"].join("\n");
+  const member = (question: string, options: string[], correctIndex: number) => ({
+    question,
+    options,
+    correctIndex,
+    explanation: "Follow the schedule in arrival order.",
+    whyOthersWrong: "The others misread the order.",
+  });
+  const RUNNING = "Which process is running at time 7?";
+  const setBody = (members: ReturnType<typeof member>[]) => ({
+    questions: [],
+    sets: [{ type: "timeline", title: "FCFS Scheduling", stimulus, source: "notes", questions: members }],
+  });
+  const request = { notes: "CPU scheduling notes.", count: 2, types: ["timeline"], countByType: { timeline: 2 } };
+  type Full = DoneMessage["questions"][number] & { explanation?: string; whyOthersWrong?: string };
+
+  it("corrects a wrong name key even when the verifier calls it correct", async () => {
+    respond = (call) =>
+      isGeneration(call)
+        ? setBody([
+            member(RUNNING, ["P1", "P2", "P3", "None"], 2),
+            member("At what time does P1 complete?", ["5", "6", "8", "10"], 0),
+          ])
+        : { results: [{ index: 0, verdict: "correct" }, { index: 1, verdict: "correct" }] };
+
+    const done = await run(request);
+    const fixed = done!.questions.find((q) => q.question === RUNNING) as Full;
+    expect(fixed.correctIndex).toBe(1);
+    expect(fixed.explanation).toBe("Schedule: P1 0–5, P2 5–8, P3 8–10. At t = 7, P2 is running.");
+    expect(fixed.whyOthersWrong).toBeUndefined();
+    expect(done!.questions.find((q) => q.question.startsWith("At what"))!.correctIndex).toBe(0);
+    expect(done!.verified.corrected).toBe(1);
+  });
+
+  it("overrides a wrong verifier correction", async () => {
+    respond = (call) =>
+      isGeneration(call)
+        ? setBody([
+            member(RUNNING, ["P1", "P2", "P3", "None"], 1),
+            member("At what time does P1 complete?", ["5", "6", "8", "10"], 0),
+          ])
+        : { results: [{ index: 0, verdict: "wrong", correctIndex: 3 }, { index: 1, verdict: "correct" }] };
+
+    const done = await run(request);
+    expect(done!.questions.find((q) => q.question === RUNNING)!.correctIndex).toBe(1);
+    expect(done!.verified.corrected).toBe(0);
+  });
+
+  it("drops the whole set when the computed answer matches no option", async () => {
+    respond = (call) =>
+      isGeneration(call)
+        ? setBody([
+            member(RUNNING, ["P1", "P3", "None", "P4"], 0),
+            member("At what time does P1 complete?", ["5", "6", "8", "10"], 0),
+          ])
+        : { results: [] };
+
+    const done = await run(request);
+    expect(done!.questions.filter((q) => q.groupId)).toHaveLength(0);
+  });
+});
+

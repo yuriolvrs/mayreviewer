@@ -23,6 +23,7 @@ import {
   type TopicTarget,
 } from "@/app/lib/generationPlan";
 import { keyConflict } from "@/app/lib/answerCheck";
+import { scheduleCheck } from "@/app/lib/scheduleCheck";
 import { dropStemKeyPoints } from "@/app/lib/grading";
 import { materialHasNoCode } from "@/app/lib/pdfText";
 import { createSharedRateLimiter, clientKey } from "@/app/lib/rateLimit";
@@ -1035,7 +1036,8 @@ function keyConflictIndices(questions: Question[]): Set<number> {
   const bad = new Set<number>();
   const badGroups = new Set<string>();
   questions.forEach((q, i) => {
-    if (!keyConflict(q)) return;
+    // A schedule item whose computed answer matches no option can't be fixed.
+    if (!keyConflict(q) && scheduleCheck(q)?.computedIndex !== null) return;
     bad.add(i);
     if (q.groupId) badGroups.add(q.groupId);
   });
@@ -1047,13 +1049,32 @@ function keyConflictIndices(questions: Question[]): Set<number> {
   return bad;
 }
 
+// Schedule items whose key disagrees with the simulated schedule get the
+// computed key and a code-built explanation. Returns the changed indices.
+function correctScheduleKeys(questions: Question[]): { questions: Question[]; changed: Set<number> } {
+  const changed = new Set<number>();
+  const next = questions.map((q, i) => {
+    const check = scheduleCheck(q);
+    if (!check || check.computedIndex === null || check.computedIndex === q.correctIndex) return q;
+    changed.add(i);
+    return { ...q, correctIndex: check.computedIndex, explanation: check.explanation, whyOthersWrong: undefined };
+  });
+  return { questions: next, changed };
+}
+
 // The model-free half of the answer check. Also used when the model verifier
 // fails or times out.
-function dropKeyConflicts(questions: Question[]): { questions: Question[]; dropped: Question[] } {
-  const bad = keyConflictIndices(questions);
+function dropKeyConflicts(questions: Question[]): {
+  questions: Question[];
+  dropped: Question[];
+  corrected: number;
+} {
+  const fixed = correctScheduleKeys(questions);
+  const bad = keyConflictIndices(fixed.questions);
   return {
-    questions: questions.filter((_, i) => !bad.has(i)),
+    questions: fixed.questions.filter((_, i) => !bad.has(i)),
     dropped: questions.filter((_, i) => bad.has(i)),
+    corrected: [...fixed.changed].filter((i) => !bad.has(i)).length,
   };
 }
 
@@ -1099,13 +1120,21 @@ async function verifyQuestions(
     }
   });
 
+  // Runs after the verifier, so a wrong verifier "fix" to a schedule item is
+  // overridden by the simulated answer.
+  const fixed = correctScheduleKeys(next);
+  for (const i of fixed.changed) {
+    if (fixed.questions[i].correctIndex === questions[i].correctIndex) correctedIdx.delete(i);
+    else correctedIdx.add(i);
+  }
+
   // Runs on the corrected keys, so a verifier "fix" that contradicts the
   // explanation is dropped too.
-  for (const i of keyConflictIndices(next)) toDrop.add(i);
+  for (const i of keyConflictIndices(fixed.questions)) toDrop.add(i);
   for (const i of toDrop) correctedIdx.delete(i);
 
   return {
-    questions: next.filter((_, i) => !toDrop.has(i)),
+    questions: fixed.questions.filter((_, i) => !toDrop.has(i)),
     corrected: correctedIdx.size,
     dropped: [...toDrop].map((i) => questions[i]),
   };
@@ -1692,7 +1721,6 @@ export async function POST(request: Request) {
         send({ type: "progress", phase: "start", label: "Verifying answers", completed: 0, total: 1, stage: "verify" });
         const result = await withTimeout(verifyQuestions(ai, questions, context.fenceToken), timeLeftMs(), {
           ...dropKeyConflicts(questions),
-          corrected: 0,
         });
         finalQuestions = result.questions;
         verified = { corrected: result.corrected, dropped: result.dropped.length };
@@ -1752,7 +1780,6 @@ export async function POST(request: Request) {
           if (backfilled.length > 0 && timeLeftMs() > 3000) {
             const rechecked = await withTimeout(verifyQuestions(ai, backfilled, context.fenceToken), timeLeftMs(), {
               ...dropKeyConflicts(backfilled),
-              corrected: 0,
             });
             finalQuestions = [...finalQuestions, ...rechecked.questions];
             verified = {

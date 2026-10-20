@@ -81,6 +81,27 @@ describe("dropStemKeyPoints", () => {
     ]);
   });
 
+  const brumaire =
+    "Identify the 1799 political event that effectively ended the French Revolutionary government and brought Napoleon to power.";
+
+  it("drops a key point whose only name is already in the stem", () => {
+    expect(
+      dropStemKeyPoints(brumaire, ["The coup of 18 Brumaire", "Led to the rise of Napoleon Bonaparte"]),
+    ).toEqual(["The coup of 18 Brumaire"]);
+  });
+
+  it("keeps a key point that names someone new", () => {
+    const terror =
+      "What was the name of the radical faction that dominated the Committee of Public Safety during the Reign of Terror?";
+    const points = ["Jacobins", "They were led by Maximilien Robespierre"];
+    expect(dropStemKeyPoints(terror, points)).toEqual(points);
+  });
+
+  it("keeps a key point that adds new information", () => {
+    const points = ["The coup of 18 Brumaire", "Ended the Directory"];
+    expect(dropStemKeyPoints(brumaire, points)).toEqual(points);
+  });
+
   it("keeps at least one", () => {
     expect(dropStemKeyPoints("Identify the 1789 pamphlet.", ["1789 pamphlet"])).toEqual(["1789 pamphlet"]);
   });

@@ -63,3 +63,6 @@ notes/
 /.impeccable/review/
 /.impeccable/questions/
 /.impeccable/build/
+
+# usability test reports, screenshots and material (local only)
+/docs/usability-test/

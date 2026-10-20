@@ -284,6 +284,17 @@ describe("POST /api/grade identification answers", () => {
     expect(body.grades.a.feedback).toBe("Correct: you named The Reign of Terror.");
   });
 
+  it("does not double the punctuation of a name that ends in a question mark", async () => {
+    respond = () => ({ results: [{ index: 0, met: [], feedback: "Missing the argument." }] });
+    const sieyes = {
+      question: "What is the name of the pamphlet by Abbé Sieyès?",
+      modelAnswer: "What Is the Third Estate?",
+      keyPoints: ["What Is the Third Estate?", "Argued the Third Estate was the nation"],
+    };
+    const { body } = await grade([item("a", "What is the Third Estate?", sieyes)]);
+    expect(body.grades.a.feedback).toBe("Correct: you named What Is the Third Estate.");
+  });
+
   it("keeps the model's feedback when it already met every key point", async () => {
     respond = () => ({ results: [{ index: 0, met: [1, 2, 3], feedback: "All three points." }] });
     const { body } = await grade([item("a", "The Reign of Terror.", terror)]);

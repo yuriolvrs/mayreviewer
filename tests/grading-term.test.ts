@@ -61,6 +61,23 @@ describe("namesModelTerm", () => {
   });
 });
 
+describe("namesModelTerm with long names", () => {
+  const declaration = {
+    question: "Name the 1789 document that defined the rights of citizens.",
+    modelAnswer: "Declaration of the Rights of Man and of the Citizen",
+    keyPoints: ["Declaration of the Rights of Man and of the Citizen", "Enlightenment principles", "Equality"],
+  };
+
+  it("matches a 10-word name when the question asks for a name", () => {
+    expect(namesModelTerm(declaration, "Declaration of the Rights of Man and of the Citizen", false)).toBe(true);
+  });
+
+  it("keeps the 8-word cap when the question does not ask for a name", () => {
+    const item = { ...declaration, question: "Explain what the 1789 declaration defined." };
+    expect(namesModelTerm(item, "Declaration of the Rights of Man and of the Citizen", false)).toBe(false);
+  });
+});
+
 describe("dropStemKeyPoints", () => {
   const march =
     "Identify the event in which a group of Parisian women marched to the seat of royal power to protest bread shortages and demand the king's return to Paris.";

@@ -238,7 +238,7 @@ function toGrade(result: RawResult, item: GradeItem): ShortGrade {
   return {
     met,
     feedback: overridden
-      ? clampToLine(`Correct: you named ${item.modelAnswer}.`, MAX_FEEDBACK_CHARS)
+      ? clampToLine(`Correct: you named ${item.modelAnswer.trim().replace(/[.!?]$/, "")}.`, MAX_FEEDBACK_CHARS)
       : clampToLine(result.feedback, MAX_FEEDBACK_CHARS),
     credit: creditFromMet(met, item.keyPoints.length),
   };

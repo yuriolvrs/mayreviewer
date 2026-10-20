@@ -59,6 +59,9 @@ export function creditFromMet(met: number[], total: number): number {
 // model answer if it is short, or the first key point of a question that asks
 // for a name (model answers are often a full sentence around the term).
 export const MAX_TERM_WORDS = 8;
+// A question that asks for a name can have a long one ("Declaration of the
+// Rights of Man and of the Citizen" is 10 words).
+export const MAX_NAMED_TERM_WORDS = 14;
 
 function normalizeTerm(text: string): string {
   return text
@@ -84,11 +87,13 @@ export function namesModelTerm(
   answer: string,
   modelSaysNamed: boolean,
 ): boolean {
+  const asksName = asksForTerm(item.question);
   const candidates = [item.modelAnswer];
-  if (asksForTerm(item.question) && item.keyPoints.length > 0) candidates.push(item.keyPoints[0]);
+  if (asksName && item.keyPoints.length > 0) candidates.push(item.keyPoints[0]);
+  const maxWords = asksName ? MAX_NAMED_TERM_WORDS : MAX_TERM_WORDS;
   const terms = candidates
     .map(normalizeTerm)
-    .filter((t) => t !== "" && t.split(" ").length <= MAX_TERM_WORDS);
+    .filter((t) => t !== "" && t.split(" ").length <= maxWords);
   if (terms.length === 0) return false;
   if (modelSaysNamed) return true;
   if (NEGATION.test(answer)) return false;

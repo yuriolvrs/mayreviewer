@@ -898,10 +898,13 @@ const VERIFY_SCHEMA = {
         type: "object",
         properties: {
           index: { type: "integer" },
+          // Written before the verdict, so the model checks the wording first.
+          falseClaim: { type: "string" },
           verdict: { type: "string", enum: ["correct", "wrong", "drop"] },
           correctIndex: { type: "integer" },
         },
-        required: ["index", "verdict"],
+        required: ["index", "falseClaim", "verdict"],
+        propertyOrdering: ["index", "falseClaim", "verdict", "correctIndex"],
       },
     },
   },
@@ -990,11 +993,12 @@ for that question's [index]:
 - "drop" — none of the options is right, the question can't be answered from the
   information given, or the question's own wording is false.
 
-First check the question's own wording, not just the answer. List every factual claim the
-question text makes about its answer (dates, roles, what kind of body or group it was, what it
-believed). If any claim is false for the marked answer — e.g. it calls an executive body a
-legislature, or calls a moderate group radical — report "drop", even though the answer is
-the one the writer meant.${
+First check the question's own wording, not just the answer. In "falseClaim", quote any claim
+the question text makes about its answer that is false for that answer (a wrong date, role,
+kind of body or group, or what it believed or did), or a description that contradicts itself
+(e.g. "radical shift toward moderation"). Leave it empty when every claim is true. When
+"falseClaim" is not empty, the verdict must be "drop", even though the answer is the one the
+writer meant.${
     indices.some((i) => isShortAnswer(questions[i]))
       ? `
 
@@ -1023,14 +1027,19 @@ ${renderVerifyBlock(questions, indices, fenceToken)}`;
   try {
     const parsed = JSON.parse(text) as { results?: unknown };
     if (!Array.isArray(parsed.results)) return [];
-    return parsed.results.filter((r): r is VerifyVerdict => {
-      if (typeof r !== "object" || r === null) return false;
-      const v = r as Record<string, unknown>;
-      return (
-        typeof v.index === "number" &&
-        (v.verdict === "correct" || v.verdict === "wrong" || v.verdict === "drop")
+    return parsed.results
+      .filter((r): r is VerifyVerdict & { falseClaim?: unknown } => {
+        if (typeof r !== "object" || r === null) return false;
+        const v = r as Record<string, unknown>;
+        return (
+          typeof v.index === "number" &&
+          (v.verdict === "correct" || v.verdict === "wrong" || v.verdict === "drop")
+        );
+      })
+      // A false claim in the wording means drop, whatever verdict came with it.
+      .map(({ falseClaim, ...r }) =>
+        typeof falseClaim === "string" && falseClaim.trim() !== "" ? { ...r, verdict: "drop" as const } : r,
       );
-    });
   } catch {
     return [];
   }

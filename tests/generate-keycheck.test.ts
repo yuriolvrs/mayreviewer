@@ -39,11 +39,14 @@ type DoneMessage = {
   verified: { corrected: number; dropped: number };
 };
 
+// A distinct client per call, so the per-IP rate limit never trips mid-file.
+let nextClient = 1;
+
 async function run(body: Record<string, unknown>) {
   const res = await POST(
     new Request("http://localhost/api/generate", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-forwarded-for": `10.0.1.${nextClient++}` },
       body: JSON.stringify(body),
     }),
   );
@@ -137,6 +140,23 @@ describe("answer check rejects keys the explanation contradicts", () => {
     expect(stems).toContain(GOOD);
     expect(stems).not.toContain(BAD);
     expect(done!.verified.corrected).toBe(0);
+  });
+
+  it("drops an item whose wording the verifier calls false, even with a 'correct' verdict", async () => {
+    respond = (call) =>
+      isGeneration(call)
+        ? { questions: [scenario(GOOD), scenario(BAD, { correctIndex: 1 })], sets: [] }
+        : {
+            results: [
+              { index: 0, falseClaim: "", verdict: "correct" },
+              { index: 1, falseClaim: "calls the scheduler preemptive", verdict: "correct" },
+            ],
+          };
+
+    const done = await run(body);
+    const stems = done!.questions.map((q) => q.question);
+    expect(stems).toContain(GOOD);
+    expect(stems).not.toContain(BAD);
   });
 
   it("keeps a consistent item and a consistent verifier fix", async () => {

@@ -24,6 +24,8 @@ describe("asksForTerm", () => {
     expect(asksForTerm("What term describes this?")).toBe(true);
     expect(asksForTerm("What was the official name of the event in November 1799?")).toBe(true);
     expect(asksForTerm("What were the lists of grievances prepared by regions called?")).toBe(true);
+    expect(asksForTerm("Which term describes the end of the Terror in July 1794?")).toBe(true);
+    expect(asksForTerm("Who was the queen of France executed in 1793?")).toBe(true);
   });
 
   it("is false for other stems", () => {
@@ -31,6 +33,7 @@ describe("asksForTerm", () => {
     expect(asksForTerm("Why did the Estates General fail?")).toBe(false);
     expect(asksForTerm("Describe the Great Fear.")).toBe(false);
     expect(asksForTerm("How does a time quantum work?")).toBe(false);
+    expect(asksForTerm("Who was Robespierre?")).toBe(false);
   });
 });
 
@@ -78,6 +81,15 @@ describe("dropStemKeyPoints", () => {
       ["Coup of 18 Brumaire", "Occurred in 1799", "Established the Consulate with Napoleon as First Consul"],
     );
     expect(kept).toEqual(["Coup of 18 Brumaire", "Established the Consulate with Napoleon as First Consul"]);
+  });
+
+  it("drops key points that repeat a \"Who was\" stem's year", () => {
+    const kept = dropStemKeyPoints("Who was the queen of France executed in 1793 for conspiring against the Republic?", [
+      "Marie Antoinette",
+      "Executed in 1793",
+      "Wife of Louis XVI",
+    ]);
+    expect(kept).toEqual(["Marie Antoinette", "Wife of Louis XVI"]);
   });
 
   it("leaves non-term questions unchanged", () => {

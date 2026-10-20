@@ -21,15 +21,15 @@ describe("planGeneration", () => {
   it("carries a total per chunk and no mix when none was requested", () => {
     const plan = planGeneration(50, 1);
     expect(plan).toHaveLength(1);
-    expect(plan[0].map((c) => c.count)).toEqual([25, 25]);
+    expect(plan[0].map((c) => c.count)).toEqual([10, 10, 10, 10, 10]);
     expect(plan[0].every((c) => c.typeCounts === undefined)).toBe(true);
   });
 
   it("splits a source's share across calls and one plan per source", () => {
     const plan = planGeneration(90, 2);
     expect(plan.map((forJob) => forJob.map((c) => c.count))).toEqual([
-      [23, 22],
-      [23, 22],
+      [9, 9, 9, 9, 9],
+      [9, 9, 9, 9, 9],
     ]);
   });
 
@@ -47,7 +47,7 @@ describe("planGeneration", () => {
   });
 
   it("gives a set type's whole target to one call rather than a slice each", () => {
-    const plan = planGeneration(50, 3, mix({ identification: 15, scenario: 15, timeline: 10, code: 10 }));
+    const plan = planGeneration(50, 1, mix({ identification: 15, scenario: 15, timeline: 10, code: 10 }));
     for (const type of ["timeline", "code"] as QuestionType[]) {
       const carrying = chunks(plan).filter((c) => (c.typeCounts?.[type] ?? 0) > 0);
       expect(carrying).toHaveLength(1);
@@ -153,21 +153,21 @@ describe("planGeneration topics", () => {
   });
 
   it("gives every topic a share of a single-chunk request", () => {
-    const plan = planGeneration(30, 1, mix({ identification: 15, scenario: 15 }), topics);
+    const plan = planGeneration(10, 1, mix({ identification: 5, scenario: 5 }), topics);
     expect(plan[0]).toHaveLength(1);
     expect((plan[0][0].topics ?? []).map((t) => t.topic).sort()).toEqual([...topics].sort());
   });
 
   it("advances the rotation per chunk so two chunks don't lead with the same topic", () => {
-    const plan = planGeneration(80, 1, mix({ identification: 40, scenario: 40 }), topics);
+    const plan = planGeneration(20, 1, mix({ identification: 10, scenario: 10 }), topics);
     const leads = chunks(plan).map((c) => c.topics?.[0]?.topic);
     expect(leads).toHaveLength(2);
     expect(new Set(leads).size).toBe(2);
   });
 
   it("carries topics on the no-mix path too", () => {
-    const plan = planGeneration(20, 1, undefined, topics);
-    expect((plan[0][0].topics ?? []).reduce((sum, t) => sum + t.count, 0)).toBe(20);
+    const plan = planGeneration(10, 1, undefined, topics);
+    expect((plan[0][0].topics ?? []).reduce((sum, t) => sum + t.count, 0)).toBe(10);
   });
 
   it("leaves topics empty when the reviewer named none", () => {

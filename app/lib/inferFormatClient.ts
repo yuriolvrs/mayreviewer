@@ -1,6 +1,6 @@
 import { upload } from "@vercel/blob/client";
 import type { InferredType, UnsupportedNote } from "@/app/lib/examFormats";
-import { turnstileHeaders } from "@/app/lib/turnstileClient";
+import { fetchWithTurnstile } from "@/app/lib/turnstileClient";
 
 export type InferFile = { id: string; name: string; mimeType: string; data: ArrayBuffer };
 
@@ -28,9 +28,9 @@ export async function inferFormat({
       return { name: a.name, mimeType: a.mimeType, url: blob.url, field: "pastexam" };
     }),
   );
-  const res = await fetch("/api/infer-format", {
+  const res = await fetchWithTurnstile("/api/infer-format", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...(await turnstileHeaders()) },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ attachments, text, subject: subject || undefined }),
   });
   const data = (await res.json()) as {

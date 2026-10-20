@@ -26,7 +26,8 @@
     "mammoth": "^1.12.0",
     "next": "16.4.2",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "unpdf": "^1.9.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

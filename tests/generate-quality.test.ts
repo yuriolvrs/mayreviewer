@@ -103,7 +103,8 @@ describe("Code questions without code", () => {
     const prompt = allPrompts();
     expect(prompt).not.toContain("CODE set (type");
     expect(prompt).toContain("Generate exactly 8 of these");
-    expect(done!.notices).toHaveLength(1);
+    // The mock writes nothing, so a shortfall notice may follow the Code one.
+    expect(done!.notices.filter((n) => n.startsWith("Skipped"))).toHaveLength(1);
     expect(done!.notices[0]).toMatch(/code/i);
   });
 
@@ -118,6 +119,6 @@ int main() {
 }`,
     });
     expect(allPrompts()).toContain("CODE set (type");
-    expect(done!.notices).toEqual([]);
+    expect(done!.notices.filter((n) => n.startsWith("Skipped"))).toEqual([]);
   });
 });

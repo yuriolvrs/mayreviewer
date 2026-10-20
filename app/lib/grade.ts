@@ -1,4 +1,4 @@
-import { turnstileHeaders } from "@/app/lib/turnstileClient";
+import { fetchWithTurnstile } from "@/app/lib/turnstileClient";
 import type { GradeItem, GradeResponse } from "@/app/lib/grading";
 import type { ShortGrade } from "@/app/types";
 
@@ -39,10 +39,10 @@ export async function gradeShortAnswers(
   items: GradeItem[],
   signal?: AbortSignal,
 ): Promise<GradeResponse> {
-  const res = await fetch("/api/grade", {
+  const res = await fetchWithTurnstile("/api/grade", {
     method: "POST",
     signal,
-    headers: { "Content-Type": "application/json", ...(await turnstileHeaders()) },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ items }),
   });
 

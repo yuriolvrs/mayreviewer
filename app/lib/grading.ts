@@ -54,8 +54,10 @@ export function creditFromMet(met: number[], total: number): number {
 
 // An identification item asks for one name or term, so naming it is the
 // whole answer. Its key points often restate facts the question already gives
-// (dates, events), which the student has no reason to repeat. When the model
-// answer is a short term and the student names it, every key point is met.
+// (dates, events), which the student has no reason to repeat. When the term is
+// short and the student names it, every key point is met. The term is the
+// model answer if it is short, or the first key point of a question that asks
+// for a name (model answers are often a full sentence around the term).
 export const MAX_TERM_WORDS = 8;
 
 function normalizeTerm(text: string): string {
@@ -69,11 +71,62 @@ function normalizeTerm(text: string): string {
 // An answer that denies the term ("not the Reign of Terror") does not name it.
 const NEGATION = /\b(not|no|never|isn't|wasn't|aren't|weren't)\b/i;
 
-export function namesModelTerm(modelAnswer: string, answer: string, modelSaysNamed: boolean): boolean {
-  const term = normalizeTerm(modelAnswer);
-  if (term === "" || term.split(" ").length > MAX_TERM_WORDS) return false;
+const TERM_STEM =
+  /^\s*(identify|name)\b|\bwhat (is|was|are|were) (the |this |that )?(specific )?name\b|\bwhat (is|was) (this|it|that) called\b|\bwhat do (you|we) call\b|\bwhat term\b/i;
+
+// True for question stems that ask for a name or term.
+export function asksForTerm(question: string): boolean {
+  return TERM_STEM.test(question);
+}
+
+export function namesModelTerm(
+  item: Pick<GradeItem, "question" | "modelAnswer" | "keyPoints">,
+  answer: string,
+  modelSaysNamed: boolean,
+): boolean {
+  const candidates = [item.modelAnswer];
+  if (asksForTerm(item.question) && item.keyPoints.length > 0) candidates.push(item.keyPoints[0]);
+  const terms = candidates
+    .map(normalizeTerm)
+    .filter((t) => t !== "" && t.split(" ").length <= MAX_TERM_WORDS);
+  if (terms.length === 0) return false;
   if (modelSaysNamed) return true;
-  return !NEGATION.test(answer) && ` ${normalizeTerm(answer)} `.includes(` ${term} `);
+  if (NEGATION.test(answer)) return false;
+  const normalized = ` ${normalizeTerm(answer)} `;
+  return terms.some((t) => normalized.includes(` ${t} `));
+}
+
+const STEM_STOPWORDS = new Set(
+  "the a an of to in on for and or by with as at from is was were are be it its that this regarding about into".split(" "),
+);
+
+// Crude stem: "marched" and "march" match, "shortages" and "shortage" match.
+function stemWord(w: string): string {
+  for (const suffix of ["ing", "ed", "es", "s"]) {
+    if (w.endsWith(suffix) && w.length - suffix.length >= 4) return w.slice(0, -suffix.length);
+  }
+  return w;
+}
+
+function contentWords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((w) => w !== "" && !STEM_STOPWORDS.has(w) && (w.length >= 3 || /^\d+$/.test(w)))
+    .map(stemWord);
+}
+
+// For a name/term question, drops later key points that mostly repeat the
+// question itself. The first key point (the term) always stays.
+export function dropStemKeyPoints(question: string, keyPoints: string[]): string[] {
+  if (!asksForTerm(question)) return keyPoints;
+  const stem = new Set(contentWords(question));
+  return keyPoints.filter((point, i) => {
+    if (i === 0) return true;
+    const words = contentWords(point);
+    if (words.length === 0) return true;
+    return words.filter((w) => stem.has(w)).length * 2 < words.length;
+  });
 }
 
 export function blankGrade(): ShortGrade {

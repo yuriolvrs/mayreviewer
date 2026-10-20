@@ -75,9 +75,11 @@ describe("turnstileHeaders", () => {
     const t = await load();
     const p = t.turnstileHeaders();
     await vi.advanceTimersByTimeAsync(0);
-    expect(target.className).toBe("turnstile-host");
+    const host = target.closest(".turnstile-host") as HTMLElement;
+    expect(host).not.toBeNull();
     opts["before-interactive-callback"]();
-    expect(target.textContent).toContain(t.CHALLENGE_TEXT);
+    expect(host.textContent).toContain(t.CHALLENGE_TEXT);
+    expect(host.querySelector(".turnstile-box[data-loading] .turnstile-spinner")).not.toBeNull();
     opts.callback("tok");
     await p;
     expect(document.querySelector(".turnstile-host")).toBeNull();
@@ -104,5 +106,94 @@ describe("turnstileHeaders", () => {
     await vi.advanceTimersByTimeAsync(0);
     opts["error-callback"]();
     await assertion;
+  });
+});
+
+describe("fetchWithTurnstile", () => {
+  const init = { method: "POST", headers: { "Content-Type": "application/json" }, body: '{"a":1}' };
+  const required = () => Response.json({ code: "turnstile_required" }, { status: 403 });
+  const hint = (ms: number) => {
+    document.cookie = `mr_pass_exp=${Date.now() + ms}; path=/`;
+  };
+
+  afterEach(() => {
+    document.cookie = "mr_pass_exp=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+    vi.unstubAllGlobals();
+  });
+
+  it("sends no token while the hint is valid", async () => {
+    const t = await load();
+    hint(10 * 60_000);
+    const fetchMock = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    await t.fetchWithTurnstile("/api/x", init);
+    const sent = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1];
+    expect(new Headers(sent.headers).get("x-turnstile-token")).toBeNull();
+    expect(sent.body).toBe('{"a":1}');
+  });
+
+  it("gets a token when the hint ends within the margin", async () => {
+    const t = await load();
+    hint(10_000);
+    const fetchMock = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    const p = t.fetchWithTurnstile("/api/x", init);
+    await vi.advanceTimersByTimeAsync(0);
+    opts.callback("tok");
+    await p;
+    const sent = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1];
+    expect(new Headers(sent.headers).get("x-turnstile-token")).toBe("tok");
+  });
+
+  it("retries once with a token after turnstile_required, resending the body", async () => {
+    const t = await load();
+    hint(10 * 60_000);
+    const fetchMock = vi.fn().mockResolvedValueOnce(required()).mockResolvedValueOnce(Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    const p = t.fetchWithTurnstile("/api/x", init);
+    await vi.advanceTimersByTimeAsync(0);
+    opts.callback("tok2");
+    const res = await p;
+    expect(res.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [first, second] = fetchMock.mock.calls.map((c) => c[1] as RequestInit);
+    expect(new Headers(first.headers).get("x-turnstile-token")).toBeNull();
+    expect(new Headers(second.headers).get("x-turnstile-token")).toBe("tok2");
+    expect(second.body).toBe('{"a":1}');
+  });
+
+  it("does not retry when the request already carried a token", async () => {
+    const t = await load();
+    const fetchMock = vi.fn(async () => required());
+    vi.stubGlobal("fetch", fetchMock);
+    const p = t.fetchWithTurnstile("/api/x", init);
+    await vi.advanceTimersByTimeAsync(0);
+    opts.callback("tok");
+    const res = await p;
+    expect(res.status).toBe(403);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retry a second time, an unrelated 403, or without a site key", async () => {
+    const t = await load();
+    hint(10 * 60_000);
+    const twice = vi.fn(async () => required());
+    vi.stubGlobal("fetch", twice);
+    const p = t.fetchWithTurnstile("/api/x", init);
+    await vi.advanceTimersByTimeAsync(0);
+    opts.callback("tok");
+    expect((await p).status).toBe(403);
+    expect(twice).toHaveBeenCalledTimes(2);
+
+    const other = vi.fn(async () => Response.json({ error: "x" }, { status: 403 }));
+    vi.stubGlobal("fetch", other);
+    await t.fetchWithTurnstile("/api/x", init);
+    expect(other).toHaveBeenCalledTimes(1);
+
+    const plain = await load("");
+    const refused = vi.fn(async () => required());
+    vi.stubGlobal("fetch", refused);
+    await plain.fetchWithTurnstile("/api/x", init);
+    expect(refused).toHaveBeenCalledTimes(1);
   });
 });

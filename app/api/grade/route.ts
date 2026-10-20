@@ -188,7 +188,7 @@ function toGrade(result: RawResult, item: GradeItem): ShortGrade {
   // Reported 1-based, stored 0-based like every other index in the app.
   const oneBased = Array.isArray(result.met) ? result.met : [];
   const zeroBased = oneBased.map((n) => (typeof n === "number" ? n - 1 : -1));
-  const met = namesModelTerm(item.modelAnswer, item.answer, result.namesAnswer)
+  const met = namesModelTerm(item, item.answer, result.namesAnswer)
     ? item.keyPoints.map((_, k) => k)
     : sanitizeMet(zeroBased, item.keyPoints.length);
   return {

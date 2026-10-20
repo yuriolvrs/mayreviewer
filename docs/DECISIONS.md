@@ -81,3 +81,38 @@ Format: each entry has **Context**, **Decision**, **Reason**, **Status** (Accept
 - Landing, history, progress, the formats list, goodbye, the quiz "taking" stage, and auth callback have no back link.
 **Reason:** A fixed parent works for deep links and refreshes. History-based back does not.
 **Status:** Accepted
+
+## 2026-10-20: Reuse a passed bot check for a short time
+
+**Context:** Every AI request (generate, grade, infer-format) gets a fresh one-time Turnstile token, and the server verifies each one. In the 20 Oct retest, 3 of 6 AI requests in Chrome timed out on the check while nobody watched the screen. Students who regenerate often see the check again and again.
+**Decision:**
+- After a successful Turnstile verification, the AI route sets a signed HttpOnly cookie `mr_pass` (`Secure`, `SameSite=Strict`, `Path=/api`). It holds a random pass id and an expiry 45 min ahead, signed with HMAC-SHA256. A readable cookie `mr_pass_exp` (Path=/) holds only the expiry, as a hint for the client. The key is derived from `TURNSTILE_SECRET_KEY`, so no new env var is needed.
+- The three AI routes accept a valid cookie instead of a token. With no `TURNSTILE_SECRET_KEY` the check stays skipped, as now.
+- Each pass also has a cap of 30 AI requests, counted with the existing `createSharedRateLimiter` keyed by pass id. Past the cap, the route asks for a new check.
+- The per-IP and global daily rate limits stay as they are. They stay the main abuse guard, and they run before the pass check.
+- When the route needs a new check, it returns 403 with `code: "turnstile_required"`. The client then gets a token and retries once. The client also keeps the pass expiry in memory (from a response header), so it sends no token while the pass is valid and asks for one up front when it is not.
+- The pass is not tied to the IP address, because phones change IP often. A copied cookie works from another IP until it expires or hits its cap. The per-IP and global limits still apply to it.
+**Reason:** The common practice is to check once per session and then rely on rate limits per request. A student now sees at most one check per 45 min, and an unwatched tab no longer times out on each request. A bot that passes one check gets at most 30 requests from it, and the existing limits apply as before.
+**Note on the "Quick check" gap:** The text already shows only in the `before-interactive-callback` (see `TurnstileSlot`). Cloudflare calls it before the checkbox is drawn, and the 20 s gap is the iframe loading. The page cannot see inside that cross-origin iframe. So the fix is to reserve the widget's space (300 x 65 px) and show a small "Loading check…" spinner in it until the box appears or the check ends.
+**Status:** Accepted
+
+## 2026-10-21: Read PDF text on the server to skip Code types
+
+**Context:** In the 20 Oct retest, a code-free PDF still got Code fill-in-the-blank sets. Any attachment kept the Code types, and the model ignored the prompt rule "no code sets without code".
+**Decision:**
+- The generate route reads each PDF's text with `unpdf` (`app/lib/pdfText.ts`) and runs `looksLikeCode` on it. It does this only when the format has a Code type.
+- The Code types are skipped only when the pasted text and every PDF have no code. Images and PDFs with less than 200 readable characters (scans) are unknown, so they keep the Code types.
+- The bytes are copied before extraction, because pdf.js can detach the buffer that the upload still needs.
+**Reason:** A rule in the code is reliable, and the prompt rule is not. The retest PDFs extract in under 100 ms, so the generation time does not change much.
+**Status:** Accepted
+
+## 2026-10-21: Identification grading and key points
+
+**Context:** Generated model answers for Identification are full sentences, so the "short term" grading rule never applied, and correct terms were graded wrong. Key points also restated the question.
+**Decision:**
+- `asksForTerm` detects stems that ask for a name ("Identify…", "Name…", "What is the name…").
+- For those stems, `namesModelTerm` also accepts the first key point as the term.
+- `dropStemKeyPoints` removes a later key point when half or more of its content words are in the question. The first key point always stays.
+- The prompt now asks for the bare term as the model answer.
+**Reason:** The grading fix works for reviewers that are already saved. The prompt and filter fix new reviewers.
+**Status:** Accepted

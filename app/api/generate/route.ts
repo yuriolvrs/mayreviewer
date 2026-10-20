@@ -23,7 +23,8 @@ import {
   type TopicTarget,
 } from "@/app/lib/generationPlan";
 import { keyConflict } from "@/app/lib/answerCheck";
-import { looksLikeCode } from "@/app/lib/codeDetect";
+import { dropStemKeyPoints } from "@/app/lib/grading";
+import { materialHasNoCode } from "@/app/lib/pdfText";
 import { createSharedRateLimiter, clientKey } from "@/app/lib/rateLimit";
 import { turnstileRejection, verifyTurnstile } from "@/app/lib/turnstile";
 import {
@@ -83,6 +84,11 @@ const MISTRAL_MODEL = "mistral-small-latest";
 // before it could finish. Splitting keeps each call small and fast, and a
 // timeout/failure on one source no longer takes the rest down with it.
 const SOURCE_CONCURRENCY = 3;
+// How many chunks of one source run at once. Small chunks in parallel finish
+// sooner than one big call, and a timeout then loses only the unfinished ones.
+const CHUNK_CONCURRENCY = 3;
+// Time kept free after the writing phase so the answer check can still run.
+const VERIFY_RESERVE_MS = 10000;
 const MAX_TEXT_CHARS = 60_000;
 // The three pasted fields each cap at MAX_TEXT_CHARS, but 3×60k in every
 // prompt of every chunk is ~50k tokens of deadline/cost risk. The combined
@@ -328,7 +334,9 @@ function shortAnswerDescription(def: ResolvedDef, target: string, fenceToken: st
     Never make a key point out of a fact the question itself already states (a date, name,
     place, number or description given in the stem). Each key point must be something the
     student has to supply. When the question asks for a name or term, the first key point is
-    that name or term.${exampleBlock(def, fenceToken)}`;
+    that name or term. Then "modelAnswer" is that name or term alone, with no sentence around it,
+    and any further key point is a fact about it that the question does not already give
+    — never a paraphrase of the question.${exampleBlock(def, fenceToken)}`;
 }
 
 function stimulusLayoutLine(kind: StimulusKind): string {
@@ -753,6 +761,11 @@ function shapeShortAnswers(raw: unknown, shortTypes: string[]): Omit<Question, "
     if (typeof item !== "object" || item === null) return [];
     const r = item as Record<string, unknown>;
     if (typeof r.type !== "string" || !shortTypes.includes(r.type)) return [];
+    const keyPoints = Array.isArray(r.keyPoints)
+      ? r.keyPoints
+          .slice(0, MAX_KEY_POINTS)
+          .map((p) => (typeof p === "string" ? p.trim().slice(0, MAX_KEY_POINT_CHARS) : p))
+      : r.keyPoints;
     const candidate = {
       ...r,
       answerKind: "short",
@@ -760,11 +773,11 @@ function shapeShortAnswers(raw: unknown, shortTypes: string[]): Omit<Question, "
       correctIndex: -1,
       modelAnswer:
         typeof r.modelAnswer === "string" ? r.modelAnswer.trim().slice(0, MAX_MODEL_ANSWER_CHARS) : r.modelAnswer,
-      keyPoints: Array.isArray(r.keyPoints)
-        ? r.keyPoints
-            .slice(0, MAX_KEY_POINTS)
-            .map((p) => (typeof p === "string" ? p.trim().slice(0, MAX_KEY_POINT_CHARS) : p))
-        : r.keyPoints,
+      // Drops key points that only restate what the question already says.
+      keyPoints:
+        typeof r.question === "string" && Array.isArray(keyPoints) && keyPoints.every((p) => typeof p === "string")
+          ? dropStemKeyPoints(r.question, keyPoints as string[])
+          : keyPoints,
     };
     return isValidQuestionFields(candidate) ? [candidate] : [];
   });
@@ -1129,11 +1142,14 @@ async function generateChunked(
   // Tried only when runPrimary fails for a chunk — the Mistral fallback,
   // when one is configured for this source.
   runFallback?: (header: string, batch: string) => Promise<SourceResult>,
+  // Called as each chunk succeeds, so the caller can keep finished questions
+  // even if a slower chunk never ends.
+  onChunk?: (questions: Question[]) => void | Promise<void>,
 ): Promise<SourceResult> {
   // A chunk can be planned down to nothing when the request had more sources
   // than questions; sending it would spend a call to generate zero questions.
   const chunks = plans.filter((plan) => plan.count > 0);
-  const questions: Question[] = [];
+  const chunkResults: Question[][] = chunks.map(() => []);
   let lastError: string | undefined;
 
   // The batch hint below only separates chunks of one generation from each
@@ -1169,7 +1185,7 @@ ${fence(
 )}`
       : "";
 
-  for (const [i, plan] of chunks.entries()) {
+  await runWithConcurrency(chunks, CHUNK_CONCURRENCY, async (plan, i) => {
     // Batches see the same material, so without this they converge on the same
     // obvious questions. Exact repeats are still dropped at assembly.
     const batch =
@@ -1187,9 +1203,12 @@ ${fence(
     );
     let result = await runPrimary(header, batch);
     if (!("questions" in result) && runFallback) result = await runFallback(header, batch);
-    if ("questions" in result) questions.push(...result.questions);
-    else lastError = result.error;
-  }
+    if ("questions" in result) {
+      chunkResults[i] = result.questions;
+      await onChunk?.(result.questions);
+    } else lastError = result.error;
+  });
+  const questions = chunkResults.flat();
 
   // A partial result beats nothing — one failed chunk out of five shouldn't
   // discard the four that worked.
@@ -1208,6 +1227,7 @@ async function processAttachmentSource(
   plans: ChunkPlan[],
   context: PromptContext,
   collectFiles?: (files: ActivatedFile[]) => void,
+  onChunk?: (questions: Question[]) => void | Promise<void>,
 ): Promise<SourceResult> {
   const activated = await activateFiles(ai, [attachment]);
   if ("error" in activated) return { error: activated.error };
@@ -1226,7 +1246,8 @@ Base questions on the attached file (it may contain diagrams, charts, or images 
 
   // Uploaded to Mistral lazily — only once a chunk actually needs the
   // fallback — so a healthy Gemini run never spends an extra upload.
-  let mistralFileId: string | undefined;
+  // The upload is memoized as a promise because chunks run concurrently.
+  let mistralUpload: Promise<string> | undefined;
   const result = await generateChunked(
     plans,
     context,
@@ -1234,18 +1255,17 @@ Base questions on the attached file (it may contain diagrams, charts, or images 
       callGemini(ai, createUserContent([filePart, attachmentPrompt(header, batch)]), context),
     mistral
       ? async (header, batch) => {
-          if (!mistralFileId) {
-            try {
-              const uploaded = await withRetry(() =>
-                mistral.files.upload({
-                  file: new Blob([attachment.data], { type: attachment.mimeType }),
-                  purpose: "ocr",
-                }),
-              );
-              mistralFileId = uploaded.id;
-            } catch (err) {
-              return { error: `Upload to Mistral failed: ${err instanceof Error ? err.message : String(err)}` };
-            }
+          mistralUpload ??= withRetry(() =>
+            mistral.files.upload({
+              file: new Blob([attachment.data], { type: attachment.mimeType }),
+              purpose: "ocr",
+            }),
+          ).then((uploaded) => uploaded.id);
+          let mistralFileId: string;
+          try {
+            mistralFileId = await mistralUpload;
+          } catch (err) {
+            return { error: `Upload to Mistral failed: ${err instanceof Error ? err.message : String(err)}` };
           }
           const content: ContentChunk[] = [
             { type: "file", fileId: mistralFileId },
@@ -1254,6 +1274,7 @@ Base questions on the attached file (it may contain diagrams, charts, or images 
           return callMistral(mistral, content, context);
         }
       : undefined,
+    (questions) => onChunk?.(questions.map((q) => ({ ...q, source: attachment.field }))),
   );
   if (!("questions" in result)) return result;
 
@@ -1271,6 +1292,7 @@ async function processTextSource(
   pastExamName: string,
   plans: ChunkPlan[],
   context: PromptContext,
+  onChunk?: (questions: Question[]) => void | Promise<void>,
 ): Promise<SourceResult> {
   const [notesCapped, projectCapped, pastExamCapped] = fitTextBudget([
     notes,
@@ -1297,6 +1319,7 @@ ${materialBlock}`;
     context,
     (header, batch) => callGemini(ai, createUserContent([textPrompt(header, batch)]), context),
     mistral ? (header, batch) => callMistral(mistral, textPrompt(header, batch), context) : undefined,
+    onChunk,
   );
 }
 
@@ -1489,26 +1512,34 @@ export async function POST(request: Request) {
     fenceToken: newFenceToken(),
   };
 
-  // Code sets need code in the material. Uploaded files can't be inspected
-  // here, so any attachment keeps them (the prompt handles that case).
-  const noCodeInText = !looksLikeCode([notes, projectMaterial, pastExamText].join("\n"));
-  const codeSkip =
-    attachments.length === 0 && noCodeInText
-      ? skipCodeTypes(format, context.types, requestedCountByType)
-      : undefined;
+  // Code sets need code in the material. Pasted text and PDF text are checked;
+  // images and scanned PDFs can't be, so they keep the code types.
+  const hasCodeType = context.format.types.some((t) => t.stimulus === "code" && context.types.includes(t.key));
+  const noCode =
+    hasCodeType && (await materialHasNoCode([notes, projectMaterial, pastExamText], attachments));
+  const codeSkip = noCode ? skipCodeTypes(format, context.types, requestedCountByType) : undefined;
   if (codeSkip) context.types = codeSkip.types;
   const countByType = codeSkip ? codeSkip.countByType : requestedCountByType;
   const notices = codeSkip ? [codeSkip.notice] : [];
 
-  const jobs: { label: string; run: (plans: ChunkPlan[]) => Promise<SourceResult> }[] = attachments.map(
-    (attachment) => ({
-      label: attachment.name,
-      run: (plans: ChunkPlan[]) =>
-        processAttachmentSource(ai, mistral, attachment, plans, context, (files) => {
+  const jobs: {
+    label: string;
+    run: (plans: ChunkPlan[], onChunk?: (questions: Question[]) => void | Promise<void>) => Promise<SourceResult>;
+  }[] = attachments.map((attachment) => ({
+    label: attachment.name,
+    run: (plans: ChunkPlan[], onChunk) =>
+      processAttachmentSource(
+        ai,
+        mistral,
+        attachment,
+        plans,
+        context,
+        (files) => {
           geminiFiles.push(...files);
-        }),
-    }),
-  );
+        },
+        onChunk,
+      ),
+  }));
   // Gemini File API uploads collected per source for best-effort deletion
   // once the stream finishes — declared here so both the jobs above and the
   // stream below close over it.
@@ -1519,8 +1550,8 @@ export async function POST(request: Request) {
   if (notes.trim() || projectMaterial.trim() || pastExamText || pastExamName) {
     jobs.push({
       label: "Pasted notes/material",
-      run: (plans: ChunkPlan[]) =>
-        processTextSource(ai, mistral, notes, projectMaterial, pastExamText, pastExamName, plans, context),
+      run: (plans: ChunkPlan[], onChunk) =>
+        processTextSource(ai, mistral, notes, projectMaterial, pastExamText, pastExamName, plans, context, onChunk),
     });
   }
 
@@ -1541,12 +1572,21 @@ export async function POST(request: Request) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
+      // Jobs that outlive the writing deadline can still report progress.
+      // Once the stream is closed or errored, those late frames are dropped.
+      let finished = false;
       function send(message: ProgressMessage | DoneMessage) {
-        controller.enqueue(encoder.encode(`${JSON.stringify(message)}\n`));
+        if (finished) return;
+        try {
+          controller.enqueue(encoder.encode(`${JSON.stringify(message)}\n`));
+        } catch {
+          finished = true;
+        }
       }
       // A disconnected client must not leave the run burning quota in the
       // background with nobody reading the stream.
       const onAbort = () => {
+        finished = true;
         try {
           controller.error(new Error("Client disconnected."));
         } catch {
@@ -1563,28 +1603,31 @@ export async function POST(request: Request) {
       // ceilings apply to the batch as a whole rather than per source.
       let typeRoom = countByType ? { ...countByType } : undefined;
       const mergeLock = createMutex();
+      // How many questions each source has kept so far, against counts[i].
+      const keptBySource = counts.map(() => 0);
+      let writingClosed = false;
 
-      await runWithConcurrency(jobs, SOURCE_CONCURRENCY, async (job, i) => {
-        send({ type: "progress", phase: "start", label: job.label, completed, total });
-        // A throwing source must become a per-source failure, not a rejected
-        // start() that leaves the client hanging with no done frame.
-        let result: SourceResult;
-        try {
-          result = await job.run(plans[i]);
-        } catch (err) {
-          result = { error: err instanceof Error ? err.message : "Source failed." };
-        }
-        await mergeLock(async () => {
-          completed++;
-        if ("questions" in result) {
+      // Bounded by whatever's left of the Function's own time limit, with a
+      // safety margin for the final send — a verification pass that ran long
+      // would otherwise risk the platform killing the invocation before the
+      // already-generated questions ever reached the client. Falling back to
+      // the unverified batch is strictly better than losing the run.
+      const timeLeftMs = () => maxDuration * 1000 - (Date.now() - startedAt) - 5000;
+
+      // Merges one finished chunk. Runs per chunk, so a slow chunk cannot hold
+      // back the ones that are done.
+      const mergeChunk = (i: number, chunk: Question[]) =>
+        mergeLock(async () => {
+          // Late chunks are dropped: the batch is already on its way to verify.
+          if (writingClosed) return;
           // Two ceilings: this source's own share, so one over-eager source
           // can't crowd out the others, and whatever is left of the overall
           // request, so the batch can never exceed what the user asked for.
-          const room = Math.min(counts[i], count - questions.length);
+          const room = Math.min(counts[i] - keptBySource[i], count - questions.length);
           // Deduped against what's already been kept, so overlap between two
           // sources (or two batches of one source) doesn't spend the budget
           // twice on the same question.
-          const fresh = dedupeQuestions([...questions, ...result.questions]).slice(questions.length);
+          const fresh = dedupeQuestions([...questions, ...chunk]).slice(questions.length);
           // A requested mix replaces the flat ceiling entirely — capping per
           // source as well would starve whichever type happens to arrive last.
           let kept: Question[];
@@ -1596,20 +1639,53 @@ export async function POST(request: Request) {
             kept = takeWithinBudget(fresh, room);
           }
           questions.push(...kept);
-          send({ type: "progress", phase: "done", label: job.label, completed, total, ok: true, count: kept.length });
-        } else {
-          failures.push({ label: job.label, reason: result.error });
-          send({ type: "progress", phase: "done", label: job.label, completed, total, ok: false, reason: result.error });
-        }
+          keptBySource[i] += kept.length;
         });
-      });
 
-      // Bounded by whatever's left of the Function's own time limit, with a
-      // safety margin for the final send — a verification pass that ran long
-      // would otherwise risk the platform killing the invocation before the
-      // already-generated questions ever reached the client. Falling back to
-      // the unverified batch is strictly better than losing the run.
-      const timeLeftMs = () => maxDuration * 1000 - (Date.now() - startedAt) - 5000;
+      // Writing stops early enough to leave time for the answer check.
+      const writeBudgetMs = Math.max(timeLeftMs() - VERIFY_RESERVE_MS, 5000);
+      const wroteAll = await withTimeout(
+        runWithConcurrency(jobs, SOURCE_CONCURRENCY, async (job, i) => {
+          send({ type: "progress", phase: "start", label: job.label, completed, total });
+          // A throwing source must become a per-source failure, not a rejected
+          // start() that leaves the client hanging with no done frame.
+          let result: SourceResult;
+          try {
+            result = await job.run(plans[i], (chunk) => mergeChunk(i, chunk));
+          } catch (err) {
+            result = { error: err instanceof Error ? err.message : "Source failed." };
+          }
+          await mergeLock(async () => {
+            if (writingClosed) return;
+            completed++;
+            if ("questions" in result) {
+              send({
+                type: "progress",
+                phase: "done",
+                label: job.label,
+                completed,
+                total,
+                ok: true,
+                count: keptBySource[i],
+              });
+            } else {
+              failures.push({ label: job.label, reason: result.error });
+              send({ type: "progress", phase: "done", label: job.label, completed, total, ok: false, reason: result.error });
+            }
+          });
+        }).then(() => true),
+        writeBudgetMs,
+        false,
+      );
+      await mergeLock(() => {
+        writingClosed = true;
+      });
+      if (!wroteAll) {
+        notices.push(
+          `Time ran out: only ${questions.length} of ${count} questions were written. Generate again for more.`,
+        );
+      }
+
       let finalQuestions = questions;
       let verified = { corrected: 0, dropped: 0 };
       if (questions.length > 0 && timeLeftMs() > 5000) {
@@ -1697,12 +1773,30 @@ export async function POST(request: Request) {
         send({ type: "progress", phase: "done", label: "Verifying answers", completed: 1, total: 1, stage: "verify" });
       }
 
+      // Tell the user when a type, or the whole batch, came out short.
+      if (countByType) {
+        const short = format.types
+          .filter((t) => (countByType[t.key] ?? 0) > 0)
+          .map((t) => ({
+            label: t.label,
+            kept: finalQuestions.filter((q) => q.type === t.key).length,
+            target: countByType[t.key],
+          }))
+          .filter((t) => t.kept < t.target);
+        if (short.length > 0) {
+          notices.push(`Fewer than asked: ${short.map((t) => `${t.label} ${t.kept} of ${t.target}`).join(", ")}.`);
+        }
+      } else if (finalQuestions.length < count && wroteAll) {
+        notices.push(`Only ${finalQuestions.length} of ${count} questions came out usable. Generate again for more.`);
+      }
+
       send({ type: "done", questions: finalQuestions, failures, verified, notices });
       // Uploaded Gemini files were a relay — delete them best-effort now
       // that no prompt references them anymore. Never throws.
       await deleteGeminiFiles(ai, geminiFiles);
       request.signal.removeEventListener("abort", onAbort);
       onStreamAbort = () => {};
+      finished = true;
       controller.close();
     },
     cancel() {

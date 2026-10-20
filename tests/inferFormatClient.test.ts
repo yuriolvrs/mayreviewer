@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("@vercel/blob/client", () => ({
   upload: vi.fn(async (path: string) => ({ url: `https://blob.test/${path}` })),
 }));
-vi.mock("@/app/lib/turnstileClient", () => ({ turnstileHeaders: async () => ({}) }));
+vi.mock("@/app/lib/turnstileClient", () => ({
+  fetchWithTurnstile: (url: string, init?: RequestInit) => fetch(url, init),
+}));
 
 import { inferFormat } from "@/app/lib/inferFormatClient";
 

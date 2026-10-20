@@ -11,12 +11,14 @@ export const SET_TYPES: string[] = ["timeline", "code"];
 export const MIN_SET_SIZE = 5;
 export const MAX_SET_SIZE = 10;
 
-// One generateContent call reliably produces up to roughly 60 questions. Past
-// that the model stops trying rather than erroring: asking a single call for
-// 100 returned 10, for 200 returned 13. So a source's budget is split into
-// several sequential calls and concatenated, which is what makes the
-// Reviewer's count a real target instead of a number Gemini quietly ignores.
-const MAX_QUESTIONS_PER_CALL = 40;
+// One generateContent call can produce many questions, but a big call is slow.
+// A 20-question call took 50-60 s, which hit the Function time limit. Past
+// about 60 questions the model also stops trying instead of erroring: asking
+// for 100 returned 10, for 200 returned 13. So a source's budget is split into
+// calls of at most 10 questions and concatenated. The calls run in parallel,
+// so they finish faster. If time runs out, only the unfinished calls are lost.
+// MAX_SET_SIZE is also 10, so one set still fits in one call.
+const MAX_QUESTIONS_PER_CALL = 10;
 // One topic and how many of a chunk's questions should be about it.
 export type TopicTarget = { topic: string; count: number };
 

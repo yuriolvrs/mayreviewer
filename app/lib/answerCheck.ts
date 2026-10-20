@@ -3,7 +3,7 @@ import type { Question } from "@/app/types";
 // "Wait," only counts as scratch work at the start of a sentence, so OS prose
 // like "P2 must wait." or "calls wait()" passes.
 const SELF_CORRECTION = [
-  /(?:^|[.!?…:;]\s+)wait\s*[,!…]/i,
+  /(?:^|[.!?…:;]\s+)wait\s*[,!…:?]/i,
   /\bre-?calculat/i,
   /\bcalculating again\b/i,
   /\bcheck(?:ing)?\s+(?:the\s+|my\s+)?calculation/i,

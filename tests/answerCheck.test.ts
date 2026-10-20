@@ -24,6 +24,16 @@ describe("keyConflict: self-correction", () => {
     expect(keyConflict(mc())).toBeNull();
   });
 
+  it('flags the retest repro ("? Wait:")', () => {
+    const q = mc({ explanation: "Average is 12/3 = 4.0? Wait: 0+5+7=12." });
+    expect(keyConflict(q)).toBe("self-correction");
+  });
+
+  it('passes OS prose like "P2 must wait."', () => {
+    const q = mc({ explanation: "P2 must wait. Waiting times are 0, 3 and 7, so (0 + 3 + 7) / 3 = 3.33 ms." });
+    expect(keyConflict(q)).toBeNull();
+  });
+
   it("flags the usability-test repro (scratch work in the explanation)", () => {
     const q = mc({
       correctIndex: 0,

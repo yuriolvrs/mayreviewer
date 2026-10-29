@@ -1276,6 +1276,7 @@ async function processAttachmentSource(
   context: PromptContext,
   collectFiles?: (files: ActivatedFile[]) => void,
   onChunk?: (questions: Question[]) => void | Promise<void>,
+  collectMistralUpload?: (upload: Promise<string>) => void,
 ): Promise<SourceResult> {
   const activated = await activateFiles(ai, [attachment]);
   if ("error" in activated) return { error: activated.error };
@@ -1303,12 +1304,15 @@ Base questions on the attached file (it may contain diagrams, charts, or images 
       callGemini(ai, createUserContent([filePart, attachmentPrompt(header, batch)]), context),
     mistral
       ? async (header, batch) => {
-          mistralUpload ??= withRetry(() =>
-            mistral.files.upload({
-              file: new Blob([attachment.data], { type: attachment.mimeType }),
-              purpose: "ocr",
-            }),
-          ).then((uploaded) => uploaded.id);
+          if (!mistralUpload) {
+            mistralUpload = withRetry(() =>
+              mistral.files.upload({
+                file: new Blob([attachment.data], { type: attachment.mimeType }),
+                purpose: "ocr",
+              }),
+            ).then((uploaded) => uploaded.id);
+            collectMistralUpload?.(mistralUpload);
+          }
           let mistralFileId: string;
           try {
             mistralFileId = await mistralUpload;
@@ -1329,6 +1333,16 @@ Base questions on the attached file (it may contain diagrams, charts, or images 
   // Trust the attachment's own field (set when it was uploaded) over the
   // model's own "source" guess for this question — it's authoritative.
   return { questions: result.questions.map((q) => ({ ...q, source: attachment.field })) };
+}
+
+// Mistral keeps uploaded files until they are deleted, so each fallback upload
+// is deleted once the stream ends. Waits for an upload still in flight. Never
+// throws.
+async function deleteMistralFiles(mistral: Mistral | undefined, uploads: Promise<string>[]): Promise<void> {
+  if (!mistral) return;
+  await Promise.all(
+    uploads.map((upload) => upload.then((fileId) => mistral.files.delete({ fileId })).catch(() => {})),
+  );
 }
 
 async function processTextSource(
@@ -1586,12 +1600,25 @@ export async function POST(request: Request) {
           geminiFiles.push(...files);
         },
         onChunk,
+        (upload) => {
+          mistralUploads.push(upload);
+        },
       ),
   }));
   // Gemini File API uploads collected per source for best-effort deletion
   // once the stream finishes — declared here so both the jobs above and the
   // stream below close over it.
   const geminiFiles: ActivatedFile[] = [];
+  // Mistral fallback uploads, deleted alongside the Gemini files.
+  const mistralUploads: Promise<string>[] = [];
+  // Uploaded Gemini and Mistral files were a relay — deleted best-effort on
+  // every exit. Drains both lists, so a file is deleted once however many
+  // exits call this, and one collected later is still caught. Never throws.
+  const deleteUploads = () =>
+    Promise.all([
+      deleteGeminiFiles(ai, geminiFiles.splice(0)),
+      deleteMistralFiles(mistral, mistralUploads.splice(0)),
+    ]);
   // Set by start(), called by cancel(): errors a client-abandoned stream
   // instead of leaving it hanging.
   let onStreamAbort = () => {};
@@ -1640,210 +1667,215 @@ export async function POST(request: Request) {
         } catch {
           // Already closed — nothing to do.
         }
+        void deleteUploads();
       };
       request.signal.addEventListener("abort", onAbort);
       onStreamAbort = onAbort;
 
-      let completed = 0;
-      const questions: Question[] = [];
-      const failures: { label: string; reason: string }[] = [];
-      // Spent down across sources when a per-type mix was requested, so the
-      // ceilings apply to the batch as a whole rather than per source.
-      let typeRoom = countByType ? { ...countByType } : undefined;
-      const mergeLock = createMutex();
-      // How many questions each source has kept so far, against counts[i].
-      const keptBySource = counts.map(() => 0);
-      let writingClosed = false;
+      try {
+        let completed = 0;
+        const questions: Question[] = [];
+        const failures: { label: string; reason: string }[] = [];
+        // Spent down across sources when a per-type mix was requested, so the
+        // ceilings apply to the batch as a whole rather than per source.
+        let typeRoom = countByType ? { ...countByType } : undefined;
+        const mergeLock = createMutex();
+        // How many questions each source has kept so far, against counts[i].
+        const keptBySource = counts.map(() => 0);
+        let writingClosed = false;
 
-      // Bounded by whatever's left of the Function's own time limit, with a
-      // safety margin for the final send — a verification pass that ran long
-      // would otherwise risk the platform killing the invocation before the
-      // already-generated questions ever reached the client. Falling back to
-      // the unverified batch is strictly better than losing the run.
-      const timeLeftMs = () => maxDuration * 1000 - (Date.now() - startedAt) - 5000;
+        // Bounded by whatever's left of the Function's own time limit, with a
+        // safety margin for the final send — a verification pass that ran long
+        // would otherwise risk the platform killing the invocation before the
+        // already-generated questions ever reached the client. Falling back to
+        // the unverified batch is strictly better than losing the run.
+        const timeLeftMs = () => maxDuration * 1000 - (Date.now() - startedAt) - 5000;
 
-      // Merges one finished chunk. Runs per chunk, so a slow chunk cannot hold
-      // back the ones that are done.
-      const mergeChunk = (i: number, chunk: Question[]) =>
-        mergeLock(async () => {
-          // Late chunks are dropped: the batch is already on its way to verify.
-          if (writingClosed) return;
-          // Two ceilings: this source's own share, so one over-eager source
-          // can't crowd out the others, and whatever is left of the overall
-          // request, so the batch can never exceed what the user asked for.
-          const room = Math.min(counts[i] - keptBySource[i], count - questions.length);
-          // Deduped against what's already been kept, so overlap between two
-          // sources (or two batches of one source) doesn't spend the budget
-          // twice on the same question.
-          const fresh = dedupeQuestions([...questions, ...chunk]).slice(questions.length);
-          // A requested mix replaces the flat ceiling entirely — capping per
-          // source as well would starve whichever type happens to arrive last.
-          let kept: Question[];
-          if (typeRoom) {
-            const taken = takeWithinTypeBudget(fresh, typeRoom);
-            kept = taken.kept;
-            typeRoom = taken.remaining;
-          } else {
-            kept = takeWithinBudget(fresh, room);
-          }
-          questions.push(...kept);
-          keptBySource[i] += kept.length;
-        });
-
-      // Writing stops early enough to leave time for the answer check.
-      const writeBudgetMs = Math.max(timeLeftMs() - VERIFY_RESERVE_MS, 5000);
-      const wroteAll = await withTimeout(
-        runWithConcurrency(jobs, SOURCE_CONCURRENCY, async (job, i) => {
-          send({ type: "progress", phase: "start", label: job.label, completed, total });
-          // A throwing source must become a per-source failure, not a rejected
-          // start() that leaves the client hanging with no done frame.
-          let result: SourceResult;
-          try {
-            result = await job.run(plans[i], (chunk) => mergeChunk(i, chunk));
-          } catch (err) {
-            result = { error: err instanceof Error ? err.message : "Source failed." };
-          }
-          await mergeLock(async () => {
+        // Merges one finished chunk. Runs per chunk, so a slow chunk cannot hold
+        // back the ones that are done.
+        const mergeChunk = (i: number, chunk: Question[]) =>
+          mergeLock(async () => {
+            // Late chunks are dropped: the batch is already on its way to verify.
             if (writingClosed) return;
-            completed++;
-            if ("questions" in result) {
-              send({
-                type: "progress",
-                phase: "done",
-                label: job.label,
-                completed,
-                total,
-                ok: true,
-                count: keptBySource[i],
-              });
+            // Two ceilings: this source's own share, so one over-eager source
+            // can't crowd out the others, and whatever is left of the overall
+            // request, so the batch can never exceed what the user asked for.
+            const room = Math.min(counts[i] - keptBySource[i], count - questions.length);
+            // Deduped against what's already been kept, so overlap between two
+            // sources (or two batches of one source) doesn't spend the budget
+            // twice on the same question.
+            const fresh = dedupeQuestions([...questions, ...chunk]).slice(questions.length);
+            // A requested mix replaces the flat ceiling entirely — capping per
+            // source as well would starve whichever type happens to arrive last.
+            let kept: Question[];
+            if (typeRoom) {
+              const taken = takeWithinTypeBudget(fresh, typeRoom);
+              kept = taken.kept;
+              typeRoom = taken.remaining;
             } else {
-              failures.push({ label: job.label, reason: result.error });
-              send({ type: "progress", phase: "done", label: job.label, completed, total, ok: false, reason: result.error });
+              kept = takeWithinBudget(fresh, room);
             }
+            questions.push(...kept);
+            keptBySource[i] += kept.length;
           });
-        }).then(() => true),
-        writeBudgetMs,
-        false,
-      );
-      await mergeLock(() => {
-        writingClosed = true;
-      });
-      if (!wroteAll) {
-        notices.push(
-          `Time ran out: only ${questions.length} of ${count} questions were written. Generate again for more.`,
-        );
-      }
 
-      let finalQuestions = questions;
-      let verified = { corrected: 0, dropped: 0 };
-      if (questions.length > 0 && timeLeftMs() > 5000) {
-        send({ type: "progress", phase: "start", label: "Verifying answers", completed: 0, total: 1, stage: "verify" });
-        const result = await withTimeout(verifyQuestions(ai, questions, context.fenceToken), timeLeftMs(), {
-          ...dropKeyConflicts(questions),
-        });
-        finalQuestions = result.questions;
-        verified = { corrected: result.corrected, dropped: result.dropped.length };
-
-        // A dropped question leaves a hole in the count the user asked for —
-        // fill it with fresh standalone questions from the same sources rather
-        // than just shipping short. One round only: if a replacement also
-        // fails verification it's left out rather than dropped and re-tried
-        // again, so this can't loop indefinitely eating the time budget.
-        if (result.dropped.length > 0 && timeLeftMs() > 8000) {
-          send({
-            type: "progress",
-            phase: "start",
-            label: "Filling in replacement questions",
-            completed: 0,
-            total: 1,
-            stage: "verify",
-          });
-          const typeCounts = backfillTypeCounts(result.dropped);
-          const backfillPlans = planGeneration(
-            result.dropped.length,
-            jobs.length,
-            typeCounts,
-            context.topics,
-            topicRotation,
-            context.setTypes,
-          );
-          const backfilled: Question[] = [];
-          let typeRoom = { ...typeCounts };
-          const backfillLock = createMutex();
-
-          await withTimeout(
-            runWithConcurrency(jobs, SOURCE_CONCURRENCY, async (job, i) => {
-              let jobResult: SourceResult;
-              try {
-                jobResult = await job.run(backfillPlans[i]);
-              } catch {
-                return;
+        // Writing stops early enough to leave time for the answer check.
+        const writeBudgetMs = Math.max(timeLeftMs() - VERIFY_RESERVE_MS, 5000);
+        const wroteAll = await withTimeout(
+          runWithConcurrency(jobs, SOURCE_CONCURRENCY, async (job, i) => {
+            send({ type: "progress", phase: "start", label: job.label, completed, total });
+            // A throwing source must become a per-source failure, not a rejected
+            // start() that leaves the client hanging with no done frame.
+            let result: SourceResult;
+            try {
+              result = await job.run(plans[i], (chunk) => mergeChunk(i, chunk));
+            } catch (err) {
+              result = { error: err instanceof Error ? err.message : "Source failed." };
+            }
+            await mergeLock(async () => {
+              if (writingClosed) return;
+              completed++;
+              if ("questions" in result) {
+                send({
+                  type: "progress",
+                  phase: "done",
+                  label: job.label,
+                  completed,
+                  total,
+                  ok: true,
+                  count: keptBySource[i],
+                });
+              } else {
+                failures.push({ label: job.label, reason: result.error });
+                send({ type: "progress", phase: "done", label: job.label, completed, total, ok: false, reason: result.error });
               }
-              if (!("questions" in jobResult)) return;
-              await backfillLock(async () => {
-                if (backfilled.length >= result.dropped.length) return;
-                // A dropped item can come back from the same source; skip it.
-                const droppedStems = new Set(result.dropped.map((d) => d.question));
-                const fresh = dedupeQuestions([...finalQuestions, ...backfilled, ...jobResult.questions])
-                  .slice(finalQuestions.length + backfilled.length)
-                  .filter((c) => !droppedStems.has(c.question));
-                const taken = takeWithinTypeBudget(fresh, typeRoom);
-                typeRoom = taken.remaining;
-                backfilled.push(...taken.kept);
-              });
-            }),
-            timeLeftMs(),
-            undefined,
-          );
-
-          if (backfilled.length > 0 && timeLeftMs() > 3000) {
-            const rechecked = await withTimeout(verifyQuestions(ai, backfilled, context.fenceToken), timeLeftMs(), {
-              ...dropKeyConflicts(backfilled),
             });
-            finalQuestions = [...finalQuestions, ...rechecked.questions];
-            verified = {
-              corrected: verified.corrected + rechecked.corrected,
-              dropped: result.dropped.length - rechecked.questions.length,
-            };
-          }
-          send({
-            type: "progress",
-            phase: "done",
-            label: "Filling in replacement questions",
-            completed: 1,
-            total: 1,
-            stage: "verify",
+          }).then(() => true),
+          writeBudgetMs,
+          false,
+        );
+        await mergeLock(() => {
+          writingClosed = true;
+        });
+        if (!wroteAll) {
+          notices.push(
+            `Time ran out: only ${questions.length} of ${count} questions were written. Generate again for more.`,
+          );
+        }
+
+        let finalQuestions = questions;
+        let verified = { corrected: 0, dropped: 0 };
+        if (questions.length > 0 && timeLeftMs() > 5000) {
+          send({ type: "progress", phase: "start", label: "Verifying answers", completed: 0, total: 1, stage: "verify" });
+          const result = await withTimeout(verifyQuestions(ai, questions, context.fenceToken), timeLeftMs(), {
+            ...dropKeyConflicts(questions),
           });
+          finalQuestions = result.questions;
+          verified = { corrected: result.corrected, dropped: result.dropped.length };
+
+          // A dropped question leaves a hole in the count the user asked for —
+          // fill it with fresh standalone questions from the same sources rather
+          // than just shipping short. One round only: if a replacement also
+          // fails verification it's left out rather than dropped and re-tried
+          // again, so this can't loop indefinitely eating the time budget.
+          if (result.dropped.length > 0 && timeLeftMs() > 8000) {
+            send({
+              type: "progress",
+              phase: "start",
+              label: "Filling in replacement questions",
+              completed: 0,
+              total: 1,
+              stage: "verify",
+            });
+            const typeCounts = backfillTypeCounts(result.dropped);
+            const backfillPlans = planGeneration(
+              result.dropped.length,
+              jobs.length,
+              typeCounts,
+              context.topics,
+              topicRotation,
+              context.setTypes,
+            );
+            const backfilled: Question[] = [];
+            let typeRoom = { ...typeCounts };
+            const backfillLock = createMutex();
+
+            await withTimeout(
+              runWithConcurrency(jobs, SOURCE_CONCURRENCY, async (job, i) => {
+                let jobResult: SourceResult;
+                try {
+                  jobResult = await job.run(backfillPlans[i]);
+                } catch {
+                  return;
+                }
+                if (!("questions" in jobResult)) return;
+                await backfillLock(async () => {
+                  if (backfilled.length >= result.dropped.length) return;
+                  // A dropped item can come back from the same source; skip it.
+                  const droppedStems = new Set(result.dropped.map((d) => d.question));
+                  const fresh = dedupeQuestions([...finalQuestions, ...backfilled, ...jobResult.questions])
+                    .slice(finalQuestions.length + backfilled.length)
+                    .filter((c) => !droppedStems.has(c.question));
+                  const taken = takeWithinTypeBudget(fresh, typeRoom);
+                  typeRoom = taken.remaining;
+                  backfilled.push(...taken.kept);
+                });
+              }),
+              timeLeftMs(),
+              undefined,
+            );
+
+            if (backfilled.length > 0 && timeLeftMs() > 3000) {
+              const rechecked = await withTimeout(verifyQuestions(ai, backfilled, context.fenceToken), timeLeftMs(), {
+                ...dropKeyConflicts(backfilled),
+              });
+              finalQuestions = [...finalQuestions, ...rechecked.questions];
+              verified = {
+                corrected: verified.corrected + rechecked.corrected,
+                dropped: result.dropped.length - rechecked.questions.length,
+              };
+            }
+            send({
+              type: "progress",
+              phase: "done",
+              label: "Filling in replacement questions",
+              completed: 1,
+              total: 1,
+              stage: "verify",
+            });
+          }
+
+          send({ type: "progress", phase: "done", label: "Verifying answers", completed: 1, total: 1, stage: "verify" });
         }
 
-        send({ type: "progress", phase: "done", label: "Verifying answers", completed: 1, total: 1, stage: "verify" });
-      }
-
-      // Tell the user when a type, or the whole batch, came out short.
-      if (countByType) {
-        const short = format.types
-          .filter((t) => (countByType[t.key] ?? 0) > 0)
-          .map((t) => ({
-            label: t.label,
-            kept: finalQuestions.filter((q) => q.type === t.key).length,
-            target: countByType[t.key],
-          }))
-          .filter((t) => t.kept < t.target);
-        if (short.length > 0) {
-          notices.push(`Fewer than asked: ${short.map((t) => `${t.label} ${t.kept} of ${t.target}`).join(", ")}.`);
+        // Tell the user when a type, or the whole batch, came out short.
+        if (countByType) {
+          const short = format.types
+            .filter((t) => (countByType[t.key] ?? 0) > 0)
+            .map((t) => ({
+              label: t.label,
+              kept: finalQuestions.filter((q) => q.type === t.key).length,
+              target: countByType[t.key],
+            }))
+            .filter((t) => t.kept < t.target);
+          if (short.length > 0) {
+            notices.push(`Fewer than asked: ${short.map((t) => `${t.label} ${t.kept} of ${t.target}`).join(", ")}.`);
+          }
+        } else if (finalQuestions.length < count && wroteAll) {
+          notices.push(`Only ${finalQuestions.length} of ${count} questions came out usable. Generate again for more.`);
         }
-      } else if (finalQuestions.length < count && wroteAll) {
-        notices.push(`Only ${finalQuestions.length} of ${count} questions came out usable. Generate again for more.`);
-      }
 
-      send({ type: "done", questions: finalQuestions, failures, verified, notices });
-      // Uploaded Gemini files were a relay — delete them best-effort now
-      // that no prompt references them anymore. Never throws.
-      await deleteGeminiFiles(ai, geminiFiles);
-      request.signal.removeEventListener("abort", onAbort);
-      onStreamAbort = () => {};
-      finished = true;
-      controller.close();
+        send({ type: "done", questions: finalQuestions, failures, verified, notices });
+        // Before close, while the function is still running for this response.
+        await deleteUploads();
+        request.signal.removeEventListener("abort", onAbort);
+        onStreamAbort = () => {};
+        finished = true;
+        controller.close();
+      } finally {
+        // Abort and error exits, and anything uploaded after the abort.
+        await deleteUploads();
+      }
     },
     cancel() {
       onStreamAbort();

@@ -18,10 +18,21 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
     title: "What is sent, and when",
     body: (
       <p>
-        When you generate questions, your material for that reviewer is sent to an AI model so it
-        can write them. Uploaded files are held briefly for this and then deleted. When you submit a
-        quiz with short answers, those answers are sent for grading. Your material is used only to
-        make your questions.
+        When you generate questions or read a past exam&apos;s format, the material you picked is
+        sent to an AI model. When you submit a quiz with short answers, those answers are sent for
+        grading. Uploaded files pass through temporary storage on the way. We use your material
+        only to make and grade your questions.
+      </p>
+    ),
+  },
+  {
+    title: "AI providers",
+    body: (
+      <p>
+        Google Gemini writes and grades your questions. If Gemini is unavailable, Mistral is used
+        instead. Each provider handles what it receives under its own terms, which may let it keep
+        the content for a time and use it to improve its services. Don&apos;t upload anything you
+        wouldn&apos;t want an AI provider to see.
       </p>
     ),
   },
@@ -30,8 +41,9 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
     body: (
       <p>
         An account is optional. If you sign in with email or Google, your reviewers and history
-        sync so they appear on your other devices. You can delete your account data from the
-        Account page.
+        sync so they appear on your other devices. You can delete your synced data from the Account
+        page. To also remove your sign-in and display name, unshare anything you shared and email
+        us.
       </p>
     ),
   },
@@ -48,16 +60,20 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
     title: "Services we use",
     body: (
       <p>
-        The app runs on Google Gemini and Mistral for AI, Supabase for accounts, Vercel for hosting
-        and temporary file storage, and Cloudflare for bot protection. Like any website, these
-        services see basic request data such as your IP address.
+        Besides the AI providers, the app uses service providers for hosting, temporary file
+        storage, accounts and sync, and abuse protection. Like any website, they see basic request
+        data such as your IP address, which is also used for a short time to limit abuse. These
+        providers may process data outside the Philippines.
       </p>
     ),
   },
   {
     title: "What we don't do",
     body: (
-      <p>No analytics, no ads, no tracking cookies. Your data is never sold.</p>
+      <p>
+        No analytics, no ads, no tracking cookies. The app sets only a short-lived security cookie
+        after a bot check. Your data is never sold.
+      </p>
     ),
   },
 ];
@@ -67,10 +83,11 @@ export default function PrivacyPage() {
     <div className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
       <BackLink href="/">Home</BackLink>
       <h1 className="text-[1.625rem] font-semibold text-text-primary">Privacy Policy</h1>
-      <p className="mt-1 text-[0.875rem] text-text-tertiary">Last updated October 16, 2026</p>
+      <p className="mt-1 text-[0.875rem] text-text-tertiary">Last updated October 29, 2026</p>
 
       <p className="mt-8 max-w-[36rem] text-[1.1875rem] leading-snug text-text-primary text-pretty">
-        Your study material stays on your device unless you ask the AI to read it.
+        Your study material stays on your device unless you sign in to sync it or ask the AI to read
+        it.
       </p>
 
       <div className="mt-10 flex flex-col border-t border-border">
@@ -88,7 +105,7 @@ export default function PrivacyPage() {
       <section className="mt-10 max-w-[36rem]">
         <h2 className="text-[0.9375rem] font-semibold text-text-primary">Questions</h2>
         <p className="mt-1.5 text-[0.9375rem] text-text-secondary">
-          Ask about your data, or ask us to delete it.
+          Ask about your data, or ask us for a copy, a correction, or deletion.
         </p>
         <CopyEmail className="mt-3" />
       </section>

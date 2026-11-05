@@ -1,10 +1,10 @@
 # Supabase pauses free-tier projects after 7 days without activity.
-# This runs a tiny read query every 3 days so the project never goes idle.
+# This calls the public gallery RPC daily so the project never goes idle.
 name: Supabase keepalive
 
 on:
   schedule:
-    - cron: "0 9 */3 * *"
+    - cron: "0 9 * * *"
   workflow_dispatch:
 
 jobs:
@@ -16,6 +16,8 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          curl -fsS "$SUPABASE_URL/rest/v1/shares?select=code&limit=1" \
+          curl -fsS -X POST "$SUPABASE_URL/rest/v1/rpc/list_gallery" \
             -H "apikey: $SUPABASE_ANON_KEY" \
-            -H "Authorization: Bearer $SUPABASE_ANON_KEY"
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"p_limit": 1}'

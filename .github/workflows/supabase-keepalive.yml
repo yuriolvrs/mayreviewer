@@ -1,5 +1,6 @@
 # Supabase pauses free-tier projects after 7 days without activity.
-# This calls the public gallery RPC daily so the project never goes idle.
+# This writes a timestamp daily (supabase/migrations/0004_keepalive.sql)
+# so the project never goes idle.
 name: Supabase keepalive
 
 on:
@@ -11,13 +12,13 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Query Supabase
+      - name: Write keepalive timestamp
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          curl -fsS -X POST "$SUPABASE_URL/rest/v1/rpc/list_gallery" \
+          curl -fsS -X POST "$SUPABASE_URL/rest/v1/rpc/ping" \
             -H "apikey: $SUPABASE_ANON_KEY" \
             -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
             -H "Content-Type: application/json" \
-            -d '{"p_limit": 1}'
+            -d '{}'
